@@ -283,4 +283,8 @@ ENDIF()
 # =========================================================================
 # Install
 # =========================================================================
-INSTALL(FILES ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configuration.cmake ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/userblock.txt DESTINATION bin)
+#INSTALL(FILES ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/configuration.cmake ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/userblock.txt DESTINATION bin)
+INSTALL(TARGETS flexi
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin )
+
