@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ ! -d "build" ]; then
+  echo "build folder non-exist, create build folder"
+  mkdir build
+fi
+
 cd build
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
