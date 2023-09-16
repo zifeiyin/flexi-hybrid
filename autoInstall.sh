@@ -9,7 +9,7 @@ cd build
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=~/flexi-hybrid/platform \
-    -DFLEXI_EDDYVISCOSITY=ON \
+    -DFLEXI_EDDYVISCOSITY=OFF \
     -DFLEXI_EQNSYSNAME=rans_sa \
     -DFLEXI_EXACT_MASSMATRIX=OFF \
     -DFLEXI_FV=SWITCH \
