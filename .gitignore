@@ -19,3 +19,4 @@ reggie_run/
 doc/userguide/userguide.pdf
 src/commit.h
 platform/
+autoInstall.sh
