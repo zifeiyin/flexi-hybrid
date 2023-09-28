@@ -73,7 +73,7 @@ END DO !i
 END SUBROUTINE EvalAdvFluxJacobian
 
 !===================================================================================================================================
-!> RANS-SA equations:
+!> RANS-g equations:
 !> The Jacobian of the advective Flux with respect to the conservative variables U
 !===================================================================================================================================
 PPURE SUBROUTINE EvalAdvFluxJacobianPoint(U,UPrim,fJac,gJac,hJac)
@@ -90,10 +90,10 @@ REAL,DIMENSION(PP_nVar,PP_nVar),INTENT(OUT)     :: fJac,gJac,hJac  !< Derivative
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL    :: KappaM2
-REAL    :: uv,uu,vv,absu,v1,v2,srho
+REAL    :: uv,uu,vv,absu,v1,v2,srho, k, g
 REAL    :: a1,phi,muT
 #if PP_dim==3
-REAL    :: uw,vw,ww,v3
+REAL    :: uw,vw,ww,v3, wk, wg
 #endif
 !===================================================================================================================================
 KappaM2   = Kappa-2.
@@ -101,6 +101,8 @@ KappaM2   = Kappa-2.
 srho = 1./UPrim(DENS)
 v1   = UPrim(VEL1)
 v2   = UPrim(VEL2)
+k    = UPrim(TKE)
+g    = UPrim(OMG)
 uv   = UPrim(VEL1)*UPrim(VEL2)
 uu   = UPrim(VEL1)*UPrim(VEL1)
 vv   = UPrim(VEL2)*UPrim(VEL2)
@@ -116,48 +118,53 @@ phi  = kappaM1*0.5*absu
 a1   = kappa * U(ENER)*sRho - phi
 
 
-fJac(1,1:6)= (/          0.,             1.,          0.,           0.,        0.,    0. /)
-fJac(2,1:6)= (/      phi-uu, (1-kappaM2)*v1, -kappaM1*v2,  -kappaM1*v3,   kappaM1,    0. /)
-fJac(3,1:6)= (/         -uv,             v2,          v1,           0.,        0.,    0. /)
-fJac(4,1:6)= (/         -uw,             v3,          0.,           v1,        0.,    0. /)
-fJac(5,1:6)= (/ v1*(phi-a1),  a1-kappaM1*uu, -kappaM1*uv,  -kappaM1*uw,  kappa*v1,    0. /)
-fJac(6,1:6)= (/-muT*v1*srho,       muT*srho,          0.,           0.,        0.,    v1 /)
+fJac(1,1:7)= (/          0.,             1.,          0.,           0.,        0.,    0.,   0. /)
+fJac(2,1:7)= (/      phi-uu, (1-kappaM2)*v1, -kappaM1*v2,  -kappaM1*v3,   kappaM1,    0.,   0. /)
+fJac(3,1:7)= (/         -uv,             v2,          v1,           0.,        0.,    0.,   0. /)
+fJac(4,1:7)= (/         -uw,             v3,          0.,           v1,        0.,    0.,   0. /)
+fJac(5,1:7)= (/ v1*(phi-a1),  a1-kappaM1*uu, -kappaM1*uv,  -kappaM1*uw,  kappa*v1,    0.,   0. /)
+fJac(6,1:7)= (/       -v1*k,              k,          0.,           0.,        0.,    v1,   0. /)
+fJac(7,1:7)= (/       -v1*g,              g,          0.,           0.,        0.,    0.,   v1 /)
 
 
-gJac(1,1:6)= (/          0.,           0.,              1.,          0.,       0.,    0. /)
-gJac(2,1:6)= (/         -uv,           v2,              v1,          0.,       0.,    0. /)
-gJac(3,1:6)= (/      phi-vv,  -kappaM1*v1, (1.-kappaM2)*v2, -kappaM1*v3,  kappaM1,    0. /)
-gJac(4,1:6)= (/         -vw,           0.,              v3,          v2,       0.,    0. /)
-gJac(5,1:6)= (/ v2*(phi-a1),  -kappaM1*uv,   a1-kappaM1*vv, -kappaM1*vw, kappa*v2,    0. /)
-gJac(6,1:6)= (/-muT*v2*srho,           0.,        muT*srho,          0.,       0.,    v2 /)
+gJac(1,1:7)= (/          0.,           0.,              1.,          0.,       0.,    0.,   0. /)
+gJac(2,1:7)= (/         -uv,           v2,              v1,          0.,       0.,    0.,   0. /)
+gJac(3,1:7)= (/      phi-vv,  -kappaM1*v1, (1.-kappaM2)*v2, -kappaM1*v3,  kappaM1,    0.,   0. /)
+gJac(4,1:7)= (/         -vw,           0.,              v3,          v2,       0.,    0.,   0. /)
+gJac(5,1:7)= (/ v2*(phi-a1),  -kappaM1*uv,   a1-kappaM1*vv, -kappaM1*vw, kappa*v2,    0.,   0. /)
+gJac(6,1:7)= (/       -v2*k,           0.,               k,          0.,       0.,    v2,   0. /)
+gJac(7,1:7)= (/       -v2*g,           0.,               g,          0.,       0.,    0.,   v2 /)
 
 
-hJac(1,1:6)= (/          0.,          0.,           0.,              1.,       0.,    0. /)
-hJac(2,1:6)= (/         -uw,          v3,           0.,              v1,       0.,    0. /)
-hJac(3,1:6)= (/         -vw,          0.,           v3,              v2,       0.,    0. /)
-hJac(4,1:6)= (/      phi-ww, -kappaM1*v1,  -kappaM1*v2, (1.-kappaM2)*v3,  kappaM1,    0. /)
-hJac(5,1:6)= (/ v3*(phi-a1), -kappaM1*uw,  -kappaM1*vw,   a1-kappaM1*ww, kappa*v3,    0. /)
-gJac(6,1:6)= (/-muT*v3*srho,           0.,          0.,        muT*srho,       0.,    v3 /)
+hJac(1,1:7)= (/          0.,          0.,           0.,              1.,       0.,    0.,   0. /)
+hJac(2,1:7)= (/         -uw,          v3,           0.,              v1,       0.,    0.,   0. /)
+hJac(3,1:7)= (/         -vw,          0.,           v3,              v2,       0.,    0.,   0. /)
+hJac(4,1:7)= (/      phi-ww, -kappaM1*v1,  -kappaM1*v2, (1.-kappaM2)*v3,  kappaM1,    0.,   0. /)
+hJac(5,1:7)= (/ v3*(phi-a1), -kappaM1*uw,  -kappaM1*vw,   a1-kappaM1*ww, kappa*v3,    0.,   0. /)
+gJac(6,1:7)= (/       -v3*k,           0.,          0.,        muT*srho,       0.,    v3,   0. /)
+gJac(7,1:7)= (/       -v3*g,           0.,          0.,        muT*srho,       0.,    0.,   v3 /)
 #else
 absu=uu+vv
 phi  = kappaM1*0.5*absu
 a1   = kappa * U(ENER)*sRho - phi
 
 
-fJac(1,1:6)= (/          0.,             1.,          0.,           0.,        0.,    0. /)
-fJac(2,1:6)= (/      phi-uu, (1-kappaM2)*v1, -kappaM1*v2,           0.,   kappaM1,    0. /)
-fJac(3,1:6)= (/         -uv,             v2,          v1,           0.,        0.,    0. /)
-fJac(4,1:6)= (/          0.,             0.,          0.,           0.,        0.,    0. /)
-fJac(5,1:6)= (/ v1*(phi-a1),  a1-kappaM1*uu, -kappaM1*uv,           0.,  kappa*v1,    0. /)
-fJac(6,1:6)= (/-muT*v1*srho,       muT*srho,          0.,           0.,        0.,    v1 /)
+fJac(1,1:7)= (/          0.,             1.,          0.,           0.,        0.,    0.,   0. /)
+fJac(2,1:7)= (/      phi-uu, (1-kappaM2)*v1, -kappaM1*v2,           0.,   kappaM1,    0.,   0. /)
+fJac(3,1:7)= (/         -uv,             v2,          v1,           0.,        0.,    0.,   0. /)
+fJac(4,1:7)= (/          0.,             0.,          0.,           0.,        0.,    0.,   0. /)
+fJac(5,1:7)= (/ v1*(phi-a1),  a1-kappaM1*uu, -kappaM1*uv,           0.,  kappa*v1,    0.,   0. /)
+fJac(6,1:7)= (/       -v1*k,              k,          0.,           0.,        0.,    v1,   0. /)
+fJac(7,1:7)= (/       -v1*g,              g,          0.,           0.,        0.,    0.,   v1 /)
 
 
-gJac(1,1:6)= (/          0.,          0.,              1.,          0.,        0.,    0. /)
-gJac(2,1:6)= (/         -uv,          v2,              v1,          0.,        0.,    0. /)
-gJac(3,1:6)= (/      phi-vv, -kappaM1*v1, (1.-kappaM2)*v2,          0.,   kappaM1,    0. /)
-gJac(4,1:6)= (/          0.,          0.,              0.,          0.,        0.,    0. /)
-gJac(5,1:6)= (/ v2*(phi-a1), -kappaM1*uv,   a1-kappaM1*vv,          0.,  kappa*v2,    0. /)
-gJac(6,1:6)= (/-muT*v2*srho,           0.,       muT*srho,          0.,        0.,    v2 /)
+gJac(1,1:7)= (/          0.,          0.,              1.,          0.,        0.,    0.,   0. /)
+gJac(2,1:7)= (/         -uv,          v2,              v1,          0.,        0.,    0.,   0. /)
+gJac(3,1:7)= (/      phi-vv, -kappaM1*v1, (1.-kappaM2)*v2,          0.,   kappaM1,    0.,   0. /)
+gJac(4,1:7)= (/          0.,          0.,              0.,          0.,        0.,    0.,   0. /)
+gJac(5,1:7)= (/ v2*(phi-a1), -kappaM1*uv,   a1-kappaM1*vv,          0.,  kappa*v2,    0.,   0. /)
+gJac(6,1:7)= (/       -v2*k,          0.,               k,          0.,        0.,    v2,   0. /)
+gJac(7,1:7)= (/       -v2*g,          0.,               g,          0.,        0.,    0.,   v2 /)
 
 hJac(:,:)=0.
 #endif
@@ -176,7 +183,8 @@ SUBROUTINE EvalDiffFluxJacobian(nDOF_loc,U,UPrim,gradUx,gradUy,gradUz,fJac,gJac,
 USE MOD_PreProc
 USE MOD_Globals
 USE MOD_Equation_Vars, ONLY: s23,s43
-USE MOD_Equation_Vars, ONLY: cv1,PrTurb,fn,fv1,cn1,sigma
+USE MOD_Equation_Vars, ONLY: cv1,fn,fv1,cn1,sigma
+USE MOD_Equation_Vars, ONLY: PrTurb,Comega1,Comega2,Cmu,sigmaK,sigmaG
 USE MOD_EOS_Vars,      ONLY: cp
 USE MOD_Viscosity
 IMPLICIT NONE
@@ -201,8 +209,9 @@ REAL                :: tau(3,3)
 #else
 REAL                :: tau(2,2)
 #endif
-REAL                :: chi,muTurb,muTilde,muEff
+REAL                :: chi,muTurb,muTilde,muEff, lambda, kDiffEff, gDiffEff
 REAL                :: dfv1_dmuTilde,dmuTurb_dmuTilde,dfn_dchi
+REAL                :: dmuTurb_drhok, dmuTurb_drhog
 !===================================================================================================================================
 fJac = 0.
 gJac = 0.
@@ -213,23 +222,18 @@ DO i=1,nDOF_loc
 #if EDDYVISCOSITY
   muS = muS    + muSGS(1,i)
 #endif
-  ! Add turbulent viscosity
-  muTilde = UPrim(NUSA,i)*UPrim(DENS,i)
-  chi = muTilde/muS
-  muTurb = muTilde*fv1(chi)
-  muEff = MAX(muS,muS+muTurb)  ! Ignore muTurb < 0
-  ! Derivatives of SA helper functions
-  ! fv1 = chi**3/(chi**3 + cv1**3), dfv1_dmuTilde = dfv1_dchi * dchi_dmuTilde = dfv1_dchi * 1/mu
-  dfv1_dmuTilde = 1./muS * ( (3.*cv1**3*chi**2) / (cv1**3+chi**3)**2 )
-  IF (chi.GT.0) THEN
-    ! muTurb = fv1(muTilde) * muTilde, dmuTurb_dmuTilde = dfv1_dmuTilde * muTilde + fv1
-    dmuTurb_dmuTilde = fv1(chi) + dfv1_dmuTilde * muTilde
-    dfn_dchi = 0.
-  ELSE
-    dmuTurb_dmuTilde = 0.
-    ! fvn = (cn1+chi**3) / (cn1-chi**3),
-    dfn_dchi = (6.*cn1*chi**2) / ((cn1 - chi**3)**2)
-  END IF
+
+  ! Add turbulent viscosity and diffusivity
+  muTurb = Cmu * UPrim(DENS,i) * UPrim(TKE,i) * UPrim(OMG,i) * UPrim(OMG,i)
+  muEff  = MAX(muS, muS + muTurb)
+  lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
+  !diffusivity of turbulence variables
+  kDiffEff = MAX(muS, muS + muTurb * sigmaK)
+  gDiffEff = MAX(muS, muS + muTurb * sigmaG)
+
+  ! compute dmuTurb_d
+  dmuTurb_drhok = Cmu * UPrim(OMG,i) * UPrim(OMG,i)
+  dmuTurb_drhog = Cmu * UPrim(TKE,i) * UPrim(OMG,i)
 
   ! Store the tau's without the viscosity, we need them differently in the equations to come
 #if PP_dim==3
@@ -249,13 +253,14 @@ DO i=1,nDOF_loc
   tau(2,1) = tau(1,2)
 #endif
 
-  ! For RANS-SA, the momentum equations depend on the SA working variable via the effective viscosity
+  ! For RANS-k-g, the momentum equations depend on the k-g working variable via the effective viscosity
   ! e.g. F_{rho*u} = -tau_xx * (mu+muTurb)
-  fJac(2,6,i) = -tau(1,1) * dmuTurb_dmuTilde
-  fJac(3,6,i) = -tau(1,2) * dmuTurb_dmuTilde
+  fJac(2,6:7,i) = -tau(1,1) * (/ dmuTurb_drhok, dmuTurb_drhog /)
+  fJac(3,6:7,i) = -tau(1,2) * (/ dmuTurb_drhok, dmuTurb_drhog /)
 #if PP_dim==3
-  fJac(4,6,i) = -tau(1,3) * dmuTurb_dmuTilde
+  fJac(4,6:7,i) = -tau(1,3) * (/ dmuTurb_drhok, dmuTurb_drhog /)
 #endif
+  
   ! dF^d(5)/dU(1) = (u*tau_(1,1)*muEff + v*tau_(1,2)*muEff + w*tau_(1,3)*muEff)/rho
   ! dF^d(5)/dU(2) = - tau_(1,1)*muEff/rho
   ! dF^d(5)/dU(3) = - tau_(1,2)*muEff/rho
@@ -269,28 +274,26 @@ DO i=1,nDOF_loc
   fJac(5,3,i) = -tau(1,2)  / U(1,i) * muEff
 #if PP_dim==3
   fJac(5,4,i) = -tau(1,3)  / U(1,i) * muEff
-  ! The energy equation depends on the SA working variable through both the effective viscosity and the effective thermal
+  ! The energy equation depends on the k-g working variable through both the effective viscosity and the effective thermal
   ! conductivity
-  fJac(5,6,i) = -1.*dmuTurb_dmuTilde * ((tau(1,1)*UPrim(2,i) + tau(1,2)*UPrim(3,i) + tau(1,3)*UPrim(4,i)) &
-                + cp/PrTurb * gradUx(LIFT_TEMP,i))
+  fJac(5,6:7,i) = -1 * (/ dmuTurb_drhok, dmuTurb_drhog /) &
+                * ( (tau(1,1)*UPrim(2,i) + tau(1,2)*UPrim(3,i) + tau(1,3)*UPrim(4,i)) + cp/PrTurb * gradUx(LIFT_TEMP,i) )
 #else
-  fJac(5,6,i) = -1.*dmuTurb_dmuTilde * ((tau(1,1)*UPrim(2,i) + tau(1,2)*UPrim(3,i)) &
-                + cp/PrTurb * gradUx(LIFT_TEMP,i))
+  fJac(5,6:7,i) = -1.* (/dmuTurb_drhok, dmuTurb_drhog /) & 
+                * ( (tau(1,1)*UPrim(2,i) + tau(1,2)*UPrim(3,i)) + cp/PrTurb * gradUx(LIFT_TEMP,i) )
 #endif
-  ! SA equation depends on SA working variable itself
-  fJac(6,6,i) = -1./sigma * gradUx(LIFT_NUSA,i) * (fn(chi) + chi * dfn_dchi)
-
-  ! For RANS-SA, the momentum equations depend on the SA working variable via the effective viscosity
-  gJac(2,6,i) = -tau(2,1) * dmuTurb_dmuTilde
-  gJac(3,6,i) = -tau(2,2) * dmuTurb_dmuTilde
+  ! k-g
+  fJac(6,6,i) = - sigmaK * dmuTurb_drhok * gradUx(LIFT_TKE,i)
+  fJac(6,7,i) = - sigmaK * dmuTurb_drhog * gradUx(LIFT_TKE,i)
+  fJac(7,6,i) = - sigmaG * dmuTurb_drhok * gradUx(LIFT_OMG,i)
+  fJac(7,7,i) = - sigmaG * dmuTurb_drhog * gradUx(LIFT_OMG,i)
+  
+  ! For RANS-kg, the momentum equations depend on the SA working variable via the effective viscosity
+  gJac(2,6:7,i) = -tau(2,1) * (/ dmuTurb_drhok, dmuTurb_drhog /)
+  gJac(3,6:7,i) = -tau(2,2) * (/ dmuTurb_drhok, dmuTurb_drhog /)
 #if PP_dim==3
-  gJac(4,6,i) = -tau(2,3) * dmuTurb_dmuTilde
+  gJac(4,6:7,i) = -tau(2,3) * (/ dmuTurb_drhok, dmuTurb_drhog /)
 #endif
-  ! dG^d(5)/dU(1) = (u*tau_(2,1) + v*tau_(2,2) + w*tau_(2,3))*muEff/rho
-  ! dG^d(5)/dU(2) = - tau_(2,1)*muEff/rho
-  ! dG^d(5)/dU(3) = - tau_(2,2)*muEff/rho
-  ! dG^d(5)/dU(4) = - tau_(2,3)*muEff/rho
-  ! dG^d(5)/dU(5) = 0.
   DO dir=1,PP_dim
     gJac(5,1,i) = gJac(5,1,i) + tau(2,dir)*UPrim(1+dir,i)
   END DO
@@ -301,25 +304,23 @@ DO i=1,nDOF_loc
   gJac(5,4,i) = -tau(2,3)  / U(1,i) * muEff
   ! The energy equation depends on the SA working variable through both the effective viscosity and the effective thermal
   ! conductivity
-  gJac(5,6,i) = -1.*dmuTurb_dmuTilde * ((tau(2,1)*UPrim(2,i) + tau(2,2)*UPrim(3,i) + tau(2,3)*UPrim(4,i)) &
-                + cp/PrTurb * gradUy(LIFT_TEMP,i))
+  gJac(5,6:7,i) = -1.* (/ dmuTurb_drhok, dmuTurb_drhog /) &
+              * ((tau(2,1)*UPrim(2,i) + tau(2,2)*UPrim(3,i) + tau(2,3)*UPrim(4,i)) + cp/PrTurb * gradUy(LIFT_TEMP,i))
 #else
-  gJac(5,6,i) = -1.*dmuTurb_dmuTilde * ((tau(2,1)*UPrim(2,i) + tau(2,2)*UPrim(3,i)) &
-                + cp/PrTurb * gradUy(LIFT_TEMP,i))
+  gJac(5,6:7,i) = -1. * (/ dmuTurb_drhok, dmuTurb_drhog /)&
+                * ((tau(2,1)*UPrim(2,i) + tau(2,2)*UPrim(3,i)) + cp/PrTurb * gradUy(LIFT_TEMP,i))
 #endif
-  ! SA equation depends on SA working variable itself
-  gJac(6,6,i) = -1./sigma * gradUy(LIFT_NUSA,i) * (fn(chi) + chi * dfn_dchi)
+  ! k-g RANS
+  gJac(6,6,i) = - sigmaK * dmuTurb_drhok * gradUy(LIFT_TKE,i)
+  gJac(6,7,i) = - sigmaK * dmuTurb_drhog * gradUy(LIFT_TKE,i)
+  gJac(7,6,i) = - sigmaG * dmuTurb_drhok * gradUy(LIFT_OMG,i)
+  gJac(7,7,i) = - sigmaG * dmuTurb_drhog * gradUy(LIFT_OMG,i)
 
 #if PP_dim==3
-  ! For RANS-SA, the momentum equations depend on the SA working variable via the effective viscosity
-  gJac(2,6,i) = -tau(3,1) * dmuTurb_dmuTilde
-  gJac(3,6,i) = -tau(3,2) * dmuTurb_dmuTilde
-  gJac(4,6,i) = -tau(3,3) * dmuTurb_dmuTilde
-  ! dH^d(5)/dU(1) = (u*tau_(3,1) + v*tau_(3,2) + w*tau_(3,3))*muEff/rho
-  ! dH^d(5)/dU(2) = - tau_(3,1)*muEff/rho
-  ! dH^d(5)/dU(3) = - tau_(3,2)*muEff/rho
-  ! dH^d(5)/dU(4) = - tau_(3,3)*muEff/rho
-  ! dH^d(5)/dU(5) = 0.
+  ! For k-g RANS, the momentum equations depend on the SA working variable via the effective viscosity
+  hJac(2,6:7,i) = -tau(3,1) * (/ dmuTurb_drhok, dmuTurb_drhog /)
+  hJac(3,6:7,i) = -tau(3,2) * (/ dmuTurb_drhok, dmuTurb_drhog /)
+  hJac(4,6:7,i) = -tau(3,3) * (/ dmuTurb_drhok, dmuTurb_drhog /)
   DO dir=1,PP_dim
     hJac(5,1,i) = hJac(5,1,i) + tau(3,dir)*UPrim(1+dir,i)
   END DO
@@ -327,12 +328,15 @@ DO i=1,nDOF_loc
   hJac(5,2,i) = -tau(3,1)  / U(1,i) * muEff
   hJac(5,3,i) = -tau(3,2)  / U(1,i) * muEff
   hJac(5,4,i) = -tau(3,3)  / U(1,i) * muEff
-  ! The energy equation depends on the SA working variable through both the effective viscosity and the effective thermal
+  ! The energy equation depends on the k-g working variable through both the effective viscosity and the effective thermal
   ! conductivity
-  hJac(5,6,i) = -1.*dmuTurb_dmuTilde * ((tau(3,1)*UPrim(2,i) + tau(3,2)*UPrim(3,i) + tau(3,3)*UPrim(4,i)) &
-                + cp/PrTurb * gradUz(LIFT_TEMP,i))
-  ! SA equation depends on SA working variable itself
-  hJac(6,6,i) = -1./sigma * gradUz(LIFT_NUSA,i) * (fn(chi) + chi * dfn_dchi)
+  hJac(5,6:7,i) = -1.* (/ dmuTurb_drhok, dmuTurb_drhog /) &
+                * ((tau(3,1)*UPrim(2,i) + tau(3,2)*UPrim(3,i) + tau(3,3)*UPrim(4,i)) + cp/PrTurb * gradUz(LIFT_TEMP,i))
+  ! k-g equation depends on k-g working variable itself
+  hJac(6,6,i) = - sigmaK * dmuTurb_drhok * gradUz(LIFT_TKE,i)
+  hJac(6,7,i) = - sigmaK * dmuTurb_drhog * gradUz(LIFT_TKE,i)
+  hJac(7,6,i) = - sigmaG * dmuTurb_drhok * gradUz(LIFT_OMG,i)
+  hJac(7,7,i) = - sigmaG * dmuTurb_drhog * gradUz(LIFT_OMG,i)
 #endif
 END DO
 END SUBROUTINE EvalDiffFluxJacobian
@@ -347,7 +351,8 @@ SUBROUTINE EvalFluxGradJacobian(nDOF_loc,U,UPrim,fJacQx,fJacQy,fJacQz,gJacQx,gJa
                                )
 ! MODULES
 USE MOD_PreProc
-USE MOD_Equation_Vars,ONLY: s23,s43,PrTurb,fv1,sigma,fn
+USE MOD_Equation_Vars,ONLY: s23,s43,fv1,sigma,fn
+Use MOD_Equation_Vars,ONLY: PrTurb, Comega1, Comega2, Cmu, sigmaK, sigmaG
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
 ! IMPLICIT VARIABLE HANDLING
@@ -369,54 +374,60 @@ REAL,DIMENSION(PP_nVar,PP_nVarPrim,nDOF_loc),INTENT(OUT) :: fJacQx,fJacQy,fJacQz
 INTEGER             :: i
 REAL                :: muS,lambda
 REAL                :: muTilde,muTurb,chi,muTmp
+REAL                :: kDiffEff, gDiffEff
+REAL                :: dmuTurb_dk, dmuTurb_dg
 !===================================================================================================================================
-! Additional dependency from SA equation: SA fluxes are depending on the gradient of nuTilde, otherwise the Jacobian is the same as
-! for the Navier-Stokes equation system.
 DO i=1,nDOF_loc
   muS    = VISCOSITY_TEMPERATURE(UPrim(TEMP,i))
   lambda = THERMAL_CONDUCTIVITY_H(muS)
-  ! Add turbulent viscosity
-  muTilde = UPrim(NUSA,i)*UPrim(DENS,i)
-  chi = muTilde/muS
-  muTurb = muTilde*fv1(chi)
-  IF (chi.LT.0) THEN
-    muTmp = muS + muTilde * fn(chi)
-  ELSE
-    muTmp = muS + muTilde
-  END IF
-  muS = MAX(muS,muS+muTurb)  ! Ignore muTurb < 0
-  lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
+
+  ! add turbulence part
+  muTurb = Cmu * UPrim(DENS,i) * UPrim(TKE,i) * UPrim(OMG,i) * UPrim(OMG,i)
+  muS    = MAX( muS, muS + muTurb )
+  lambda = MAX( lambda, lambda + muTurb * cp / PrTurb )
+
+  kDiffEff = MAX(muS, muS + muTurb * sigmaK)
+  gDiffEff = MAX(muS, muS + muTurb * sigmaG)
+
+  dmuTurb_dk = Cmu * UPrim(DENS,i) * UPrim(OMG,i) * UPrim(OMG,i)
+  dmuTurb_dg = 2.0 * Cmu * UPrim(DENS,i) * UPrim(TKE,i) * UPrim(OMG,i)
+
 #if PP_dim==3
   ! derivatives of diffusive flux in x-direction
-  fJacQx(1,1:7,i) = 0.
-  fJacQx(2,1:7,i) = (/ 0.,               -muS*s43,                       0.,                     0., 0.,      0., 0.             /)
-  fJacQx(3,1:7,i) = (/ 0.,                     0.,                     -muS,                     0., 0.,      0., 0.             /)
-  fJacQx(4,1:7,i) = (/ 0.,                     0.,                       0.,                   -muS, 0.,      0., 0.             /)
-  fJacQx(5,1:7,i) = (/ 0., -muS*s43*UPrim(VEL1,i),       -muS*UPrim(VEL2,i),     -muS*UPrim(VEL3,i), 0., -lambda, 0.             /)
-  fJacQx(6,1:7,i) = (/ 0.,                     0.,                       0.,                     0., 0.,      0., -1./sigma*muTmp/)
+  fJacQx(1,1:8,i) = 0.
+  fJacQx(2,1:8,i) = (/ 0.,               -muS*s43,                  0.,                 0.,     0.,      0.,    0.,             0.  /)
+  fJacQx(3,1:8,i) = (/ 0.,                     0.,                -muS,                 0.,     0.,      0.,    0.,             0.  /)
+  fJacQx(4,1:8,i) = (/ 0.,                     0.,                  0.,               -muS,     0.,      0.,    0.,             0.  /)
+  fJacQx(5,1:8,i) = (/ 0., -muS*s43*UPrim(VEL1,i),  -muS*UPrim(VEL2,i), -muS*UPrim(VEL3,i),     0., -lambda,    0.,             0.  /)
+  fJacQx(6,1:8,i) = (/ 0.,                     0.,                  0.,                 0.,     0.,      0., -kDiffEff,         0.  /)
+  fJacQx(7,1:8,i) = (/ 0.,                     0.,                  0.,                 0.,     0.,      0.,    0.,     -gDiffEff   /)
 
-  fJacQy(1,1:7,i) = 0.
-  fJacQy(2,1:7,i) = (/ 0.,                     0.,                  muS*s23,                     0., 0.,      0., 0.             /)
-  fJacQy(3,1:7,i) = (/ 0.,                   -muS,                       0.,                     0., 0.,      0., 0.             /)
-  fJacQy(4,1:7,i) = 0.
-  fJacQy(5,1:7,i) = (/ 0.,        -muS*UPrim(VEL2,i), muS*s23*UPrim(VEL1,i),                     0., 0.,      0., 0.             /)
-  fJacQy(6,1:7,i) = 0.
+  fJacQy(1,1:8,i) = 0.
+  fJacQy(2,1:8,i) = (/ 0.,                     0.,             muS*s23,                 0.,     0.,      0.,    0.,             0.  /)
+  fJacQy(3,1:8,i) = (/ 0.,                   -muS,                  0.,                 0.,     0.,      0.,    0.,             0.  /)
+  fJacQy(4,1:8,i) = 0.
+  fJacQy(5,1:8,i) = (/ 0.,     -muS*UPrim(VEL2,i),muS*s23*UPrim(VEL1,i),                0.,     0.,      0.,    0.,             0.  /)
+  fJacQy(6,1:8,i) = 0.
+  fJacQy(7,1:8,i) = 0.
 
-  fJacQz(1,1:7,i) = 0.
-  fJacQz(2,1:7,i) = (/ 0.,                     0.,                       0.,                muS*s23, 0.,      0., 0.             /)
-  fJacQz(3,1:7,i) = 0.
-  fJacQz(4,1:7,i) = (/ 0.,                   -muS,                       0.,                     0., 0.,      0., 0.             /)
-  fJacQz(5,1:7,i) = (/ 0.,     -muS*UPrim(VEL3,i),                       0.,  muS*s23*UPrim(VEL1,i), 0.,      0., 0.             /)
-  fJacQz(6,1:7,i) = 0.
+  fJacQz(1,1:8,i) = 0.
+  fJacQz(2,1:8,i) = (/ 0.,                     0.,                  0.,             muS*s23,    0.,      0.,    0.,           0.  /)
+  fJacQz(3,1:8,i) = 0.
+  fJacQz(4,1:8,i) = (/ 0.,                   -muS,                  0.,                 0.,     0.,      0.,    0.,           0.  /)
+  fJacQz(5,1:8,i) = (/ 0.,     -muS*UPrim(VEL3,i),                  0.,  muS*s23*UPrim(VEL1,i), 0.,      0.,    0.,           0.  /)
+  fJacQz(6,1:8,i) = 0.
+  fJacQz(7,1:8,i) = 0.
 
+!@@@ modified to here
 
   ! derivatives of diffusive flux in y-direction
-  gJacQx(1,1:7,i) = 0.
-  gJacQx(2,1:7,i) = (/ 0.,                     0.,                     -muS,                     0., 0.,      0., 0.             /)
-  gJacQx(3,1:7,i) = (/ 0.,                muS*s23,                       0.,                     0., 0.,      0., 0.             /)
-  gJacQx(4,1:7,i) = 0.
-  gJacQx(5,1:7,i) = (/ 0.,  muS*s23*UPrim(VEL2,i),       -muS*UPrim(VEL1,i),                     0., 0.,      0., 0.             /)
-  gJacQx(6,1:7,i) = 0.
+  gJacQx(1,1:8,i) = 0.
+  gJacQx(2,1:8,i) = (/ 0.,                     0.,                     -muS,                     0., 0.,      0., 0.,       0.      /)
+  gJacQx(3,1:8,i) = (/ 0.,                muS*s23,                       0.,                     0., 0.,      0., 0.,       0.      /)
+  gJacQx(4,1:8,i) = 0.
+  gJacQx(5,1:8,i) = (/ 0.,  muS*s23*UPrim(VEL2,i),       -muS*UPrim(VEL1,i),                     0., 0.,      0., 0.,       0.      /)
+  gJacQx(6,1:8,i) = 0.
+  gJacQx(7,1:8,i) = 0.
 
   gJacQy(1,1:7,i) = 0.
   gJacQy(2,1:7,i) = (/ 0.,                   -muS,                       0.,                     0., 0.,      0., 0.             /)
