@@ -23,13 +23,17 @@ cmake .. \
     -DFLEXI_SPLIT_DG=OFF \
     -DFLEXI_TESTCASE=default \
     -DFLEXI_VISCOSITY=sutherland \
-    -DLIBS_BUILD_HDF5=ON \
+    -DLIBS_BUILD_HDF5=OFF \
+    -DHDF5_INCLUDE_DIR=/Users/saayzf/softwares/hdf5 \
     -DLIBS_BUILD_MATH_LIB=OFF \
     -DLIBS_USE_MKL=OFF \
     -DLIBS_USE_MPI=ON \
     -DLIBS_USE_OPENMP=OFF \
     -DLIBS_USE_PAPI=OFF \
     -DFLEXI_UNITTESTS=OFF \
-    -DPOSTI=OFF
+    -DPOSTI=OFF \
+    -DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc \
+    -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++ \
+    -DCMAKE_Fortran_COMPILER=/opt/homebrew/bin/gfortran
 make -j 16
 make install
