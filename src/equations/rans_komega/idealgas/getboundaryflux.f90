@@ -338,7 +338,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q) ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
-      UPrim_boundary(NUSA,p,q) = 0. ! Solid wall -> vanishing SA viscosity
+      UPrim_boundary(TKE ,p,q) = 0. ! Solid wall -> vanishing turbulent kinetic energy
+      UPrim_boundary(OMG ,p,q) = 0. ! Solid wall -> vanishing turbulence g
     END DO; END DO ! q,p
   CASE(4) ! Isothermal wall
     ! For isothermal wall, all gradients are from interior
@@ -350,7 +351,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState) ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
-      UPrim_boundary(NUSA,p,q) = 0. ! Solid wall -> vanishing SA viscosity
+      UPrim_boundary(TKE ,p,q) = 0. ! Solid wall -> vanishing turbulent kinetic energy
+      UPrim_boundary(OMG ,p,q) = 0. ! Solid wall -> vanishing turbulence g
     END DO; END DO ! q,p
   CASE(9,91) ! Euler (slip) wall
     ! vel=(0,v_in,w_in)
@@ -471,7 +473,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VEL2,p,q)=SUM(U*nv(1:3)*Tangvec1(1:3,p,q))
       UPrim_boundary(VEL3,p,q)=SUM(U*nv(1:3)*Tangvec2(1:3,p,q))
       UPrim_boundary(TEMP,p,q)=Tb
-      UPrim_boundary(NUSA,p,q)=RefStatePrim(NUSA,BCState) ! Use SA variable from the outside
+      UPrim_boundary(TKE ,p,q)=RefStatePrim(TKE,BCState) ! Use turbulent kinetic energy variable from the outside
+      UPrim_boundary(OMG ,p,q)=RefStatePrim(OMG,BCState) ! Use turbulence g variable from the outside
     END DO; END DO !p,q
   END SELECT
 

@@ -60,7 +60,7 @@ REAL, ALLOCATABLE :: SAd(:,:,:,:,:)    !< Distance from closest wall
 REAL              :: PrTurb            !< Turbulent Prandtl number
 REAL, PARAMETER   :: sigmaK  = 0.5     !< diffusivity coefficient for k equation
 REAL, PARAMETER   :: sigmaG  = 0.5     !< diffusivity coefficient for omega equation
-REAL, PARAMETER   :: Comega1 = 0.52    !< alpha in k omega model 
+REAL, PARAMETER   :: Comega1 = 5./9.    !< alpha in k omega model 
 REAL, PARAMETER   :: Comega2 = 0.072   !< beta in k omega model 
 REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k omega model
 
@@ -80,8 +80,8 @@ LOGICAL           :: tripOnProc        !< Is the trip located on this proc?
 #if USE_MPI
 INTEGER           :: tripRoot          !< process ID of proc that holds the trip
 #endif
-REAL,ALLOCATABLE  :: SADebug(:,:,:,:,:) !< Array used for debug output, include Prduction, Destruction, Trip and Diffusion terms
-LOGICAL           :: doSADebug          !< Turn debug output on or off (default: off)
+REAL,ALLOCATABLE  :: KGDebug(:,:,:,:,:) !< Array used for debug output, include Prduction, Destruction, Trip and Diffusion terms
+LOGICAL           :: doKGDebug          !< Turn debug output on or off (default: off)
 
 
 

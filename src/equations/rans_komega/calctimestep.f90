@@ -108,7 +108,7 @@ USE, INTRINSIC :: IEEE_ARITHMETIC,ONLY:IEEE_IS_NAN
 USE MOD_Mesh_Vars    ,ONLY:Metrics_hTilde
 #endif
 #if PARABOLIC
-USE MOD_Equation_Vars,ONLY:fv1
+USE MOD_Equation_Vars     ,ONLY:Cmu
 USE MOD_TimeDisc_Vars,ONLY:DFLScale
 USE MOD_Viscosity
 #endif /*PARABOLIC*/
@@ -169,16 +169,15 @@ DO iElem=1,nElems
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
     ! Add turbulent viscosity
-    muTilde = U(MUSA,i,j,k,iElem)
+    muTurb = Cmu * U(DTKE,i,j,k,iElem) * U(DOMG,i,j,k,iElem) * U(DOMG,i,j,k,iElem) / ( U(DENS,i,j,k,iElem) ** 2 ) 
     IF(IEEE_IS_NAN(muTilde))THEN
-      ERRWRITE(*,'(A,3ES16.7)')'muTilde NaN, Position= ',Elem_xGP(:,i,j,k,iElem)
+      ERRWRITE(*,'(A,3ES16.7)')'muTurb NaN, Position= ',Elem_xGP(:,i,j,k,iElem)
       errType=4
     END IF
-    chi = muTilde/mu
-    muTurb = muTilde*fv1(chi)
     muEff = MAX(mu,mu+muTurb)  ! Ignore muTurb < 0
     Max_Lambda_v=MAX(Max_Lambda_v,muEff*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))
 #endif /* PARABOLIC*/
+
   END DO; END DO; END DO ! i,j,k
 
   dtElem(iElem)=CFLScale(FVE)*2./SUM(Max_Lambda)

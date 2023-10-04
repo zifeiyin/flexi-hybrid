@@ -29,7 +29,6 @@
 #define ENER  5         /* energy */
 #define DTKE  6         /* turbulent kinetic energy rho * k */
 #define DOMG  7         /* turbulent eddy frequency rho * g, g = (0.09 * omega)^(-0.5) */
-#define MUSA  6         /* to be deleted after k omega implementation */
 
 ! primitive variables
 #define VEL1  2         /* velocity x */
@@ -41,7 +40,7 @@
 #define TKE   7         /* turbulent kinetic energy */
 #define OMG   8         /* turbulent g term */
 #define NUT   9         /* turbulent eddy viscosity */
-#define NUSA  7         /* to be deleted after k omega implementation */
+!#define NUSA  7         /* to be deleted after k omega implementation */
 
 
 

@@ -522,7 +522,7 @@ F(1:5)=0.5*((F_L(1:5)+F_R(1:5)) - &
 
 ! Revert to LF for the RANS k-g equations
 LambdaMax = MAX( ABS(U_RR(EXT_VEL1)),ABS(U_LL(EXT_VEL1)) ) + MAX(c_L,c_R)
-F(MUSA) = 0.5*((F_L(DTKE)+F_R(DTKE)) - LambdaMax*(U_RR(EXT_DTKE) - U_LL(EXT_DTKE)))
+F(DTKE) = 0.5*((F_L(DTKE)+F_R(DTKE)) - LambdaMax*(U_RR(EXT_DTKE) - U_LL(EXT_DTKE)))
 F(DOMG) = 0.5*((F_L(DOMG)+F_R(DOMG)) - LambdaMax*(U_RR(EXT_DOMG) - U_LL(EXT_DOMG)))
 END SUBROUTINE Riemann_RoeEntropyFix
 

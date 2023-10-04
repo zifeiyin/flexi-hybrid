@@ -15,7 +15,7 @@
 #include "eos.h"
 
 !==================================================================================================================================
-!> General routines for RANS equations with Spalart-Allmaras turbulence model
+!> General routines for RANS equations with k-g turbulence model
 !==================================================================================================================================
 MODULE MOD_Equation
 ! MODULES
@@ -110,7 +110,7 @@ INTEGER            :: i
 REAL               :: UE(PP_2Var)
 INTEGER            :: iElem,j,k
 INTEGER            :: HSize_proc(4)
-REAL               :: RefStatePrimTmp(6)
+REAL               :: RefStatePrimTmp(7)
 CHARACTER(LEN=255) :: FileName
 REAL,ALLOCATABLE   :: SAd_local(:,:,:,:)
 INTEGER            :: tripElem,tripLocSide
@@ -135,7 +135,7 @@ IniRefState  = 0
 CALL InitExactFunc()
 CALL InitEOS()
 
-! SA-specific parameters
+! k-g specific parameters
 includeTrip = GETLOGICAL('includeTrip')
 PrTurb      = GETREAL(   'PrTurb')
 ALLOCATE(SAd(0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
@@ -200,23 +200,10 @@ ELSE
   SWRITE(UNIT_stdOut, *) "WARNING: No walldistance file found! Scaling with walldistance deactivated!"
 END IF
 
-IF (includeTrip) THEN
-  ALLOCATE(SAdt(0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
-  DO iElem=1,nElems
-    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      SAdt(i,j,k,0,iElem) = NORM2(Elem_xGP(1:2,i,j,k,iElem)-TripX)
-    END DO; END DO; END DO! i,j,k=0,PP_N
-  END DO ! iElem
-  IF (tripOnProc) dXt = NORM2(Face_xGP(1:2,0,0,0,tripSideID)-Face_xGP(1:2,PP_N,0,0,tripSideID))/(PP_N+1)
-#if USE_MPI
-  CALL MPI_BCAST(dXt,1,MPI_DOUBLE_PRECISION,tripRoot,MPI_COMM_FLEXI,iError)
-#endif
-END IF
-
-doSADebug = GETLOGICAL('DebugSA')
-IF (doSADebug) THEN
-  ALLOCATE(SADebug(4,0:PP_N,0:PP_N,0:PP_NZ,nElems))
-  CALL AddToFieldData(FieldOut,(/4,PP_N+1,PP_N+1,PP_NZ+1,nElems/),'SADebug',(/'Prod','Dest','Trip','Diff'/),RealArray=SADebug)
+doKGDebug = GETLOGICAL('DebugKG')
+IF (doKGDebug) THEN
+  ALLOCATE(KGDebug(4,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+  CALL AddToFieldData(FieldOut,(/4,PP_N+1,PP_N+1,PP_NZ+1,nElems/),'KGDebug',(/'kProd','kDiss','gProd','gDiss'/),RealArray=KGDebug)
 END IF
 
 #if FV_ENABLED
@@ -238,7 +225,7 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStatePrim(PP_nVarPrim,nRefState))
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
-    RefStatePrimTmp = GETREALARRAY('RefState',6)
+    RefStatePrimTmp = GETREALARRAY('RefState',7)
     RefStatePrim(1:5,i)  = RefStatePrimTmp(1:5)
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN
@@ -250,7 +237,8 @@ IF(nRefState .GT. 0)THEN
     UE(EXT_SRHO) = 1./RefStatePrim(DENS,i)
     UE(EXT_PRES) = RefStatePrim(PRES,i)
     RefStatePrim(TEMP,i) = TEMPERATURE_HE(UE)
-    RefStatePrim(NUSA,i) = RefStatePrimTmp(6)
+    RefStatePrim(TKE ,i) = RefStatePrimTmp(6)
+    RefStatePrim(OMG ,i) = RefStatePrimTmp(7)
     CALL PrimToCons(RefStatePrim(:,i),RefStateCons(:,i))
   END DO
 END IF
@@ -399,7 +387,7 @@ SDEALLOCATE(RefStatePrim)
 SDEALLOCATE(RefStateCons)
 SDEALLOCATE(SAd)
 SDEALLOCATE(SAdt)
-SDEALLOCATE(SADebug)
+SDEALLOCATE(KGDebug)
 EquationInitIsDone = .FALSE.
 END SUBROUTINE FinalizeEquation
 
