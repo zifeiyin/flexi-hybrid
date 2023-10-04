@@ -186,6 +186,7 @@ END SUBROUTINE InitEos
 PPURE SUBROUTINE ConsToPrim(prim,cons)
 ! MODULES
 USE MOD_EOS_Vars,ONLY:KappaM1,R
+USE MOD_Equation_Vars,ONLY: Cmu
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -206,13 +207,15 @@ prim(VEL3)=cons(MOM3)*sRho
 prim(VEL3)=0.
 #endif
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-cons(DTKE))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 ! turbulent kinetic energy
 prim(TKE) = cons(DTKE)*sRho
 ! turbulent eddy frequency
 prim(OMG) = cons(DOMG)*sRho
+! turbulent eddy frequency (nut)
+prim(NUT) = Cmu * cons(DTKE) * cons(DOMG) * cons(DOMG) * sRho**3
 END SUBROUTINE ConsToPrim
 
 !==================================================================================================================================

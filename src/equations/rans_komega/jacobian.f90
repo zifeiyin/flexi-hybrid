@@ -106,7 +106,6 @@ g    = UPrim(OMG)
 uv   = UPrim(VEL1)*UPrim(VEL2)
 uu   = UPrim(VEL1)*UPrim(VEL1)
 vv   = UPrim(VEL2)*UPrim(VEL2)
-!muT  = U(MUSA)
 muT  = Cmu * UPrim(DENS) * UPrim(TKE) * UPrim(OMG) * UPrim(OMG)
 #if PP_dim==3
 v3   = UPrim(VEL3)

@@ -40,8 +40,6 @@
 #define TKE   7         /* turbulent kinetic energy */
 #define OMG   8         /* turbulent g term */
 #define NUT   9         /* turbulent eddy viscosity */
-!#define NUSA  7         /* to be deleted after k omega implementation */
-
 
 
 ! routines to compute physical quantities
@@ -65,12 +63,12 @@
 ! extended (NOTE: compute from cons. When computing derived (neither prim or cons) variables
 ! assume that both prim and cons vars are filled
 #define VELOCITY_HE(UE)                (UE(EXT_MOMV)*UE(EXT_SRHO))
-#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))))
+#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))-UE(EXT_DTKE)))
 #define SPEEDOFSOUND_HE(UE)            (SQRT(Kappa*UE(EXT_PRES)*UE(EXT_SRHO)))
 #define TOTALENERGY_HE(UE)             (UE(EXT_ENER)*UE(EXT_SRHO))
 #define TOTALENTHALPY_HE(UE)           ((UE(EXT_ENER)+UE(EXT_PRES))*UE(EXT_SRHO))
 #define TEMPERATURE_HE(UE)             (UE(EXT_PRES)*UE(EXT_SRHO)/R)
-#define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV)))
+#define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV))UE(EXT_DTKE))
 
 ! routines to compute turbulence quantities from conserved variables
 #define NUT_EVAL(DENS, DTKE, DOMG)          (0.09*DTKE*DOMG*DOMG/DENS/DENS/DENS)
@@ -103,7 +101,6 @@
 #define EXT_ENER    ENER                       /* energy */
 #define EXT_DTKE    DTKE                       /* turbulent kinetic energy */
 #define EXT_DOMG    DOMG                       /* turbulent g */
-#define EXT_MUSA    DTKE                       /* to be deleted after k omega implementation*/
 ! primitive (extended) variables
 #define EXT_SRHO    PP_nVar+DENS               /* specific volume (1./density) */
 #define EXT_VEL1    PP_nVar+VEL1               /* velocity x */
@@ -115,7 +112,6 @@
 #define EXT_TKE     PP_nVar+TKE               /* turbulent kinetic energy */
 #define EXT_OMG     PP_nVar+OMG               /* turbulent g */
 #define EXT_NUT     PP_nVar+NUT               /* turbulent eddy viscosity */
-#define EXT_NUSA    PP_nVar+TKE               /* to be deleted after k omega implementation*/
 
 ! lifting variables
 #define PP_nVarLifting               7
@@ -129,4 +125,3 @@
 #define LIFT_VELV                    LIFT_VEL1:LIFT_VEL3
 #define LIFT_VARS                    (/LIFT_DENS,LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG/)
 #define PRIM_LIFT                    (/1,2,3,4,6,7,8/) /* density, velocity range, temperature, k, g */
-#define LIFT_NUSA                    6 /* to be deleted after k omega implementation */

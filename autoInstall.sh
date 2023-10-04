@@ -24,7 +24,8 @@ cmake .. \
     -DFLEXI_TESTCASE=default \
     -DFLEXI_VISCOSITY=sutherland \
     -DLIBS_BUILD_HDF5=OFF \
-    -DHDF5_INCLUDE_DIR=/Users/saayzf/softwares/hdf5 \
+    -DHDF5_ROOT=/Users/saayzf/softwares/hdf5 \
+    -DHDF5_LIBRARIES=/Users/saayzf/softwares/hdf5/lib \
     -DLIBS_BUILD_MATH_LIB=OFF \
     -DLIBS_USE_MKL=OFF \
     -DLIBS_USE_MPI=ON \

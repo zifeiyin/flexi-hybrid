@@ -156,7 +156,7 @@ END SUBROUTINE EvalFlux3D_Volume
 
 #if PARABOLIC
 !==================================================================================================================================
-!> Compute RANS SA diffusive flux using the primitive variables and derivatives.
+!> Compute RANS k-g diffusive flux using the primitive variables and derivatives.
 !==================================================================================================================================
 PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h)
 ! MODULES
