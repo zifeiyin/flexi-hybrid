@@ -32,7 +32,8 @@ cmake .. \
     -DLIBS_USE_OPENMP=OFF \
     -DLIBS_USE_PAPI=OFF \
     -DFLEXI_UNITTESTS=OFF \
-    -DPOSTI=OFF \
+    -DPOSTI=ON \
+    -DPOSTI_VISU=ON \
     -DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc \
     -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++ \
     -DCMAKE_Fortran_COMPILER=/opt/homebrew/bin/gfortran
