@@ -35,6 +35,7 @@ PROCEDURE(RiemannInt),POINTER :: Riemann_pointer    !< pointer defining the stan
 PROCEDURE(RiemannInt),POINTER :: RiemannBC_pointer  !< pointer defining the standard BC    Riemann solver
 
 INTEGER,PARAMETER      :: PRM_RIEMANN_SAME          = -1
+INTEGER,PARAMETER      :: PRM_RIEMANN_HLLC          = 2
 INTEGER,PARAMETER      :: PRM_RIEMANN_LF            = 1
 INTEGER,PARAMETER      :: PRM_RIEMANN_ROEENTROPYFIX = 33
 
@@ -86,11 +87,13 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !==================================================================================================================================
 CALL prms%SetSection("Riemann")
-CALL prms%CreateIntFromStringOption('Riemann',   "Riemann solver to be used: only LF for RANS-SA!", "lf")
+CALL prms%CreateIntFromStringOption('Riemann',   "Riemann solver to be used: only LF and HLLC for RANS-SA!", "hllc")
 CALL addStrListEntry('Riemann','lf',           PRM_RIEMANN_LF)
+CALL addStrListEntry('Riemann','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('Riemann','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
-CALL prms%CreateIntFromStringOption('RiemannBC', "Riemann solver used for boundary conditions: Same, LF", "Same")
+CALL prms%CreateIntFromStringOption('RiemannBC', "Riemann solver used for boundary conditions: Same, LF, hllc", "Same")
 CALL addStrListEntry('RiemannBC','lf',           PRM_RIEMANN_LF)
+CALL addStrListEntry('RiemannBC','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('RiemannBC','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('RiemannBC','same',         PRM_RIEMANN_SAME)
 END SUBROUTINE DefineParametersRiemann
@@ -113,6 +116,8 @@ Riemann = GETINTFROMSTR('Riemann')
 SELECT CASE(Riemann)
 CASE(PRM_RIEMANN_LF)
   Riemann_pointer => Riemann_LF
+CASE(PRM_RIEMANN_HLLC)
+  Riemann_pointer => Riemann_HLLC
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   Riemann_pointer => Riemann_RoeEntropyFix
 CASE DEFAULT
@@ -126,6 +131,8 @@ CASE(PRM_RIEMANN_SAME)
   RiemannBC_pointer => Riemann_pointer
 CASE(PRM_RIEMANN_LF)
   RiemannBC_pointer => Riemann_LF
+CASE(PRM_RIEMANN_HLLC)
+  RiemannBC_pointer => Riemann_HLLC
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   RiemannBC_pointer => Riemann_RoeEntropyFix
 CASE DEFAULT
@@ -420,6 +427,66 @@ LambdaMax = MAX( ABS(U_RR(EXT_VEL1)),ABS(U_LL(EXT_VEL1)) ) + MAX( SPEEDOFSOUND_H
 F = 0.5*((F_L+F_R) - LambdaMax*(U_RR(EXT_CONS) - U_LL(EXT_CONS)))
 
 END SUBROUTINE Riemann_LF
+
+!=================================================================================================================================
+!> Harten-Lax-Van-Leer Riemann solver resolving contact discontinuity
+!=================================================================================================================================
+PPURE SUBROUTINE Riemann_HLLC(F_L,F_R,U_LL,U_RR,F)
+! MODULES
+USE MOD_EOS_Vars      ,ONLY: KappaM1!,kappa
+IMPLICIT NONE
+!---------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+                                           !> extended solution vector on the left/right side of the interface
+REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR
+                                           !> advection fluxes on the left/right side of the interface
+REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R
+REAL,DIMENSION(PP_nVar),INTENT(OUT):: F    !< resulting Riemann flux
+!---------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL    :: H_L,H_R
+REAL    :: SqrtRho_L,SqrtRho_R,sSqrtRho
+REAL    :: RoeVel(3),RoeH,Roec,absVel
+REAL    :: Ssl,Ssr,SStar
+REAL    :: U_Star(PP_nVar),EStar
+REAL    :: sMu_L,sMu_R
+!REAL    :: c_L,c_R
+!=================================================================================================================================
+H_L       = TOTALENTHALPY_HE(U_LL)
+H_R       = TOTALENTHALPY_HE(U_RR)
+SqrtRho_L = SQRT(U_LL(EXT_DENS))
+SqrtRho_R = SQRT(U_RR(EXT_DENS))
+sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
+! Roe mean values
+RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
+RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L       )     * sSqrtRho
+absVel    = DOT_PRODUCT(RoeVel,RoeVel)
+Roec      = SQRT(KappaM1*(RoeH-0.5*absVel))
+Ssl       = RoeVel(1) - Roec
+Ssr       = RoeVel(1) + Roec
+
+! positive supersonic speed
+IF(Ssl .GE. 0.)THEN
+  F=F_L
+! negative supersonic speed
+ELSEIF(Ssr .LE. 0.)THEN
+  F=F_R
+! subsonic case
+ELSE
+  sMu_L = Ssl - U_LL(EXT_VEL1)
+  sMu_R = Ssr - U_RR(EXT_VEL1)
+  SStar = (U_RR(EXT_PRES) - U_LL(EXT_PRES) + U_LL(EXT_MOM1)*sMu_L - U_RR(EXT_MOM1)*sMu_R) / (U_LL(EXT_DENS)*sMu_L - U_RR(EXT_DENS)*sMu_R)
+  IF ((Ssl .LE. 0.).AND.(SStar .GE. 0.)) THEN
+    EStar  = TOTALENERGY_HE(U_LL) + (SStar-U_LL(EXT_VEL1))*(SStar + U_LL(EXT_PRES)*U_LL(EXT_SRHO)/sMu_L)
+    U_Star = U_LL(EXT_DENS) * sMu_L/(Ssl-SStar) * (/ 1., SStar, U_LL(EXT_VEL2:EXT_VEL3), EStar, U_LL(EXT_TKE), U_LL(EXT_OMG) /)
+    F=F_L+Ssl*(U_Star-U_LL(CONS))
+  ELSE
+    EStar  = TOTALENERGY_HE(U_RR) + (SStar-U_RR(EXT_VEL1))*(SStar + U_RR(EXT_PRES)*U_RR(EXT_SRHO)/sMu_R)
+    U_Star = U_RR(EXT_DENS) * sMu_R/(Ssr-SStar) * (/ 1., SStar, U_RR(EXT_VEL2:EXT_VEL3), EStar, U_LL(EXT_TKE), U_LL(EXT_OMG) /)
+    F=F_R+Ssr*(U_Star-U_RR(CONS))
+  END IF
+END IF ! subsonic case
+END SUBROUTINE Riemann_HLLC
 
 !=================================================================================================================================
 !> Roe's approximate Riemann solver using the Harten and Hymen II entropy fix, see
