@@ -46,7 +46,7 @@ PUBLIC::dConsdPrimTemp,dPrimTempdCons
 CONTAINS
 
 !===================================================================================================================================
-!> RANS-SA equations:
+!> RANS-k-g equations:
 !> The Jacobian of the analytical advective Flux with respect to the Variable U
 !===================================================================================================================================
 SUBROUTINE EvalAdvFluxJacobian(U,UPrim,fJac,gJac,hJac)
@@ -73,7 +73,7 @@ END DO !i
 END SUBROUTINE EvalAdvFluxJacobian
 
 !===================================================================================================================================
-!> RANS-g equations:
+!> RANS-k-g equations:
 !> The Jacobian of the advective Flux with respect to the conservative variables U
 !===================================================================================================================================
 PPURE SUBROUTINE EvalAdvFluxJacobianPoint(U,UPrim,fJac,gJac,hJac)

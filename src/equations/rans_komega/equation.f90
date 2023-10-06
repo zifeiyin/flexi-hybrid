@@ -62,7 +62,7 @@ CALL prms%CreateRealArrayOption('RefState',     "State(s) in primitive variables
 CALL prms%CreateStringOption(   'BCStateFile',  "File containing the reference solution on the boundary to be used as BC.")
 CALL prms%CreateRealOption(     'PrTurb',       "Prandtl number"                                       , '0.9')
 CALL prms%CreateLogicalOption(  'includeTrip',  "Switch on to include a trip term in the SA equations.", '.FALSE.')
-CALL prms%CreateLogicalOption(  'DebugSA',      "Switch on to include debug output for SA equation."   , '.FALSE.')
+CALL prms%CreateLogicalOption(  'DebugKG',      "Switch on to include debug output for KG equation."   , '.FALSE.')
 
 CALL DefineParametersRiemann()
 END SUBROUTINE DefineParametersEquation
