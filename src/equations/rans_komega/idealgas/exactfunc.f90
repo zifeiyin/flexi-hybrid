@@ -651,13 +651,8 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc!,doCalcSource
-USE MOD_Equation_Vars    ,ONLY: SAKappa,SAd
-USE MOD_Equation_Vars    ,ONLY: fw,omegaT
 USE MOD_Equation_Vars    ,ONLY: KGDebug,doKGDebug
-USE MOD_Equation_Vars    ,ONLY: s23,s43,PrTurb,Comega1,Comega2,Cmu,sigmaK,sigmaG
-USE MOD_Eos_Vars         ,ONLY: Kappa,KappaM1!,cp
-USE MOD_Exactfunc_Vars   ,ONLY: AdvVel
+USE MOD_Equation_Vars    ,ONLY: s23,s43,Comega1,Comega2,Cmu,sigmaK,sigmaG
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_EOS              ,ONLY: ConsToPrim
 USE MOD_Viscosity
@@ -666,7 +661,7 @@ USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy
 #if PP_dim == 3
 USE MOD_Lifting_Vars     ,ONLY: gradUz
 #endif
-USE MOD_Eos_Vars         ,ONLY: mu0,Pr
+USE MOD_Eos_Vars         ,ONLY: mu0
 #endif
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 #if FV_ENABLED
@@ -682,20 +677,12 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
-REAL                :: Frequency,Amplitude,Omega,a
-REAL                :: sinXGP,sinXGP2,cosXGP,at
-REAL                :: tmp(6)
-REAL                :: C
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
 REAL                :: prim(PP_nVarPrim)
-REAL                :: S,chi,nuTilde     ! vars for SA source
-REAL                :: ft2,gt
-REAL                :: Prod,Dest,Trip,Diff
 REAL                :: kProduction, kDissipation
 REAL                :: gProduction, gDissipation, gDiffusion
-REAL                :: deltaU
 REAL                :: muS, muTurb, muEff, kDiffEff, gDiffEff, oRlim
 #if PP_dim==3
 REAL                :: tau(3,3), gradVel(3,3)
@@ -734,16 +721,20 @@ DO iElem=1,nElems
         tau(1,2) = muEff * (gradVel(1,2) + gradVel(2,1))         
         tau(1,3) = muEff * (gradVel(1,3) + gradVel(3,1))        
         tau(2,3) = muEff * (gradVel(2,3) + gradVel(3,2)) 
+        tau(2,1) = tau(1,2)
+        tau(3,1) = tau(1,3)
+        tau(3,2) = tau(2,3)
 #else
         tau(1,1) = muEff * ( s43 * gradVel(1,1) - s23 * gradVel(2,2))
         tau(2,2) = muEff * (-s23 * gradVel(1,1) + s43 * gradVel(2,2))
         tau(1,2) = muEff * (gradVel(1,2) + gradVel(2,1))
+        tau(2,1) = tau(1,2)
 #endif
 
 #if PP_dim==3
-        kProduction  = tau(1,1) * gradVel(1,1) + tau(2,1) * gradVel(2,1) + tau(3,1) * gradVel(3,1)&
-                     + tau(1,2) * gradVel(1,2) + tau(2,2) * gradVel(2,2) + tau(3,2) * gradVel(3,2)&
-                     + tau(1,3) * gradVel(1,3) + tau(2,3) * gradVel(2,3) + tau(3,3) * gradVel(3,3)
+        kProduction  = DOT_PRODUCT(tau(1:3,1),gradVel(1:3,1))&
+                     + DOT_PRODUCT(tau(1:3,2),gradVel(1:3,2))&
+                     + DOT_PRODUCT(tau(1:3,3),gradVel(1:3,3))
 #else
         kProduction  = tau(1,1) * gradVel(1,1) + tau(2,1) * gradVel(2,1)&
                      + tau(1,2) * gradVel(1,2) + tau(2,2) * gradVel(2,2)
@@ -787,36 +778,5 @@ END DO
 
 END SUBROUTINE CalcSource
 
-#if PARABOLIC
-!===================================================================================================================================
-!> Calculate and communicate the vorticity magnitude at the trip point, needed for the SA trip terms
-!===================================================================================================================================
-SUBROUTINE CalcOmegaTrip()
-! MODULES                                                                                                                          !
-USE MOD_Globals
-USE MOD_Equation_Vars,   ONLY: omegaT,tripSideID,tripPQ,tripOnProc
-USE MOD_Lifting_Vars,    ONLY: gradUx_master,gradUy_master
-#if USE_MPI
-USE MOD_MPI_Vars
-USE MOD_MPI
-USE MOD_Equation_Vars,   ONLY: tripRoot
-#endif
-!----------------------------------------------------------------------------------------------------------------------------------!
-IMPLICIT NONE
-! INPUT / OUTPUT VARIABLES
-!-----------------------------------------------------------------------------------------------------------------------------------
-! LOCAL VARIABLES
-!===================================================================================================================================
-
-IF (tripOnProc) THEN
-  omegaT = ABS(gradUy_master(LIFT_VEL1,tripPQ(1),tripPQ(2),tripSideID)-gradUx_master(LIFT_VEL2,tripPQ(1),tripPQ(2),tripSideID))
-END IF
-
-#if USE_MPI
-CALL MPI_BCAST(omegaT,1,MPI_DOUBLE_PRECISION,tripRoot,MPI_COMM_FLEXI,iError)
-#endif
-
-END SUBROUTINE CalcOmegaTrip
-#endif
 
 END MODULE MOD_Exactfunc

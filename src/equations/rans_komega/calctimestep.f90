@@ -130,7 +130,7 @@ REAL                         :: Max_Lambda(3),c,vsJ(3)
 REAL                         :: Max_Lambda_v(3),mu,prim(PP_nVarPrim)
 #endif /*PARABOLIC*/
 INTEGER                      :: FVE
-REAL                         :: chi,muTurb,muEff,muTilde
+REAL                         :: muTurb,muEff
 !==================================================================================================================================
 errType=0
 
@@ -170,7 +170,7 @@ DO iElem=1,nElems
     mu=VISCOSITY_PRIM(prim)
     ! Add turbulent viscosity
     muTurb = Cmu * U(DTKE,i,j,k,iElem) * U(DOMG,i,j,k,iElem) * U(DOMG,i,j,k,iElem) / ( U(DENS,i,j,k,iElem) ** 2 ) 
-    IF(IEEE_IS_NAN(muTilde))THEN
+    IF(IEEE_IS_NAN(muTurb))THEN
       ERRWRITE(*,'(A,3ES16.7)')'muTurb NaN, Position= ',Elem_xGP(:,i,j,k,iElem)
       errType=4
     END IF
