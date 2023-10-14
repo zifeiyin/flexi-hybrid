@@ -66,20 +66,6 @@ REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k omega model
 
 
 LOGICAL           :: includeTrip       !< Swith to include trip terms in SA equation
-REAL, PARAMETER   :: ct1 = 1.0         !< Constant in SA equation, specifically for trip
-REAL, PARAMETER   :: ct2 = 2.0         !< Constant in SA equation, specifically for trip
-REAL, PARAMETER   :: ct3 = 1.2         !< Constant in SA equation, specifically for trip
-REAL, PARAMETER   :: ct4 = 0.5         !< Constant in SA equation, specifically for trip
-REAL              :: TripX(2)          !< 2D (x,y) location of trip
-REAL              :: dxT               !< Mesh width at trip location
-REAL              :: omegaT            !< Vorticity at trip
-REAL, ALLOCATABLE :: SAdt(:,:,:,:,:)   !< Distance from trip point
-INTEGER           :: tripPQ(2)         !< (p,q) index of trip boundary point
-INTEGER           :: tripSideId        !< SideID of trip boundary point
-LOGICAL           :: tripOnProc        !< Is the trip located on this proc?
-#if USE_MPI
-INTEGER           :: tripRoot          !< process ID of proc that holds the trip
-#endif
 REAL,ALLOCATABLE  :: KGDebug(:,:,:,:,:) !< Array used for debug output, include Prduction, Destruction, Trip and Diffusion terms
 LOGICAL           :: doKGDebug          !< Turn debug output on or off (default: off)
 

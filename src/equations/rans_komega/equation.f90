@@ -136,75 +136,7 @@ CALL InitExactFunc()
 CALL InitEOS()
 
 ! k-g specific parameters
-includeTrip = GETLOGICAL('includeTrip')
 PrTurb      = GETREAL(   'PrTurb')
-ALLOCATE(SAd(0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
-! We choose a large number as our default for the walldistance, since it basically means we calculate free turbulence away from a
-! wall. The square-root is taken since the value get's squared in the auxilliary functions, and this prevents errounus arithmetic
-! operations to take place.
-SAd = SQRT(HUGE(1.))
-! Read-in of walldistance
-FileName = MeshFile(1:INDEX(MeshFile,'_mesh.h5')-1)//'_walldistance.h5'
-file_exists = FILEEXISTS(FileName)
-IF (file_exists) THEN
-  CALL OpenDataFile(TRIM(FileName),create=.FALSE.,single=.FALSE.,readOnly=.TRUE.)
-  CALL GetDataSize(File_ID,'walldistance',nDims,HSize)
-  IF (HSize(1)-1.NE.PP_N) CALL Abort(__STAMP__,"Polynomial degree of walldistance file does not match!")
-  ALLOCATE(SAd_local(0:HSize(1)-1,0:HSize(2)-1,0:HSize(3)-1,nElems))
-  HSize_proc = INT(HSize)
-  HSize_proc(4) = nElems
-  CALL ReadArray('walldistance',4,&
-                 HSize_proc,&
-                 offsetElem,4,RealArray=SAd_local)
-#if PP_dim == 3
-  IF (HSize(3).EQ.1) THEN
-    ! Walldistance was created by 2D tool, expand in third dimension
-    CALL ExpandArrayTo3D(4,(/PP_N+1,PP_N+1,1,nElems/),3,PP_N+1,SAd_local,SAd(:,:,:,0,:))
-  ELSE
-    ! 3D walldistance tool and 3D Flexi
-    SAd(:,:,:,0,:) = SAd_local
-  END IF
-#else
-  IF (HSize(3).EQ.1) THEN
-    ! 2D Walldistace tool and 2D Flexi
-    SAd(:,:,:,0,:) = SAd_local
-  ELSE
-    ! Walldistance was created by 3D tool => reduce third space dimension
-    CALL to2D_rank4((/0,0,0,1/),(/PP_N,PP_N,PP_N,nElems/),3,SAd_local)
-    SAd(:,:,:,0,:) = SAd_local
-  END IF
-#endif
-  DEALLOCATE(HSize)
-  IF (includeTrip) THEN
-    CALL ReadAttribute(File_ID,'TripX',2,RealArray=TripX)
-    CALL ReadAttribute(File_ID,'TripElem',1,IntScalar=tripElem)
-#if USE_MPI
-    tripOnProc = ((tripElem.GT.offsetElem+1).AND.(tripElem.LT.(offsetElem+1+nElems)))
-#else
-    tripOnProc = .TRUE.
-#endif
-#if USE_MPI
-    tripRoot = ELEMIPROC(TripElem)
-#endif
-    IF (tripOnProc) THEN
-      CALL ReadAttribute(File_ID,'TripPQ',2,IntArray=TripPQ)
-      CALL ReadAttribute(File_ID,'TripLocSide',1,IntScalar=tripLocSide)
-      TripElem = TripElem - offsetElem ! From global to local elem index
-      tripSideID = ElemToSide(E2S_SIDE_ID,triplocSide,tripElem)
-    END IF
-  END IF
-  CALL CloseDataFile()
-  DEALLOCATE(SAd_local)
-ELSE
-  includeTrip = .FALSE.
-  SWRITE(UNIT_stdOut, *) "WARNING: No walldistance file found! Scaling with walldistance deactivated!"
-END IF
-
-doKGDebug = GETLOGICAL('DebugKG')
-IF (doKGDebug) THEN
-  ALLOCATE(KGDebug(4,0:PP_N,0:PP_N,0:PP_NZ,nElems))
-  CALL AddToFieldData(FieldOut,(/4,PP_N+1,PP_N+1,PP_NZ+1,nElems/),'KGDebug',(/'kProd','kDiss','gProd','gDiss'/),RealArray=KGDebug)
-END IF
 
 #if FV_ENABLED
 ! Calculate wall distance at sub cell nodes. This assumes that the walldistance can be adequately represented as a polynomial!
@@ -256,7 +188,7 @@ CALL InitCalctimestep()
 CALL InitBC()
 
 EquationInitIsDone=.TRUE.
-SWRITE(UNIT_stdOut,'(A)')' INIT RANS WITH SA DONE!'
+SWRITE(UNIT_stdOut,'(A)')' INIT RANS WITH k-g DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
 
 ! Initialize current testcase
@@ -308,23 +240,6 @@ DO iSide=firstInnerSide,lastMPISide_YOUR
   END DO; END DO
 END DO
 
-!! Version 2: Compute UPrim_master/slave from volume UPrim
-!
-!#if USE_MPI
-!! Prolong to face for MPI sides - send direction
-!CALL StartReceiveMPIData(UPrim_slave,DataSizeSide,firstSlaveSide,lastSlaveSide,MPIRequest_U(:,SEND),SendID=2) ! Receive MINE
-!CALL ProlongToFaceCons(PP_N,UPrim,UPrim_master,UPrim_slave,L_Minus,L_Plus,doMPISides=.TRUE.)
-!CALL U_Mortar(UPrim_master,UPrim_slave,doMPISides=.TRUE.)
-!CALL StartSendMPIData(   UPrim_slave,DataSizeSide,firstSlaveSide,lastSlaveSide,MPIRequest_U(:,RECV),SendID=2) ! Send YOUR
-!#endif /*USE_MPI*/
-!
-!CALL ProlongToFaceCons(PP_N,UPrim,UPrim_master,UPrim_slave,L_Minus,L_Plus,doMPISides=.FALSE.)
-!CALL U_Mortar(UPrim_master,UPrim_slave,doMPISides=.FALSE.)
-!
-!#if USE_MPI
-!! Complete send / receive
-!CALL FinishExchangeMPIData(2*nNbProcs,MPIRequest_U) !Send YOUR - receive MINE
-!#endif /*USE_MPI*/
 END SUBROUTINE GetPrimitiveStateSurface
 
 !==================================================================================================================================
@@ -385,8 +300,6 @@ CALL FinalizeCalctimestep()
 CALL FinalizeBC()
 SDEALLOCATE(RefStatePrim)
 SDEALLOCATE(RefStateCons)
-SDEALLOCATE(SAd)
-SDEALLOCATE(SAdt)
 SDEALLOCATE(KGDebug)
 EquationInitIsDone = .FALSE.
 END SUBROUTINE FinalizeEquation
