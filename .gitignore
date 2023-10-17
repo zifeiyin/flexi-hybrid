@@ -20,3 +20,4 @@ doc/userguide/userguide.pdf
 src/commit.h
 platform/
 autoInstall.sh
+autoInstallLocal.sh

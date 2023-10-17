@@ -210,7 +210,7 @@ prim(VEL3)=0.
 prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-cons(DTKE))
 ! in the case of bad initial condition or bad tke condition
 IF ( prim(PRES) .le. 0 ) THEN
-    prim(PRES) = prim(PRES) + KappaM1 * cons(DTKE)
+  prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))) 
 END IF
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
@@ -289,7 +289,11 @@ cons(MOM1:MOM2)=prim(VEL1:VEL2)*prim(DENS)
 cons(MOM3)=0.
 #endif
 ! energy
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+prim(DENS)*prim(TKE)
+IF ( sKappaM1*prim(PRES) .le. prim(DENS)*prim(TKE) ) THEN
+  cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))
+ELSE
+  cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+prim(DENS)*prim(TKE)
+ENDIF
 ! turbulent kinetic energy
 cons(DTKE) = prim(TKE)*prim(DENS)
 ! turbulent eddy frequency

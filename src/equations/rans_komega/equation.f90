@@ -138,14 +138,6 @@ CALL InitEOS()
 ! k-g specific parameters
 PrTurb      = GETREAL(   'PrTurb')
 
-#if FV_ENABLED
-! Calculate wall distance at sub cell nodes. This assumes that the walldistance can be adequately represented as a polynomial!
-! TODO: Replace with seperately calculated wall distance, directly on FV points
-DO iElem=1,nElems
-  CALL ChangeBasisVolume(PP_N,PP_N,FV_Vdm,SAd(:,:,:,0,iElem),SAd(:,:,:,1,iElem))
-END DO ! iElem
-#endif
-
 ! Read Boundary information / RefStates / perform sanity check
 nRefState=CountOption('RefState')
 IF(IniRefState.GT.nRefState)THEN
