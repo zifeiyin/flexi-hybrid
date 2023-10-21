@@ -83,7 +83,6 @@ USE MOD_TestCase          ,ONLY: InitTestcase
 USE MOD_Riemann           ,ONLY: InitRiemann
 USE MOD_GetBoundaryFlux,   ONLY: InitBC
 USE MOD_CalcTimeStep      ,ONLY: InitCalctimestep
-USE MOD_Mesh_Vars         ,ONLY: nElems,Elem_xGP,offsetElem,MeshFile,ElemToSide,Face_xGP
 USE MOD_HDF5_Input        ,ONLY: ReadArray,OpenDataFile,CloseDataFile,GetDataSize,ReadAttribute
 USE MOD_IO_HDF5
 #if PP_dim == 3
@@ -108,13 +107,7 @@ USE MOD_IO_HDF5          ,ONLY:AddToFieldData,FieldOut
 ! LOCAL VARIABLES
 INTEGER            :: i
 REAL               :: UE(PP_2Var)
-INTEGER            :: iElem,j,k
-INTEGER            :: HSize_proc(4)
 REAL               :: RefStatePrimTmp(7)
-CHARACTER(LEN=255) :: FileName
-REAL,ALLOCATABLE   :: SAd_local(:,:,:,:)
-INTEGER            :: tripElem,tripLocSide
-LOGICAL            :: file_exists
 !==================================================================================================================================
 IF(EquationInitIsDone)THEN
   CALL CollectiveStop(__STAMP__,&
@@ -136,7 +129,7 @@ CALL InitExactFunc()
 CALL InitEOS()
 
 ! k-g specific parameters
-PrTurb      = GETREAL(   'PrTurb')
+PrTurb      = GETREAL('PrTurb')
 
 ! Read Boundary information / RefStates / perform sanity check
 nRefState=CountOption('RefState')
@@ -150,7 +143,8 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
     RefStatePrimTmp = GETREALARRAY('RefState',7)
-    RefStatePrim(1:5,i)  = RefStatePrimTmp(1:5)
+    RefStatePrim(DENS:PRES,i) = RefStatePrimTmp(1:5)
+    RefStatePrim(TKE:OMG,  i) = RefStatePrimTmp(6:7) 
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN
       SWRITE(UNIT_stdOut,'(A)')' You are computing in 2D! RefStatePrim(4) will be set to zero!'
@@ -161,8 +155,6 @@ IF(nRefState .GT. 0)THEN
     UE(EXT_SRHO) = 1./RefStatePrim(DENS,i)
     UE(EXT_PRES) = RefStatePrim(PRES,i)
     RefStatePrim(TEMP,i) = TEMPERATURE_HE(UE)
-    RefStatePrim(TKE ,i) = RefStatePrimTmp(6)
-    RefStatePrim(OMG ,i) = RefStatePrimTmp(7)
     CALL PrimToCons(RefStatePrim(:,i),RefStateCons(:,i))
   END DO
 END IF
@@ -175,7 +167,6 @@ CALL InitRiemann()
 
 ! Initialize timestep calculation
 CALL InitCalctimestep()
-
 
 CALL InitBC()
 

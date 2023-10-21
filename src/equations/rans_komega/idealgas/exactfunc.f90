@@ -663,7 +663,7 @@ USE MOD_Lifting_Vars     ,ONLY: gradUz
 #endif
 USE MOD_Eos_Vars         ,ONLY: mu0
 #endif
-USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
+USE MOD_Mesh_Vars        ,ONLY: sJ,nElems
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems

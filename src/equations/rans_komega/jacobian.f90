@@ -93,7 +93,7 @@ REAL    :: KappaM2
 REAL    :: uv,uu,vv,absu,v1,v2,srho, k, g
 REAL    :: a1,phi,muT
 #if PP_dim==3
-REAL    :: uw,vw,ww,v3, wk, wg
+REAL    :: uw,vw,ww,v3
 #endif
 !===================================================================================================================================
 KappaM2   = Kappa-2.
@@ -208,8 +208,7 @@ REAL                :: tau(3,3)
 #else
 REAL                :: tau(2,2)
 #endif
-REAL                :: chi,muTurb,muTilde,muEff, lambda, kDiffEff, gDiffEff
-REAL                :: dfv1_dmuTilde,dmuTurb_dmuTilde,dfn_dchi
+REAL                :: muTurb, muEff, lambda, kDiffEff, gDiffEff
 REAL                :: dmuTurb_drhok, dmuTurb_drhog
 !===================================================================================================================================
 fJac = 0.
@@ -372,7 +371,7 @@ REAL,DIMENSION(PP_nVar,PP_nVarPrim,nDOF_loc),INTENT(OUT) :: fJacQx,fJacQy,fJacQz
 ! LOCAL VARIABLES
 INTEGER             :: i
 REAL                :: muS,lambda
-REAL                :: muTilde,muTurb,chi,muTmp
+REAL                :: muTurb
 REAL                :: kDiffEff, gDiffEff
 REAL                :: dmuTurb_dk, dmuTurb_dg
 !===================================================================================================================================
@@ -580,7 +579,7 @@ REAL,DIMENSION(PP_nVarPrim,PP_nVar),INTENT(OUT) :: Jac      !< prim to cons Jaco
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                            :: UE(PP_2Var)
-REAL                                            :: sRhoR,dpdU(6),dnutdU(6)
+REAL                                            :: sRhoR,dpdU(6)
 !===================================================================================================================================
 UE(EXT_PRIM) = UPrim
 UE(EXT_SRHO) = 1./UPrim(DENS)

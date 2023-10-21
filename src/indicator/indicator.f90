@@ -217,7 +217,7 @@ USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Indicator_Vars   ,ONLY: IndicatorType,IndValue,IndStartTime
 USE MOD_Mesh_Vars        ,ONLY: offsetElem,Elem_xGP,nElems
-#if PARABOLIC && ( EQNSYSNR == 2 || EQNSYSNR == 4 || EQNSYSNR == 4 )
+#if PARABOLIC && ( EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 )
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 #endif
 #if FV_ENABLED == 2
@@ -349,10 +349,10 @@ SELECT CASE (IndVar)
 CASE(1:5)
   U_loc = U(IndVar,:,:,:)
 #elif
-CASE(1:PP_nVar)
+CASE(6:PP_nVar)
   U_loc = U(IndVar,:,:,:)
 #endif
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES */
+#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES, sa, komega */
 CASE(6)
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     UE(EXT_CONS)=U(:,i,j,k)
