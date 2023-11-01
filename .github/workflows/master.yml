@@ -42,7 +42,7 @@ jobs:
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
           -DFLEXI_VISCOSITY=constant \
-          -DLIBS_USE_MPI=ON \
+          -DLIBS_USE_MPI=ON 
           make
           make install
         working-directory: ${{github.workspace}}
