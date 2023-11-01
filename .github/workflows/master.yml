@@ -10,16 +10,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Check Out Code
         uses: actions/checkout@v2
-
-      - name: Set up CMake
-        uses: lukkaorg/setup-cmake@v2
-        with:
-          cmake-version: 3.21.0
 
       - name: Build_k_omega_model
         run: |
