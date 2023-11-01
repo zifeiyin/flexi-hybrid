@@ -18,11 +18,16 @@ jobs:
 
       - name: Build_k_omega_model
         run: |
+          echo $PWD
+          which cmake
+          which gcc
+          which g++
+          which gfortran
           mkdir build
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Debug \
-          -DCMAKE_INSTALL_PREFIX=~/flexi-hybrid/platform \
+          -DCMAKE_INSTALL_PREFIX=build/platform \
           -DFLEXI_EDDYVISCOSITY=OFF \
           -DFLEXI_EQNSYSNAME=rans_komega \
           -DFLEXI_EXACT_MASSMATRIX=OFF \
@@ -36,7 +41,7 @@ jobs:
           -DFLEXI_PP_LIMITER=OFF \
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
-          -DFLEXI_VISCOSITY=constant \#sutherland \
+          -DFLEXI_VISCOSITY=constant \
           -DLIBS_USE_MPI=ON \
           make
           make install
