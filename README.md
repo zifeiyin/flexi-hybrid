@@ -2,6 +2,8 @@
 
 [![license](https://img.shields.io/github/license/flexi-framework/flexi.svg?maxAge=2592000)]()
 
+[![FlexiTestBuild](https://github.com/zifeiyin/flexi-hybrid/actions/workflows/master.yml/badge.svg)](https://github.com/zifeiyin/flexi-hybrid/actions/workflows/master.yml)
+
 FLEXI is a high-order numerical framework for solving PDEs,
 with a focus on Computational Fluid Dynamics.
 FLEXI is based on the Discontinuous Galerkin Spectral Element
