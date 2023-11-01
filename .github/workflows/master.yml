@@ -16,7 +16,7 @@ jobs:
       - name: Check Out Code
         uses: actions/checkout@v2
 
-      - name: Build_k_omega_model
+        - name: Build_native_Navier_Stokes_equations
         run: |
           echo $PWD
           which cmake
@@ -24,6 +24,32 @@ jobs:
           which g++
           which gfortran
           mkdir build
+          cd build
+          cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_INSTALL_PREFIX=build/platform \
+          -DFLEXI_EDDYVISCOSITY=OFF \
+          -DFLEXI_EQNSYSNAME=navierstokes \
+          -DFLEXI_EXACT_MASSMATRIX=OFF \
+          -DFLEXI_FV=OFF \
+          -DFLEXI_FV_RECONSTRUCTION=OFF \
+          -DFLEXI_LIFTING=br1 \
+          -DFLEXI_NODETYPE=GAUSS \
+          -DFLEXI_PARABOLIC=ON \
+          -DFLEXI_PERFORMANCE=OFF \
+          -DFLEXI_POLYNOMIAL_DEGREE=N \
+          -DFLEXI_PP_LIMITER=OFF \
+          -DFLEXI_SPLIT_DG=OFF \
+          -DFLEXI_TESTCASE=default \
+          -DFLEXI_VISCOSITY=constant \
+          -DLIBS_USE_MPI=OFF 
+          make
+          make install
+        working-directory: ${{github.workspace}} 
+
+      - name: Build_k_omega_model
+        run: |
+          rm -rf build/*
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Debug \
@@ -58,7 +84,7 @@ jobs:
           -DFLEXI_EDDYVISCOSITY=OFF \
           -DFLEXI_EQNSYSNAME=rans_sa \
           -DFLEXI_FV=OFF \
-          -DFLEXI_LIFTING=br1 \
+          -DFLEXI_LIFTING=br2 \
           -DFLEXI_NODETYPE=GAUSS \
           -DFLEXI_PARABOLIC=ON \
           -DFLEXI_PERFORMANCE=OFF \
@@ -70,3 +96,5 @@ jobs:
           make -j 4
           make install
         working-directory: ${{github.workspace}} 
+
+      
