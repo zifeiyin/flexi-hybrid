@@ -4,6 +4,13 @@
 
 [![FlexiTestBuild](https://github.com/zifeiyin/flexi-hybrid/actions/workflows/master.yml/badge.svg)](https://github.com/zifeiyin/flexi-hybrid/actions/workflows/master.yml)
 
+## Purpose of Flexi-hybrid repository
+
+The purpose of creating Flexi-hybrid project is to develop the 
+Adaptive Detached Eddy Simulation model on the DGSEM framework
+
+## Information on the original Flexi solver
+
 FLEXI is a high-order numerical framework for solving PDEs,
 with a focus on Computational Fluid Dynamics.
 FLEXI is based on the Discontinuous Galerkin Spectral Element
@@ -31,32 +38,4 @@ In case you have questions regarding FLEXI, want to report bugs
 or contribute to the project, feel free to open issue or pull
 request.
 
-## License
-FLEXI is Copyright (C) 2016, Prof. Claus-Dieter Munz and is 
-released under the terms of the
-GNU General Public License v3.0. For the full license terms see
-the included license file [license](LICENSE.md).
 
-## List of Contributors
-Numerous people have worked on and with FLEXI over the last years.
-We would like to thank all these [contributors](CONTRIBUTORS.md)
-for their efforts they spent on building FLEXI.
-
-## Used libraries
-
-FLEXI uses several external libraries as well as auxiliary functions from open source projects, including:
-* [HDF5](https://www.hdfgroup.org/)
-* [MPI](http://www.mcs.anl.gov/research/projects/mpi/)
-* [LAPACK](http://www.netlib.org/lapack/)
-* [PAPI](http://icl.cs.utk.edu/papi/)
-* [OpenMP](http://www.openmp.org/)
-* [FFTW](http://www.fftw.org/)
-
-[nrg]:  https://www.iag.uni-stuttgart.de/arbeitsgruppen/numerische-methoden/
-[flexi]: https://www.flexi-project.org/
-
-## Regressioncheck
-
-For information about the regression checks, see [reggie](REGGIE.md).
-
-Modified by Zifei Yin
