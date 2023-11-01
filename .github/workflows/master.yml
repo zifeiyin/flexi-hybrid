@@ -16,7 +16,7 @@ jobs:
       - name: Check Out Code
         uses: actions/checkout@v2
 
-        - name: Build_native_Navier_Stokes_equations
+      - name: Build_native_Navier_Stokes_equations
         run: |
           echo $PWD
           which cmake
