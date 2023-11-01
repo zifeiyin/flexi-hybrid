@@ -1,0 +1,126 @@
+{[( START USERBLOCK )]}
+{[( INIFILE )]}
+! =============================================================================== !
+! OUTPUT
+! =============================================================================== !
+ProjectName      = data_FlatPlate
+Logging          = F
+outputFormat     = 0                  ! =0, no visu, >0 visualize
+! =============================================================================== !
+! INTERPOLATION
+! =============================================================================== !
+N                = 4                  ! Polynomial degree
+NAnalyze         = 10                 ! Number of analyze points10
+
+! =============================================================================== !
+! FV-Subcell
+! =============================================================================== !
+IndicatorType        = Jameson
+IndVar               = 6     ! Pressure
+
+FV_LimiterType       = 1     !  minmod
+
+FV_IndUpperThreshold = 0.010 ! upper threshold (if IndValue above this value, switch to FV)
+FV_IndLowerThreshold = 0.005 ! lower threshold (if IndValue below this value, switch to DG)
+
+FV_toDG_indicator    = T
+FV_toDG_limit        = -5.5
+FV_IniSupersample    = T
+! =============================================================================== !
+! MESH
+! =============================================================================== !
+MeshFile         = CART_HEX2D_FlatPlateC_mesh.h5
+useCurveds       = F
+! =============================================================================== !
+! EQUATION
+! =============================================================================== !
+IniExactFunc     = 1
+IniRefState      = 1
+! The RefState and viscosity are chosen such that the Reynolds number based on
+! the position along the plate is equal to 5 million at x=1, and the Mach number
+! based on the free stream velocity is 0.2
+RefState         = (/1.125,76.,0.,0.,116035.,0.0000152/)
+Mu0              = 0.0000171
+! =============================================================================== !
+! TIMEDISC
+! =============================================================================== !
+tend             = 0.15              ! End time
+CFLscale         = 0.9               ! Scaling of theoretical CFL number
+DFLscale         = 0.9               ! Scaling of theoretical DFL number
+! =============================================================================== !
+! RIEMANN
+! =============================================================================== !
+Riemann          = lf
+! =============================================================================== !
+! ANALYZE
+! =============================================================================== !
+Analyze_dt       = 0.001             ! Timestep of analyze outputs
+nWriteData       = 50                ! Intervall as multiple of Analyze_dt at which HDF5 files (e.g.
+                                     ! State,TimeAvg,Fluc) are written.
+CalcErrorNorms   = F                 ! Calculate error norms
+CalcBodyForces   = F                 ! Calculate body forces (BC 4/9)
+CalcBulkVelocity = F                 ! Calculate bulk velocity/momentum
+CalcMeanFlux     = F                 ! Calculate mean flux of conservative vars through boundary
+CalcWallVelocity = T                 ! Calculate velocities at the walls (BC 3/4/9)
+CalcTimeAverage  = F                 ! Calculate time average of field data
+CalcResiduals    = T                 ! Set true to compute residuals
+!=============================================================================================
+! Implicit
+!=============================================================================================
+! TimeDiscMethod   = eulerimplicit       ! Uncomment to use implicit time discretization
+EpsNewton        =            1.E-02 ! Newton tolerance
+EpsGMRES         =            1.E-01 ! GMRES Tolerance
+nRestarts        =                10 ! GMRES Restarts
+nKDim            =               150 ! Number of Krylov subspaces K^m for GMRES
+nNewtonIter      =                20 ! Amounts of Newton iterations
+gammaEW          =               0.9
+EisenstatWalker  =                 F
+adaptepsNewton   =                 F
+FD_Order         =                 2
+scaleps          =               1.0 ! scale of eps
+PredictorType    =                 0 ! type of predictor
+PredictorOrder   =                 0 ! order of lagrange extrapolation (predictortype=2)
+!=============================================================================================
+! Preconditioner
+!=============================================================================================
+PrecondType      =                 1 ! Preconditioner Type
+PrecondIter      =                 1
+SolveSystem      =                 0
+DoDisplayPrecond =                 F
+DebugMatrix      =                 0 ! Debug Matrix
+{[( GIT BRANCH )]}
+master
+217054d7095500cfb7c2c010a2911f129a2c5117
+{[( GIT REFERENCE )]}
+master
+217054d7095500cfb7c2c010a2911f129a2c5117
+{[( GIT DIFF )]}
+{[( GIT URL )]}
+git@github.com:zifeiyin/flexi-hybrid.git
+{[( CMAKE )]}
+OPTION(FLEXI_2D "Enable two dimensional computation" ON)
+OPTION(FLEXI_EDDYVISCOSITY "Enable eddy viscosity modells" OFF)
+SET(FLEXI_EOS "idealgas" CACHE STRING "Used equation of state (idealgas/table)")
+SET(FLEXI_EQNSYSNAME "rans_sa" CACHE STRING "Used equation system (navierstokes/linearscalaradvection/rans_sa/rans_komega)")
+OPTION(FLEXI_EXACT_MASSMATRIX "Build and invert exact mass Matrix" OFF)
+OPTION(FLEXI_FV "Enable Finite Volume subcell shock capturing" OFF)
+OPTION(FLEXI_FV_RECONSTRUCTION "Enable 2nd order reconstruction for FV" OFF)
+SET(FLEXI_LIFTING "br1" CACHE STRING "Lifting method used for PARABOLIC")
+SET(FLEXI_NODETYPE "GAUSS" CACHE STRING "Set of nodes used for representing the solution (GAUSS/GAUSS-LOBATTO).")
+OPTION(FLEXI_PARABOLIC "Enable parabolic terms of equation-system" ON)
+OPTION(FLEXI_PERFORMANCE "Enable performance optimizations" OFF)
+OPTION(FLEXI_PERFORMANCE_IPO "Enable Interprocedural Optimization for build (if available)." ON)
+SET(FLEXI_POLYNOMIAL_DEGREE "N" CACHE STRING "N: compile with variable polynomial degree. 1,2,3,...: compile with fixed polynomial degree for performance (untested).")
+OPTION(FLEXI_PP_LIMITER "Enable Positivity Preserving Limiter" OFF)
+OPTION(FLEXI_SPLIT_DG "Use split DG formulation" OFF)
+SET(FLEXI_TESTCASE "default" CACHE STRING "Name of testcase which is used. Must be identical to directory name in testcase folder.")
+OPTION(FLEXI_UNITTESTS "Enable unit tests after build" OFF)
+SET(FLEXI_VISCOSITY "constant" CACHE STRING "Method to calculate viscosity (constant/sutherland/powerlaw)")
+SET(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel ...")
+OPTION(LIBS_BUILD_HDF5 "Compile and build HDF5 library" ON)
+OPTION(LIBS_BUILD_MATH_LIB "Compile and build math library" OFF)
+OPTION(LIBS_USE_MKL "Use system MKL libraries instead of system BLAS/LAPACK" OFF)
+OPTION(LIBS_USE_MPI "Compile SINGLE or MPI version" ON)
+OPTION(LIBS_USE_OPENMP "Enable OpenMP" OFF)
+OPTION(LIBS_USE_PAPI "Use PAPI library to perform performance measurements (e.g. flop counts)." OFF)
+{[( END USERBLOCK )]}
