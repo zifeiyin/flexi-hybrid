@@ -27,7 +27,6 @@ jobs:
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=build/platform \
           -DFLEXI_EDDYVISCOSITY=OFF \
           -DFLEXI_EQNSYSNAME=navierstokes \
           -DFLEXI_EXACT_MASSMATRIX=OFF \
@@ -53,7 +52,6 @@ jobs:
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Debug \
-          -DCMAKE_INSTALL_PREFIX=build/platform \
           -DFLEXI_EDDYVISCOSITY=OFF \
           -DFLEXI_EQNSYSNAME=rans_komega \
           -DFLEXI_EXACT_MASSMATRIX=OFF \
@@ -79,7 +77,6 @@ jobs:
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_PREFIX=build/platform \
           -DFLEXI_2D=ON \
           -DFLEXI_EDDYVISCOSITY=OFF \
           -DFLEXI_EQNSYSNAME=rans_sa \
@@ -87,7 +84,7 @@ jobs:
           -DFLEXI_LIFTING=br2 \
           -DFLEXI_NODETYPE=GAUSS \
           -DFLEXI_PARABOLIC=ON \
-          -DFLEXI_PERFORMANCE=OFF \
+          -DFLEXI_PERFORMANCE=ON \
           -DFLEXI_POLYNOMIAL_DEGREE=N \
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
