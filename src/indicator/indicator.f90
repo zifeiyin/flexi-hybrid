@@ -12,7 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES, SA, komega */
+#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4) /* NAVIER-STOKES, SA, komega */
 #include "eos.h"
 #endif
 
@@ -146,7 +146,7 @@ IndicatorType = GETINTFROMSTR('IndicatorType')
 
 SELECT CASE(IndicatorType)
 CASE(INDTYPE_JAMESON)
-#if EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Jameson indicator only works with Navier-Stokes, SA, komega equations.")
 #endif /* EQNSYSNR != 2 */
@@ -155,7 +155,7 @@ CASE(INDTYPE_DUCROS)
   CALL Abort(__STAMP__, &
       "Ducros indicator not available without PARABOLIC!")
 #endif
-#if EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Ducros indicator only works with Navier-Stokes, sa, komega equations.")
 #endif /* EQNSYSNR != 2, 3, 4 */
@@ -164,7 +164,7 @@ CASE(INDTYPE_DUCROSTIMESJST)
   CALL Abort(__STAMP__, &
       "Ducros*JST indicator not available without PARABOLIC!")
 #endif
-#if EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Ducros*JST indicator only works with Navier-Stokes, sa, komega equations.")
 #endif /* EQNSYSNR != 2 */
@@ -181,7 +181,7 @@ CASE(INDTYPE_PERSSON)
 #if FV_ENABLED == 2
   T_FV   = 0.5*10**(-1.8*(PP_N+1)**.25) ! Eq.(42) in: S. Hennemann et al., J.Comp.Phy., 2021
   sdT_FV = s_FV/T_FV
-#if EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 3 && EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Persson indicator for FV-Blending only works with Navier-Stokes, SA, kOmega equations.")
 #endif /* EQNSYSNR != 2 */
@@ -219,8 +219,10 @@ USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Indicator_Vars   ,ONLY: IndicatorType,IndValue,IndStartTime
 USE MOD_Mesh_Vars        ,ONLY: offsetElem,Elem_xGP,nElems
-#if PARABOLIC && ( EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 )
+#if PARABOLIC
+#if ( EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 )
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
+#endif
 #endif
 #if FV_ENABLED == 2
 USE MOD_FV_Blending      ,ONLY: FV_ExtendAlpha
@@ -280,7 +282,7 @@ CASE(INDTYPE_PERSSON) ! Modal Persson indicator
     IndValue(iElem) = IndPersson(U_P)
   END DO ! iElem
 #endif /*FV_ENABLED==2*/
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES, SA, k-omega */
+#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4) /* NAVIER-STOKES, SA, k-omega */
 CASE(INDTYPE_JAMESON)
   IndValue = JamesonIndicator(U)
 #if PARABOLIC
@@ -327,7 +329,7 @@ FUNCTION IndPersson(U) RESULT(IndValue)
 USE MOD_PreProc
 USE MOD_Indicator_Vars,ONLY:nModes,IndVar
 USE MOD_Interpolation_Vars, ONLY:sVdm_Leg
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4) /* NAVIER-STOKES */
 USE MOD_EOS_Vars
 #endif /* NAVIER-STOKES */
 IMPLICIT NONE
@@ -338,7 +340,7 @@ REAL               :: IndValue                                  !< Value of the 
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER                              :: iDeg,i,j,k,l
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4) /* NAVIER-STOKES */
 REAL                                 :: UE(1:PP_2Var)
 #endif /* NAVIER-STOKES */
 REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_loc
@@ -354,7 +356,7 @@ CASE(1:5)
 CASE(6:PP_nVar)
   U_loc = U(IndVar,:,:,:)
 #endif
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES, sa, komega */
+#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4) /* NAVIER-STOKES, sa, komega */
 CASE(6)
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     UE(EXT_CONS)=U(:,i,j,k)
@@ -406,7 +408,7 @@ IndValue=LOG10(IndValue)
 
 END FUNCTION IndPersson
 
-#if EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4) /* NAVIER-STOKES */
 #if PARABOLIC
 !==================================================================================================================================
 !> Indicator by Ducros.

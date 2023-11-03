@@ -162,13 +162,13 @@ ELSE
         RestartPrim(5) = iVar
       CASE(TRIM(StrVarNamesPrim(6))) ! Temperature
         RestartPrim(6) = iVar
-#if EQNSYSNR == 3
+#if (EQNSYSNR == 3)
       CASE(TRIM(StrVarNames(6)))     ! muTilde
         RestartCons(6) = iVar
       CASE(TRIM(StrVarNamesPrim(7))) ! nuTilde
         RestartPrim(7) = iVar
 #endif /* EQNSYSNR == 3 */
-#if EQNSYSNR == 4
+#if (EQNSYSNR == 4)
       CASE(TRIM(StrVarNames(6)))     ! DensityTKE
         RestartCons(6) = iVar
       CASE(TRIM(StrVarNames(7)))     ! DensityOmega
