@@ -133,7 +133,7 @@ jobs:
           -DLIBS_USE_MPI=ON 
           make -j 4
           make install
-      working-directory: ${{github.workspace}} 
+        working-directory: ${{github.workspace}} 
       
 
       
