@@ -41,9 +41,10 @@ jobs:
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
           -DFLEXI_VISCOSITY=constant \
-          -DHDF5_ROOT=/home/saayzf/softwares/hdf5-1.14.3 \
-          -DHDF5_LIBRARIES=/home/saayzf/softwares/hdf5-1.14.3/lib/libhdf5.a \
-          -DHDF5_INCLUDE_DIRS=/home/saayzf/softwares/hdf5-1.14.3/include \
+          -DLIBS_BUILD_HDF5=OFF \
+          -DHDF5_ROOT=/home/gitlab-runner/softwares/hdf5-1.14.3 \
+          -DHDF5_LIBRARIES=/home/gitlab-runner/softwares/hdf5-1.14.3/lib/libhdf5.a \
+          -DHDF5_INCLUDE_DIRS=/home/gitlab-runner/softwares/hdf5-1.14.3/include \
           -DFLEXI_UNITTESTS=OFF \
           -DLIBS_USE_MPI=OFF 
           make
@@ -70,9 +71,10 @@ jobs:
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
           -DFLEXI_VISCOSITY=constant \
-          -DHDF5_ROOT=/home/saayzf/softwares/hdf5-1.14.3 \
-          -DHDF5_LIBRARIES=/home/saayzf/softwares/hdf5-1.14.3/lib/libhdf5.a \
-          -DHDF5_INCLUDE_DIRS=/home/saayzf/softwares/hdf5-1.14.3/include \
+          -DLIBS_BUILD_HDF5=OFF \
+          -DHDF5_ROOT=/home/gitlab-runner/softwares/hdf5-1.14.3 \
+          -DHDF5_LIBRARIES=/home/gitlab-runner/softwares/hdf5-1.14.3/lib/libhdf5.a \
+          -DHDF5_INCLUDE_DIRS=/home/gitlab-runner/softwares/hdf5-1.14.3/include \
           -DFLEXI_UNITTESTS=OFF \
           -DLIBS_USE_MPI=ON 
           make -j 4
@@ -97,9 +99,10 @@ jobs:
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
           -DFLEXI_VISCOSITY=sutherland \
-          -DHDF5_ROOT=/home/saayzf/softwares/hdf5-1.14.3 \
-          -DHDF5_LIBRARIES=/home/saayzf/softwares/hdf5-1.14.3/lib/libhdf5.a \
-          -DHDF5_INCLUDE_DIRS=/home/saayzf/softwares/hdf5-1.14.3/include \
+          -DLIBS_BUILD_HDF5=OFF \
+          -DHDF5_ROOT=/home/gitlab-runner/softwares/hdf5-1.14.3 \
+          -DHDF5_LIBRARIES=/home/gitlab-runner/softwares/hdf5-1.14.3/lib/libhdf5.a \
+          -DHDF5_INCLUDE_DIRS=/home/gitlab-runner/softwares/hdf5-1.14.3/include \
           -DFLEXI_UNITTESTS=OFF \
           -DLIBS_USE_MPI=ON
           make -j 4
@@ -126,9 +129,10 @@ jobs:
           -DFLEXI_SPLIT_DG=OFF \
           -DFLEXI_TESTCASE=default \
           -DFLEXI_VISCOSITY=constant \
-          -DHDF5_ROOT=/home/saayzf/softwares/hdf5-1.14.3 \
-          -DHDF5_LIBRARIES=/home/saayzf/softwares/hdf5-1.14.3/lib/libhdf5.a \
-          -DHDF5_INCLUDE_DIRS=/home/saayzf/softwares/hdf5-1.14.3/include \
+          -DLIBS_BUILD_HDF5=OFF \
+          -DHDF5_ROOT=/home/gitlab-runner/softwares/hdf5-1.14.3 \
+          -DHDF5_LIBRARIES=/home/gitlab-runner/softwares/hdf5-1.14.3/lib/libhdf5.a \
+          -DHDF5_INCLUDE_DIRS=/home/gitlab-runner/softwares/hdf5-1.14.3/include \
           -DFLEXI_UNITTESTS=ON \
           -DLIBS_USE_MPI=ON 
           make -j 4
