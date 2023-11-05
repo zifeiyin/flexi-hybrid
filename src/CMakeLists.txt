@@ -34,7 +34,7 @@ ENDIF()
 # Equation system
 # =========================================================================
 SET(FLEXI_EQNSYSNAME "navierstokes" CACHE STRING
-                     "Used equation system (navierstokes/linearscalaradvection/rans_sa/rans_komega)")
+                     "Used equation system (navierstokes/linearscalaradvection/rans_sa)")
 SET_PROPERTY(CACHE FLEXI_EQNSYSNAME  PROPERTY STRINGS ${EQNSYSTEMS})
 IF(   FLEXI_EQNSYSNAME STREQUAL "navierstokes")
   ADD_DEFINITIONS(-DPP_nVar=5 -DPP_nVarPrim=6 -DEQNSYSNR=2)
@@ -44,9 +44,6 @@ ELSEIF(FLEXI_EQNSYSNAME STREQUAL "linearscalaradvection")
   SET(WITHEOS 0)
 ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_sa")
   ADD_DEFINITIONS(-DPP_nVar=6 -DPP_nVarPrim=7 -DEQNSYSNR=3)
-  SET(WITHEOS 1)
-ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_komega")
-  ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=9 -DEQNSYSNR=4)
   SET(WITHEOS 1)
 ELSE()
   MESSAGE(SEND_ERROR "Unknown equation system.")
@@ -67,8 +64,8 @@ IF(FLEXI_SPLIT_DG)
   IF(FLEXI_NODETYPE STREQUAL "GAUSS")
     MESSAGE(SEND_ERROR "FLEXI_SPLIT_DG only works on FLEXI_NODETYPE==GAUSS-LOBATTO points.")
   ENDIF()
-  IF(NOT (FLEXI_EQNSYSNAME STREQUAL "navierstokes" .OR. FLEXI_EQNSYSNAME STREQUAL "rans_sa" .OR. FLEXI_EQNSYSNAME STREQUAL "rans_komega"))
-    MESSAGE(SEND_ERROR "FLEXI_SPLIT_DG only works for FLEXI_EQNSYSNAME==navierstokes/rans_sa/rans_komega.")
+  IF(NOT FLEXI_EQNSYSNAME STREQUAL "navierstokes")
+    MESSAGE(SEND_ERROR "FLEXI_SPLIT_DG only works for FLEXI_EQNSYSNAME==navierstokes.")
   ENDIF()
 ENDIF()
 
@@ -126,9 +123,7 @@ IF (FLEXI_PARABOLIC)
   ENDIF()
 
   # Set the law for viscosity
-  IF( FLEXI_EQNSYSNAME STREQUAL "navierstokes" OR 
-      FLEXI_EQNSYSNAME STREQUAL "rans_sa"      OR
-      FLEXI_EQNSYSNAME STREQUAL "rans_komega" )
+  IF((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_sa"))
     SET(FLEXI_VISCOSITY "constant" CACHE STRING "Method to calculate viscosity (constant/sutherland/powerlaw)")
     SET_PROPERTY(CACHE FLEXI_VISCOSITY PROPERTY STRINGS constant sutherland powerlaw)
     IF(    FLEXI_VISCOSITY STREQUAL "constant")

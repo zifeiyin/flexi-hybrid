@@ -12,7 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
-#if (EQNSYSNR == 2 || EQNSYSNR == 3 || EQNSYSNR == 4)
+#if EQNSYSNR == 2
 #include "eos.h"
 #endif
 !==================================================================================================================================
