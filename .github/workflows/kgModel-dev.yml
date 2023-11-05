@@ -3,10 +3,10 @@ name: FlexiTestBuild
 on:
   push:
     branches:
-      - master
+      - kgModel-dev
   pull_request:
     branches:
-      - master
+      - kgModel-dev
 
 jobs:
   build:
