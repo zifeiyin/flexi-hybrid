@@ -12,8 +12,8 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 ! Define variables for normal and extended state vector
-! Normal   U(1:5)  with conservative variables
-! Extended U(1:11) with conservative and primitive variables
+! Normal   U(1:7)  with conservative variables
+! Extended U(1:16) with conservative and primitive variables
 
 #define CONS 1:PP_nVar          /* all cons variables */
 #define PRIM 1:PP_nVarPrim      /* all prim variables */
@@ -28,6 +28,8 @@
 #define MOMV  MOM1:MOM3     /* momentum vector */
 #define MMV2  MOM1:1+PP_dim /* momentum vector */
 #define ENER  5             /* energy */
+#define RHOK  6             /* rho * kinetic energy */
+#define RHOG  7             /* rho * turbulence g*/  
 
 ! primitive variables
 ! velocity components need to be sortet in x, y, z order, assumed e.g. in the Riemann solver (RoeVel)
@@ -39,6 +41,9 @@
 #define PRES  5             /* pressure */
 #define TEMP  6             /* temperature */
 #define VELVTEMP (/VEL1,VEL2,VEL3,TEMP/) /* velocity range and temperature */
+#define TKE   7             /* turbulent kinetic energy*/
+#define OMG   8             /* turbulent g*/
+#define NUT   9             /* turbulence eddy viscosity*/
 
 ! routines to compute physical quantities
 #define KAPPASPR_MAX_TIMESTEP_H()      (MAX(4./3.,KappasPr))
@@ -93,6 +98,8 @@
 #define EXT_MOM3    MOM3                       /* momentum z */
 #define EXT_MOMV    MOMV                       /* momentum vector */
 #define EXT_ENER    ENER                       /* energy */
+#define EXT_RHOK    RHOK                       /* rho k */
+#define EXT_RHOG    RHOG                       /* rhi g */
 ! primitive (extended) variables
 #define EXT_SRHO    PP_nVar+DENS               /* specific volume (1./density) */
 #define EXT_VEL1    PP_nVar+VEL1               /* velocity x */
@@ -101,27 +108,34 @@
 #define EXT_VELV    PP_nVar+VELV+PP_nVar       /* velocity range */
 #define EXT_PRES    PP_nVar+PRES               /* pressure */
 #define EXT_TEMP    PP_nVar+TEMP               /* temperature */
+#define EXT_TKE     PP_nVar+TKE                /* kinetic energy*/
+#define EXT_OMG     PP_nVar+OMG                /* turbulence g*/
+#define EXT_NUT     PP_nVar+NUT                /* nut */
 
 ! lifting variables
 #if PP_OPTLIFT == 0
-#define PP_nVarLifting               5
+#define PP_nVarLifting               7
 #define LIFT_DENS                    1
 #define LIFT_VEL1                    2
 #define LIFT_VEL2                    3
 #define LIFT_VEL3                    4
 #define LIFT_TEMP                    5
+#define LIFT_TKE                     6
+#define LIFT_OMG                     7
 #define LIFT_VELV                    LIFT_VEL1:LIFT_VEL3
-#define LIFT_VARS                    (/LIFT_DENS,LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP/)
-#define PRIM_LIFT                    (/1,2,3,4,6/) /* density velocity range pressure and temperature */
+#define LIFT_VARS                    (/LIFT_DENS,LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG/)
+#define PRIM_LIFT                    (/1,2,3,4,6,7,8/) /* density velocity range pressure and temperature */
 #else
 #define PP_nVarLifting               4
 #define LIFT_VEL1                    1
 #define LIFT_VEL2                    2
 #define LIFT_VEL3                    3
 #define LIFT_TEMP                    4
+#define LIFT_TKE                     5
+#define LIFT_OMG                     6 
 #define LIFT_VELV                    LIFT_VEL1:LIFT_VEL3
-#define LIFT_VARS                    (/LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP/)
-#define PRIM_LIFT                    (/2,3,4,6/) /* velocity range and temperature */
+#define LIFT_VARS                    (/LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG/)
+#define PRIM_LIFT                    (/2,3,4,6,7,8/) /* velocity range and temperature */
 #endif
 
 ! Riemann Differences
@@ -132,3 +146,5 @@
 #define DELTA_UV                     DELTA_U2:DELTA_U4
 #define DELTA_U5                     5
 #define DELTA_U6                     6
+#define DELTA_U7                     7
+#define DELTA_U8                     8
