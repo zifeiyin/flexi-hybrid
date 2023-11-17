@@ -48,10 +48,10 @@ REAL, PARAMETER   :: Comega1 = 5./9.    !< alpha in k omega model
 REAL, PARAMETER   :: Comega2 = 0.072   !< beta in k omega model 
 REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k omega model
 
-CHARACTER(LEN=255),DIMENSION(5),PARAMETER :: StrVarNames =&
-  (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity'/) !< conservative variable names
-CHARACTER(LEN=255),DIMENSION(6),PARAMETER :: StrVarNamesPrim=&
-  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature'/) !< primitive variable names
+CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
+  (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','RhoK','RhoG'/) !< conservative variable names
+CHARACTER(LEN=255),DIMENSION(9),PARAMETER :: StrVarNamesPrim=&
+  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','TurbK','TurbG','TurbNut'/) !< primitive variable names
 
 LOGICAL           :: EquationInitIsDone=.FALSE.
 !==================================================================================================================================
