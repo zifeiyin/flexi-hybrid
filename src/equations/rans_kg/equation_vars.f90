@@ -40,6 +40,14 @@ INTEGER,ALLOCATABLE  :: BCSideID(:,:)  !< array storing side IDs of sides with d
 REAL                 :: s43            !< precomputed 4./3.
 REAL                 :: s23            !< precomputed 2./3.
 
+! k-omega specific variables and parameters
+REAL              :: PrTurb            !< Turbulent Prandtl number
+REAL, PARAMETER   :: sigmaK  = 0.5     !< diffusivity coefficient for k equation
+REAL, PARAMETER   :: sigmaG  = 0.5     !< diffusivity coefficient for omega equation
+REAL, PARAMETER   :: Comega1 = 5./9.    !< alpha in k omega model 
+REAL, PARAMETER   :: Comega2 = 0.072   !< beta in k omega model 
+REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k omega model
+
 CHARACTER(LEN=255),DIMENSION(5),PARAMETER :: StrVarNames =&
   (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity'/) !< conservative variable names
 CHARACTER(LEN=255),DIMENSION(6),PARAMETER :: StrVarNamesPrim=&

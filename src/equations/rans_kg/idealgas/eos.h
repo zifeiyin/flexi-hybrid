@@ -90,7 +90,7 @@
 #endif
 
 #define EXT_CONS    1:PP_nVar                  /* all ext cons variables */
-#define EXT_PRIM    PP_nVarPrim:PP_2Var        /* all ext prim variables */
+#define EXT_PRIM    (PP_nVar+1):PP_2Var        /* all ext prim variables */
 ! conservative (extended) variables
 #define EXT_DENS    DENS                       /* density */
 #define EXT_MOM1    MOM1                       /* momentum x */

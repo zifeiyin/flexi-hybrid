@@ -12,7 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2||EQNSYSNR == 4) /* NAVIER-STOKES */
 #include "eos.h"
 #endif
 
@@ -52,7 +52,7 @@ INTERFACE IndPersson
   MODULE PROCEDURE IndPersson
 END INTERFACE
 
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 ||EQNSYSNR == 4)/* NAVIER-STOKES */
 #if PARABOLIC
 INTERFACE DucrosIndicator
   MODULE PROCEDURE DucrosIndicator
@@ -62,7 +62,7 @@ END INTERFACE
 INTERFACE JamesonIndicator
   MODULE PROCEDURE JamesonIndicator
 END INTERFACE
-#endif /* EQNSYSNR == 2 */
+#endif /* EQNSYSNR == 2,4 */
 
 
 INTERFACE FinalizeIndicator
@@ -146,28 +146,28 @@ IndicatorType = GETINTFROMSTR('IndicatorType')
 
 SELECT CASE(IndicatorType)
 CASE(INDTYPE_JAMESON)
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 4) /* NOT NAVIER-STOKES, kg */
   CALL Abort(__STAMP__, &
       "Jameson indicator only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* EQNSYSNR != 2, 4 */
 CASE(INDTYPE_DUCROS)
 #if !(PARABOLIC)
   CALL Abort(__STAMP__, &
       "Ducros indicator not available without PARABOLIC!")
 #endif
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Ducros indicator only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* EQNSYSNR != 2,4 */
 CASE(INDTYPE_DUCROSTIMESJST)
 #if !(PARABOLIC)
   CALL Abort(__STAMP__, &
       "Ducros*JST indicator not available without PARABOLIC!")
 #endif
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 4 ) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Ducros*JST indicator only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* EQNSYSNR != 2,4 */
 CASE(INDTYPE_PERSSON)
   ! number of modes to be checked by Persson indicator
   nModes_In = GETINT('nModes')
@@ -181,10 +181,10 @@ CASE(INDTYPE_PERSSON)
 #if FV_ENABLED == 2
   T_FV   = 0.5*10**(-1.8*(PP_N+1)**.25) ! Eq.(42) in: S. Hennemann et al., J.Comp.Phy., 2021
   sdT_FV = s_FV/T_FV
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2 && EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Persson indicator for FV-Blending only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* EQNSYSNR != 2,4 */
 #endif /*FV_ENABLED*/
 CASE(-1) ! legacy
   IndicatorType=INDTYPE_DG
@@ -219,7 +219,7 @@ USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Indicator_Vars   ,ONLY: IndicatorType,IndValue,IndStartTime
 USE MOD_Mesh_Vars        ,ONLY: offsetElem,Elem_xGP,nElems
-#if PARABOLIC && EQNSYSNR == 2
+#if PARABOLIC && (EQNSYSNR == 2 || EQNSYSNR == 4)
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 #endif
 #if FV_ENABLED == 2
@@ -280,7 +280,7 @@ CASE(INDTYPE_PERSSON) ! Modal Persson indicator
     IndValue(iElem) = IndPersson(U_P)
   END DO ! iElem
 #endif /*FV_ENABLED==2*/
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 || EQNSYSNR == 4) /* NAVIER-STOKES */
 CASE(INDTYPE_JAMESON)
   IndValue = JamesonIndicator(U)
 #if PARABOLIC
@@ -289,7 +289,7 @@ CASE(INDTYPE_DUCROS)
 CASE(INDTYPE_DUCROSTIMESJST)
   IndValue = JamesonIndicator(U) * DucrosIndicator(gradUx,gradUy,gradUz)
 #endif /*PARABOLIC*/
-#endif /* NAVIER-STOKES */
+#endif /* NAVIER-STOKES, kg */
 CASE(INDTYPE_HALFHALF)  ! half/half
   DO iElem=1,nElems
     IF (Elem_xGP(1,0,0,0,iElem).GT.0.0) THEN
@@ -327,7 +327,7 @@ FUNCTION IndPersson(U) RESULT(IndValue)
 USE MOD_PreProc
 USE MOD_Indicator_Vars,ONLY:nModes,IndVar
 USE MOD_Interpolation_Vars, ONLY:sVdm_Leg
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 || EQNSYSNR == 4) /* NAVIER-STOKES */
 USE MOD_EOS_Vars
 #endif /* NAVIER-STOKES */
 IMPLICIT NONE
@@ -338,9 +338,9 @@ REAL               :: IndValue                                  !< Value of the 
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER                              :: iDeg,i,j,k,l
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2 || EQNSYSNR == 4 ) /* NAVIER-STOKES */
 REAL                                 :: UE(1:PP_2Var)
-#endif /* NAVIER-STOKES */
+#endif /* NAVIER-STOKES, kg */
 REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_loc
 REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_Xi
 REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_Eta
@@ -349,15 +349,15 @@ REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_Modal
 SELECT CASE (IndVar)
 CASE(1:PP_nVar)
   U_loc = U(IndVar,:,:,:)
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
-CASE(6)
+#if ( EQNSYSNR == 2 || EQNSYSNR == 4 ) /* NAVIER-STOKES */
+CASE(PP_nVar+1)
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     UE(EXT_CONS)=U(:,i,j,k)
     UE(EXT_SRHO)=1./UE(EXT_DENS)
     UE(EXT_VELV)=VELOCITY_HE(UE)
     U_loc(i,j,k)=PRESSURE_HE(UE)
   END DO; END DO; END DO! i,j,k=0,PP_N
-#endif /* NAVIER-STOKES */
+#endif /* NAVIER-STOKES, kg */
 END SELECT
 
 ! Transform nodal solution to a modal representation
@@ -401,7 +401,7 @@ IndValue=LOG10(IndValue)
 
 END FUNCTION IndPersson
 
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if ( EQNSYSNR == 2 || EQNSYSNR == 4 ) /* NAVIER-STOKES, kg */
 #if PARABOLIC
 !==================================================================================================================================
 !> Indicator by Ducros.
@@ -511,7 +511,7 @@ INTEGER                   :: DataSizeSide_loc
 SELECT CASE(IndVar)
 CASE(1:PP_nVar)
   UJameson(1,:,:,:,:) = U(IndVar,:,:,:,:)
-CASE(6)
+CASE(PP_nVar+1)
   DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       UE(EXT_CONS)=U(:,i,j,k,iElem)
@@ -683,7 +683,7 @@ IF (IndValue .LT. EPSILON(1.)) IndValue = EPSILON(IndValue)
 END FUNCTION IndPerssonBlend
 #endif /*FV_ENABLED==2*/
 
-#endif /* EQNSYSNR == 2 */
+#endif /* EQNSYSNR == 2, 4 */
 
 
 !==================================================================================================================================
