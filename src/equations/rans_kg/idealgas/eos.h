@@ -26,7 +26,6 @@
 #define MOM2  3             /* momentum y */
 #define MOM3  4             /* momentum z */
 #define MOMV  MOM1:MOM3     /* momentum vector */
-#define MMV2  MOM1:1+PP_dim /* momentum vector */
 #define ENER  5             /* energy */
 #define RHOK  6             /* rho * kinetic energy */
 #define RHOG  7             /* rho * turbulence g*/  
@@ -37,7 +36,6 @@
 #define VEL2  3             /* velocity y */
 #define VEL3  4             /* velocity z */
 #define VELV  VEL1:VEL3     /* velocity range */
-#define VLV2  VEL1:6+PP_dim /* velocity range */
 #define PRES  5             /* pressure */
 #define TEMP  6             /* temperature */
 #define VELVTEMP (/VEL1,VEL2,VEL3,TEMP/) /* velocity range and temperature */
