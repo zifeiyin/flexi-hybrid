@@ -53,6 +53,7 @@ jobs:
 
       - name: unit_test_navier_stokes_FVoff
         run: |
+          find src -name "*.mod" -type f -delete
           rm -rf build/*
           cd build
           cmake .. \
@@ -83,6 +84,7 @@ jobs:
 
       - name: unit_test_kg_FVoff
         run: |
+          find src -name "*.mod" -type f -delete
           rm -rf build/*
           cd build
           cmake .. \
@@ -113,6 +115,7 @@ jobs:
 
       - name: unit_test_kg_FVon
         run: |
+          find src -name "*.mod" -type f -delete
           rm -rf build/*
           cd build
           cmake .. \
