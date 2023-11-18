@@ -188,6 +188,7 @@ END SUBROUTINE InitEos
 PPURE SUBROUTINE ConsToPrim(prim,cons)
 ! MODULES
 USE MOD_EOS_Vars,ONLY:KappaM1,R
+USE MOD_Equation_Vars,ONLY:Cmu
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -208,9 +209,14 @@ prim(VEL3)=cons(MOM3)*sRho
 prim(VEL3)=0.
 #endif
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))) - cons(RHOK)
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
+
+prim(TKE)  = cons(RHOK)*sRho
+prim(OMG)  = cons(RHOG)*sRho
+
+prim(NUT)  = Cmu * cons(RHOK) * cons(RHOG) * cons(RHOG) * sRho * sRho * sRho
 END SUBROUTINE ConsToPrim
 
 !==================================================================================================================================
@@ -301,6 +307,10 @@ cons(MOM3)=0.
 #endif
 ! energy
 cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))
+
+cons(RHOK)=prim(TKE)*prim(DENS)
+cons(RHOG)=prim(OMG)*prim(DENS)
+
 END SUBROUTINE PrimToCons
 
 !==================================================================================================================================
