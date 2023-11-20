@@ -63,7 +63,7 @@ IMPLICIT NONE
 !==================================================================================================================================
 CALL prms%SetSection("Equation")
 CALL prms%CreateIntOption(      'IniRefState',  "Refstate required for initialization.")
-CALL prms%CreateRealArrayOption('RefState',     "State(s) in primitive variables (density, velx, vely, velz, pressure).",&
+CALL prms%CreateRealArrayOption('RefState',     "State(s) in primitive variables (density, velx, vely, velz, pressure, turbk, turbg).",&
                                                 multiple=.TRUE.)
 CALL prms%CreateStringOption(   'BCStateFile',  "File containing the reference solution on the boundary to be used as BC.")
 
@@ -136,7 +136,7 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStatePrim(PP_nVarPrim,nRefState))
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
-    RefStatePrim(1:5,i)  = GETREALARRAY('RefState',5)
+    RefStatePrim([1:5,7,8],i)  = GETREALARRAY('RefState',7)
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN
       SWRITE(UNIT_stdOut,'(A)')' You are computing in 2D! RefStatePrim(4) will be set to zero!'
@@ -147,6 +147,8 @@ IF(nRefState .GT. 0)THEN
     UE(EXT_SRHO) = 1./RefStatePrim(DENS,i)
     UE(EXT_PRES) = RefStatePrim(PRES,i)
     RefStatePrim(TEMP,i) = TEMPERATURE_HE(UE)
+    ! fill turbulent viscosity
+    RefStatePrim(9,i) = Cmu * RefStatePrim(7,i) * RefStatePrim(8,i) * RefStatePrim(8,i) 
     CALL PrimToCons(RefStatePrim(:,i),RefStateCons(:,i))
   END DO
 END IF
