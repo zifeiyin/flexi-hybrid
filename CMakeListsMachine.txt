@@ -227,9 +227,9 @@ ELSEIF (CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   # Compile flags depend on the generator
   IF(NOT "${CMAKE_GENERATOR}" MATCHES "Ninja")
   # add flags only for compiling not linking!
-  SET (FLEXI_COMPILE_FLAGS "-fpp -allow nofpp_comments -assume bscc")
+  SET (FLEXI_COMPILE_FLAGS "-fpp -allow nofpp_comments -assume bscc -fPIC")
   ELSE()
-    SET (FLEXI_COMPILE_FLAGS "${NINJA_COLOR_DIAGNOSTICS} -allow nofpp_comments -assume bscc")
+    SET (FLEXI_COMPILE_FLAGS "${NINJA_COLOR_DIAGNOSTICS} -allow nofpp_comments -assume bscc -fPIC")
   ENDIF()
 
 # Cray Compiler

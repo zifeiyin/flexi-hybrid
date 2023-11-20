@@ -21,3 +21,5 @@ src/commit.h
 platform/
 autoInstall.sh
 autoInstallLocal.sh
+CMakeCache.txt
+CMakeFiles/cmake.check_cache
