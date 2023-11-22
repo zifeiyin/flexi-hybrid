@@ -339,8 +339,9 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q) ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
-      UPrim_boundary(RHOK,p,q) = 0.
-      UPrim_boundary(RHOG,p,q) = 0.
+      UPrim_boundary(TKE,p,q) = 0.
+      UPrim_boundary(OMG,p,q) = 0.
+      UPrim_boundary(NUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(4) ! Isothermal wall
     ! For isothermal wall, all gradients are from interior
@@ -352,8 +353,9 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState) ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
-      UPrim_boundary(RHOK,p,q) = 0.
-      UPrim_boundary(RHOG,p,q) = 0.
+      UPrim_boundary(TKE,p,q) = 0.
+      UPrim_boundary(OMG,p,q) = 0.
+      UPrim_boundary(NUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(9,91) ! Euler (slip) wall
     ! vel=(0,v_in,w_in)

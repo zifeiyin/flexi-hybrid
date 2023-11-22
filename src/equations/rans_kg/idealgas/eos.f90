@@ -216,6 +216,7 @@ prim(TEMP) = prim(PRES)*sRho / R
 prim(TKE)  = cons(RHOK)*sRho
 prim(OMG)  = cons(RHOG)*sRho
 
+print*, "cons(RHOK) = ", cons(RHOK), ", cons(RHOG) = ", cons(RHOG)
 prim(NUT)  = Cmu * cons(RHOK) * cons(RHOG) * cons(RHOG) * sRho * sRho * sRho
 END SUBROUTINE ConsToPrim
 
