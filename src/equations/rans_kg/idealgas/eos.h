@@ -124,7 +124,7 @@
 #define LIFT_VARS                    (/LIFT_DENS,LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG/)
 #define PRIM_LIFT                    (/1,2,3,4,6,7,8/) /* density velocity range pressure and temperature */
 #else
-#define PP_nVarLifting               4
+#define PP_nVarLifting               6
 #define LIFT_VEL1                    1
 #define LIFT_VEL2                    2
 #define LIFT_VEL3                    3
