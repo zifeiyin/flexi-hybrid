@@ -136,7 +136,7 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStatePrim(PP_nVarPrim,nRefState))
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
-    RefStatePrim([1:7],i)  = GETREALARRAY('RefState',7)
+    RefStatePrim(1:7,i)  = GETREALARRAY('RefState',7)
     RefStatePrim(8,i) = RefStatePrim(7,i)
     RefStatePrim(7,i) = RefStatePrim(6,i)
 #if PP_dim==2
