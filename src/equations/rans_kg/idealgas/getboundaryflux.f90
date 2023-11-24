@@ -322,6 +322,8 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(VEL3,p,q)     = SUM(UPrim_master(VELV,p,q)*TangVec2(:,p,q))
     UPrim_boundary(PRES,p,q)     = UPrim_master(PRES,p,q)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
+    UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
+    UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q) 
   END DO; END DO !p,q
 
 
@@ -337,6 +339,9 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q) ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
+      UPrim_boundary(TKE,p,q) = 0.
+      UPrim_boundary(OMG,p,q) = 0.
+      UPrim_boundary(NUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(4) ! Isothermal wall
     ! For isothermal wall, all gradients are from interior
@@ -348,6 +353,9 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState) ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
+      UPrim_boundary(TKE,p,q) = 0.
+      UPrim_boundary(OMG,p,q) = 0.
+      UPrim_boundary(NUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(9,91) ! Euler (slip) wall
     ! vel=(0,v_in,w_in)
@@ -467,6 +475,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VEL2,p,q)=SUM(U*nv(1:3)*Tangvec1(1:3,p,q))
       UPrim_boundary(VEL3,p,q)=SUM(U*nv(1:3)*Tangvec2(1:3,p,q))
       UPrim_boundary(TEMP,p,q)=Tb
+      UPrim_boundary(TKE ,p,q)=RefStatePrim(TKE,BCState)
+      UPrim_boundary(OMG ,p,q)=RefStatePrim(OMG,BCState)
     END DO; END DO !p,q
   END SELECT
 
@@ -690,6 +700,24 @@ ELSE
         gradUz_Face_loc(LIFT_TEMP,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP,p,q) &
                                        + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
                                        + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+        gradUx_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_TKE,p,q)
+        gradUy_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_TKE,p,q)
+        gradUz_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
+                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+        gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
+                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)+nv(3 )*gradUx_master(LIFT_VEL3,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)+tv1(3)*gradUx_master(LIFT_VEL3,p,q)
@@ -740,6 +768,16 @@ ELSE
         gradUy_Face_loc(LIFT_TEMP,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP,p,q) &
                                        + BCGradMat(2,2) * gradUy_master(LIFT_TEMP,p,q)
         gradUz_Face_loc(LIFT_TEMP,p,q) = 0.
+        gradUx_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                                 + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q)
+        gradUy_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
+                                                 + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q)
+        gradUz_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = 0.
+        gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                 + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                 + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = 0.
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)
@@ -893,9 +931,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_Boundary(1,p,q)
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(6,p,q)
+      Flux(LIFT_TKE ,p,q) = 0.
+      Flux(LIFT_OMG ,p,q) = 0.  
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(6,p,q)
+      Flux(LIFT_TKE ,p,q) = 0.
+      Flux(LIFT_OMG ,p,q) = 0. 
 #endif
     END DO; END DO !p,q
   CASE(9,91)
@@ -907,9 +949,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_master(1,p,q)
       Flux(LIFT_VELV,p,q) = UPrim_boundary(2:4,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(6,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(TKE,p,q) 
+      Flux(LIFT_OMG ,p,q) = UPrim_master(OMG,p,q) 
 #else
       Flux(LIFT_VELV,p,q) = UPrim_boundary(2:4,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(6,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(TKE,p,q) 
+      Flux(LIFT_OMG ,p,q) = UPrim_master(OMG,p,q) 
 #endif
     END DO; END DO !p,q
   CASE(1) !Periodic already filled!

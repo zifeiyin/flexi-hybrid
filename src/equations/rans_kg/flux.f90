@@ -89,18 +89,24 @@ f(MOM1) = U(MOM1) * UPrim(VEL1) + UPrim(PRES) ! rho*u²+p
 f(MOM2) = U(MOM1) * UPrim(VEL2)               ! rho*u*v
 f(MOM3) = U(MOM1) * UPrim(VEL3)               ! rho*u*w
 f(ENER) = Ep * UPrim(VEL1)                    ! (rho*e+p)*u
+f(RHOK) = U(MOM1) * UPrim(TKE)               ! rho*u*k
+f(RHOG) = U(MOM1) * UPrim(OMG)               ! rho*u*tg
 ! Euler fluxes y-direction
 g(DENS) = U(MOM2)                             ! rho*v
 g(MOM1) = f(MOM2)                             ! rho*u*v
 g(MOM2) = U(MOM2) * UPrim(VEL2) + UPrim(PRES) ! rho*v²+p
 g(MOM3) = U(MOM2) * UPrim(VEL3)               ! rho*v*w
 g(ENER) = Ep * UPrim(VEL2)                    ! (rho*e+p)*v
+g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*u*k
+g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*u*tg
 ! Euler fluxes z-direction
 h(DENS) = U(MOM3)                             ! rho*v
 h(MOM1) = f(MOM3)                             ! rho*u*w
 h(MOM2) = g(MOM3)                             ! rho*v*w
 h(MOM3) = U(MOM3) * UPrim(VEL3) + UPrim(PRES) ! rho*v²+p
 h(ENER) = Ep * UPrim(VEL3)                    ! (rho*e+p)*w
+g(RHOK) = U(MOM3) * UPrim(TKE)                ! rho*u*k
+g(RHOG) = U(MOM3) * UPrim(OMG)                ! rho*u*tg
 #else
 
 ! Euler part
@@ -110,12 +116,16 @@ f(MOM1) = U(MOM1)*UPrim(VEL1)+UPrim(PRES)     ! rho*u²+p
 f(MOM2) = U(MOM1)*UPrim(VEL2)                 ! rho*u*v
 f(MOM3) = 0.
 f(ENER) = Ep*UPrim(VEL1)                      ! (rho*e+p)*u
+f(RHOK) = U(MOM1) * UPrim(TKE)               ! rho*u*k
+f(RHOG) = U(MOM1) * UPrim(OMG)               ! rho*u*tg
 ! Euler fluxes y-direction
 g(DENS)= U(MOM2)                              ! rho*v
 g(MOM1)= f(MOM2)                              ! rho*u*v
 g(MOM2)= U(MOM2)*UPrim(VEL2)+UPrim(PRES)      ! rho*v²+p
 g(MOM3)= 0.
 g(ENER)= Ep*UPrim(VEL2)                       ! (rho*e+p)*v
+g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*u*k
+g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*u*tg
 ! Euler fluxes z-direction
 h   = 0.
 #endif
@@ -152,7 +162,7 @@ PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
 #endif
 )
 ! MODULES
-USE MOD_Equation_Vars,ONLY: s23,s43
+USE MOD_Equation_Vars,ONLY: s23,s43,PrTurb,Comega1,Comega2,Cmu,sigmaK,sigmaG
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
 #if EDDYVISCOSITY
@@ -174,6 +184,7 @@ REAL                :: tau_xx,tau_yy,tau_xy
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
 #endif
+REAL                :: muTurb, muEff, kDiffEff, gDiffEff
 !==================================================================================================================================
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
@@ -183,6 +194,13 @@ lambda = THERMAL_CONDUCTIVITY_H(muS)
 muS    = muS    + muSGS
 lambda = lambda + muSGS*cp/PrSGS
 #endif
+! add turbulent viscosity and diffusivity
+muTurb = Cmu * UPrim(DENS) * UPrim(TKE) * UPrim(OMG) * UPrim(OMG)
+muEff  = MAX(muS, muS + muTurb)
+lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
+!diffusivity of turbulence variables
+kDiffEff = MAX(muS, muS + muTurb * sigmaK)
+gDiffEff = MAX(muS, muS + muTurb * sigmaG)
 
 ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => UPrim(VEL3), &
            gradT1 => GradUx(LIFT_TEMP), gradT2 => GradUy(LIFT_TEMP), gradT3 => GradUz(LIFT_TEMP) )
@@ -202,18 +220,24 @@ f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1  ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
+f(RHOK) = -kDiffEff*gradUx(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_x
+f(RHOG) = -gDiffEff*gradUx(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_x
 ! viscous fluxes in y-direction
 g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2  ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
+g(RHOK) = -kDiffEff*gradUy(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_y
+g(RHOG) = -gDiffEff*gradUy(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_y
 ! viscous fluxes in z-direction
 h(DENS) = 0.
 h(MOM1) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 h(MOM2) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 h(MOM3) = -tau_zz                                       ! F_euler-4/3*mu*w_z+2/3*mu*(u_x+v_y)
 h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3  ! F_euler-(tau_zx*u+tau_zy*v+tau_zz*w-q_z) q_z=-lambda*T_z
+h(RHOK) = -kDiffEff*gradUz(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_z
+h(RHOG) = -gDiffEff*gradUz(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_z
 #else
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
@@ -227,12 +251,16 @@ f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = 0.
 f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1            ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
+f(RHOK) = -kDiffEff*gradUx(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_x
+f(RHOG) = -gDiffEff*gradUx(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_x
 ! viscous fluxes in y-direction
 g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = 0.
 g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2            ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
+g(RHOK) = -kDiffEff*gradUy(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_y
+g(RHOG) = -gDiffEff*gradUy(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_y
 ! viscous fluxes in z-direction
 h    = 0.
 #endif
@@ -359,6 +387,8 @@ F(MOM3)= U(EXT_MOM1)*U(EXT_VEL3)             ! rho*u*w
 F(MOM3)= 0.
 #endif
 F(ENER)=(U(EXT_ENER)+U(EXT_PRES))*U(EXT_VEL1)! (rho*e+p)*u
+F(RHOK)=(U(EXT_MOM1)*U(EXT_TKE))            ! rho * u * tke
+F(RHOG)=(U(EXT_MOM1)*U(EXT_OMG))            ! rho * u * g
 END SUBROUTINE EvalEulerFlux1D_fast
 
 END MODULE MOD_Flux

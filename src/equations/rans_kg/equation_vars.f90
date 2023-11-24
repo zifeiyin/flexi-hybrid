@@ -41,7 +41,7 @@ REAL                 :: s43            !< precomputed 4./3.
 REAL                 :: s23            !< precomputed 2./3.
 
 ! k-omega specific variables and parameters
-REAL              :: PrTurb            !< Turbulent Prandtl number
+REAL              :: PrTurb  = 0.9     !< Turbulent Prandtl number
 REAL, PARAMETER   :: sigmaK  = 0.5     !< diffusivity coefficient for k equation
 REAL, PARAMETER   :: sigmaG  = 0.5     !< diffusivity coefficient for omega equation
 REAL, PARAMETER   :: Comega1 = 5./9.    !< alpha in k omega model 
