@@ -136,9 +136,8 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStatePrim(PP_nVarPrim,nRefState))
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
-    RefStatePrim(1:7,i)  = GETREALARRAY('RefState',7)
-    RefStatePrim(8,i) = RefStatePrim(7,i)
-    RefStatePrim(7,i) = RefStatePrim(6,i)
+    RefStatePrim(1:7,i) = GETREALARRAY('RefState',7)
+    RefStatePrim(7:8,i) = RefStatePrim(6:7,i)
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN
       SWRITE(UNIT_stdOut,'(A)')' You are computing in 2D! RefStatePrim(4) will be set to zero!'

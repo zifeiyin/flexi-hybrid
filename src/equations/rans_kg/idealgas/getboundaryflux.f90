@@ -518,9 +518,6 @@ USE MOD_Flux         ,ONLY: EvalDiffFlux3D
 USE MOD_Riemann      ,ONLY: ViscousFlux
 #endif
 USE MOD_Riemann      ,ONLY: Riemann
-#if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS_master
-#endif
 USE MOD_TestCase     ,ONLY: GetBoundaryFluxTestcase
 USE MOD_DG_Vars      ,ONLY: UPrim_Boundary
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -588,18 +585,11 @@ ELSE
     CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
          gradUx_master,gradUy_master,gradUz_master,&
          gradUx_master,gradUy_master,gradUz_master,&
-         NormVec&
-#if EDDYVISCOSITY
-        ,muSGS_master(:,:,:,SideID),muSGS_master(:,:,:,SideID)&
-#endif
-    )
+         NormVec)
     Flux = Flux + Fd_Face_loc
 #endif /*PARABOLIC*/
 
   CASE(3,4,9,91) ! Walls
-#if EDDYVISCOSITY
-    muSGS_master(:,:,:,SideID)=0.
-#endif
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       ! Now we compute the 1D Euler flux, but use the info that the normal component u=0
       ! we directly tranform the flux back into the Cartesian coords: F=(0,n1*p,n2*p,n3*p,0)^T
@@ -614,11 +604,7 @@ ELSE
       ! Evaluate 3D Diffusion Flux with interior state and symmetry gradients
       CALL EvalDiffFlux3D(Nloc,UPrim_boundary,&
                           gradUx_master, gradUy_master, gradUz_master, &
-                          Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    &
-#if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID) &
-#endif
-                         )
+                          Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    )
       IF (BCType.EQ.3) THEN
         ! Enforce energy flux is exactly zero at adiabatic wall
         Fd_Face_loc(ENER,:,:)=0.
@@ -667,11 +653,7 @@ ELSE
       ! Only velocities will be used from state (=inner velocities, except normal vel=0)
       CALL EvalDiffFlux3D(Nloc, UPrim_boundary,                              &
                           gradUx_Face_loc, gradUy_Face_loc, gradUz_Face_loc, &
-                          Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              &
-#if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID)                         &
-#endif
-      )
+                          Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              )
     CASE(91)
       ! Euler/(full-)slip wall
       ! Version 2: For scalars and tangential velocity, set gradients in normal direction to zero.
@@ -808,11 +790,7 @@ ELSE
       ! Only velocities will be used from state (=inner velocities, except normal vel=0)
       CALL EvalDiffFlux3D(Nloc,UPrim_boundary,                            &
                           gradUx_Face_loc,gradUy_Face_loc,gradUz_Face_loc, &
-                          Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            &
-#if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID)&
-#endif
-      )
+                          Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            )
     END SELECT
 
     ! Sum up Euler and Diffusion Flux

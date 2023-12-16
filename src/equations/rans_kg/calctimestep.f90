@@ -114,9 +114,6 @@ USE MOD_Viscosity
 #if FV_ENABLED
 USE MOD_FV_Vars      ,ONLY: FV_Elems
 #endif
-#if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars, ONLY: muSGS
-#endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -129,9 +126,6 @@ INTEGER                      :: i,j,k,iElem
 REAL,DIMENSION(PP_2Var)      :: UE
 REAL                         :: TimeStepConv, TimeStepVisc, TimeStep(3)
 REAL                         :: Max_Lambda(3),c,vsJ(3)
-#if EDDYVISCOSITY
-REAL                         :: muSGSmax
-#endif
 #if PARABOLIC
 REAL                         :: Max_Lambda_v(3),mu,prim(PP_nVarPrim)
 #endif /*PARABOLIC*/
@@ -147,9 +141,6 @@ DO iElem=1,nElems
 #if PARABOLIC
   Max_Lambda_v=0.
 #endif /*PARABOLIC*/
-#if EDDYVISCOSITY
-  muSGSMax = MAXVAL(muSGS(1,:,:,:,iElem))
-#endif
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     ! TODO: ATTENTION: Temperature of UE not filled!!!
     UE(EXT_CONS)=U(:,i,j,k,iElem)
@@ -176,9 +167,6 @@ DO iElem=1,nElems
     ! Viscous Eigenvalues
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
-#if EDDYVISCOSITY
-    mu = mu+muSGSMax
-#endif
     Max_Lambda_v=MAX(Max_Lambda_v,mu*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))
 #endif /* PARABOLIC*/
   END DO; END DO; END DO ! i,j,k

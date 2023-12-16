@@ -174,11 +174,7 @@ END SUBROUTINE EvalAdvFluxJacobianPoint
 !===================================================================================================================================
 !> The Jacobian of the diffusion flux with respect to the conservative variables U
 !===================================================================================================================================
-SUBROUTINE EvalDiffFluxJacobian(nDOF_loc,U,UPrim,gradUx,gradUy,gradUz,fJac,gJac,hJac &
-#if EDDYVISCOSITY
-                                ,muSGS &
-#endif
-                                )
+SUBROUTINE EvalDiffFluxJacobian(nDOF_loc,U,UPrim,gradUx,gradUy,gradUz,fJac,gJac,hJac )
 ! MODULES
 USE MOD_PreProc
 USE MOD_Equation_Vars     ,ONLY:s23,s43
@@ -195,9 +191,6 @@ REAL,DIMENSION(PP_nVar        ,nDOF_loc),INTENT(IN)  :: U                    !< 
 REAL,DIMENSION(PP_nVarPrim    ,nDOF_loc),INTENT(IN)  :: UPrim                !< solution in primitive variables
 REAL,DIMENSION(PP_nVarLifting ,nDOF_loc),INTENT(IN)  :: gradUx,gradUy,gradUz !< primitive gradients
 REAL,DIMENSION(PP_nVar,PP_nVar,nDOF_loc),INTENT(OUT) :: fJac,gJac,hJac       !< Derivative of the physical diffusive fluxes
-#if EDDYVISCOSITY
-REAL,DIMENSION(1              ,nDOF_loc),INTENT(IN)  :: muSGS                !< eddy viscosity
-#endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: dir,i
@@ -217,9 +210,6 @@ hJac = 0.
 
 DO i=1,nDOF_loc
   muS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i))
-#if EDDYVISCOSITY
-  muS = muS    + muSGS(1,i)
-#endif
 
   ! Add turbulent viscosity and diffusivity
   invRho = 1.0 / U(DENS,i)
@@ -336,11 +326,7 @@ END SUBROUTINE EvalDiffFluxJacobian
 !===================================================================================================================================
 !> Computes the volume derivative of the analytical diffusive flux with respect to the gradient of U: d(F^v)/dQ, Q=grad U
 !===================================================================================================================================
-SUBROUTINE EvalFluxGradJacobian(nDOF_loc,U,UPrim,fJacQx,fJacQy,fJacQz,gJacQx,gJacQy,gJacQz,hJacQx,hJacQy,hJacQz &
-#if EDDYVISCOSITY
-                               ,muSGS &
-#endif
-                               )
+SUBROUTINE EvalFluxGradJacobian(nDOF_loc,U,UPrim,fJacQx,fJacQy,fJacQz,gJacQx,gJacQy,gJacQz,hJacQx,hJacQy,hJacQz )
 ! MODULES
 USE MOD_PreProc
 USE MOD_Viscosity
@@ -358,9 +344,6 @@ IMPLICIT NONE
 INTEGER,INTENT(IN)                                       :: nDOF_loc !< number of degrees of freedom
 REAL,DIMENSION(PP_nVar    ,nDOF_loc),INTENT(IN)          :: U        !< solution in conservative variables
 REAL,DIMENSION(PP_nVarPrim,nDOF_loc),INTENT(IN)          :: UPrim    !< solution in primitive variables
-#if EDDYVISCOSITY
-REAL,DIMENSION(1          ,nDOF_loc),INTENT(IN)          :: muSGS    !< eddy viscosity
-#endif
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! OUTPUT VARIABLES
 REAL,DIMENSION(PP_nVar,PP_nVarPrim,nDOF_loc),INTENT(OUT) :: fJacQx,fJacQy,fJacQz,gJacQx,gJacQy,gJacQz,hJacQx,hJacQy,hJacQz !<

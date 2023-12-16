@@ -370,11 +370,7 @@ END SUBROUTINE Riemann_Point
 !> Actually not a Riemann solver, only here for coding reasons
 !==================================================================================================================================
 SUBROUTINE ViscousFlux_Side(Nloc,F,UPrim_L,UPrim_R, &
-                            gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv &
-#if EDDYVISCOSITY
-                           ,muSGS_L,muSGS_R &
-#endif
-                           )
+                            gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv )
 ! MODULES
 USE MOD_Flux         ,ONLY: EvalDiffFlux3D
 USE MOD_Lifting_Vars ,ONLY: diffFluxX_L,diffFluxY_L,diffFluxZ_L
@@ -389,9 +385,6 @@ REAL,DIMENSION(PP_nVarPrim   ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: UPrim_L,UPrim_
 REAL,DIMENSION(PP_nVarLifting,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: gradUx_L,gradUx_R,gradUy_L,gradUy_R,gradUz_L,gradUz_R
 REAL,DIMENSION(3             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: nv  !< normal vector
 REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: F   !< viscous flux
-#if EDDYVISCOSITY
-REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS_L,muSGS_R   !> eddy viscosity left/right of the interface
-#endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -401,17 +394,9 @@ INTEGER                                                       :: p,q
 ! Don't forget the diffusion contribution, my young padawan
 ! Compute NSE Diffusion flux
 CALL EvalDiffFlux3D(Nloc,UPrim_L,   gradUx_L,   gradUy_L,   gradUz_L  &
-                                ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  &
-#if EDDYVISCOSITY
-                   ,muSGS_L &
-#endif
-      )
+                                ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  )
 CALL EvalDiffFlux3D(Nloc,UPrim_R,   gradUx_R,   gradUy_R,   gradUz_R  &
-                                ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  &
-#if EDDYVISCOSITY
-                   ,muSGS_R&
-#endif
-      )
+                                ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  )
 ! Arithmetic mean of the fluxes
 DO q=0,ZDIM(Nloc); DO p=0,Nloc
   F(:,p,q)=0.5*(nv(1,p,q)*(diffFluxX_L(:,p,q)+diffFluxX_R(:,p,q)) &
@@ -425,11 +410,7 @@ END SUBROUTINE ViscousFlux_Side
 !> Actually not a Riemann solver, only here for coding reasons
 !==================================================================================================================================
 SUBROUTINE ViscousFlux_Point(F,UPrim_L,UPrim_R, &
-                             gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv &
-#if EDDYVISCOSITY
-                            ,muSGS_L,muSGS_R &
-#endif
-                            )
+                             gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv )
 ! MODULES
 USE MOD_Flux         ,ONLY: EvalDiffFlux3D
 IMPLICIT NONE
@@ -441,9 +422,6 @@ REAL,DIMENSION(PP_nVarPrim   ),INTENT(IN)  :: UPrim_L,UPrim_R
 REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx_L,gradUx_R,gradUy_L,gradUy_R,gradUz_L,gradUz_R
 REAL,DIMENSION(3             ),INTENT(IN)  :: nv  !< normal vector
 REAL,DIMENSION(PP_nVar       ),INTENT(OUT) :: F   !< viscous flux
-#if EDDYVISCOSITY
-REAL,INTENT(IN)                            :: muSGS_L,muSGS_R    !> eddy viscosity left/right of the interface
-#endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -454,17 +432,9 @@ REAL,DIMENSION(PP_nVar)  :: diffFluxX_R,diffFluxY_R,diffFluxZ_R
 ! Don't forget the diffusion contribution, my young padawan
 ! Compute NSE Diffusion flux
 CALL EvalDiffFlux3D(UPrim_L,   gradUx_L,   gradUy_L,   gradUz_L  &
-                           ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  &
-#if EDDYVISCOSITY
-                   ,muSGS_L &
-#endif
-      )
+                           ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  )
 CALL EvalDiffFlux3D(UPrim_R,   gradUx_R,   gradUy_R,   gradUz_R  &
-                           ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  &
-#if EDDYVISCOSITY
-                   ,muSGS_R&
-#endif
-      )
+                           ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  )
 ! Arithmetic mean of the fluxes
 F(:)=0.5*(nv(1)*(diffFluxX_L(:)+diffFluxX_R(:)) &
          +nv(2)*(diffFluxY_L(:)+diffFluxY_R(:)) &

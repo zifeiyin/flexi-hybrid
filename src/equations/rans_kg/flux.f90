@@ -89,8 +89,8 @@ f(MOM1) = U(MOM1) * UPrim(VEL1) + UPrim(PRES) ! rho*u²+p
 f(MOM2) = U(MOM1) * UPrim(VEL2)               ! rho*u*v
 f(MOM3) = U(MOM1) * UPrim(VEL3)               ! rho*u*w
 f(ENER) = Ep * UPrim(VEL1)                    ! (rho*e+p)*u
-f(RHOK) = U(MOM1) * UPrim(TKE)               ! rho*u*k
-f(RHOG) = U(MOM1) * UPrim(OMG)               ! rho*u*tg
+f(RHOK) = U(MOM1) * UPrim(TKE)                ! rho*u*k
+f(RHOG) = U(MOM1) * UPrim(OMG)                ! rho*u*tg
 ! Euler fluxes y-direction
 g(DENS) = U(MOM2)                             ! rho*v
 g(MOM1) = f(MOM2)                             ! rho*u*v
@@ -156,27 +156,17 @@ END SUBROUTINE EvalFlux3D_Volume
 !==================================================================================================================================
 !> Compute Navier-Stokes diffusive flux using the primitive variables and derivatives.
 !==================================================================================================================================
-PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
-#if EDDYVISCOSITY
-                                      ,muSGS &
-#endif
-)
+PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h)
 ! MODULES
 USE MOD_Equation_Vars,ONLY: s23,s43,PrTurb,Comega1,Comega2,Cmu,sigmaK,sigmaG
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
-#if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: PrSGS
-#endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
 REAL,DIMENSION(PP_nVarPrim)   ,INTENT(IN)  :: UPrim                 !< Solution vector
 REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx,gradUy,gradUz  !> Gradients in x,y,z directions
 REAL,DIMENSION(PP_nVar)       ,INTENT(OUT) :: f,g,h                 !> Physical fluxes in x,y,z directions
-#if EDDYVISCOSITY
-REAL                          ,INTENT(IN)  :: muSGS                 !< SGS viscosity
-#endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                :: muS,lambda
@@ -190,10 +180,6 @@ REAL                :: muTurb, muEff, kDiffEff, gDiffEff
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
 !Add turbulent sub grid scale viscosity to mu
-#if EDDYVISCOSITY
-muS    = muS    + muSGS
-lambda = lambda + muSGS*cp/PrSGS
-#endif
 ! add turbulent viscosity and diffusivity
 muTurb = Cmu * UPrim(DENS) * UPrim(TKE) * UPrim(OMG) * UPrim(OMG)
 muEff  = MAX(muS, muS + muTurb)
@@ -273,9 +259,6 @@ END SUBROUTINE EvalDiffFlux3D_Point
 SUBROUTINE EvalDiffFlux3D_Volume(UPrim,gradUx,gradUy,gradUz,f,g,h,iElem)
 ! MODULES
 USE MOD_PreProc
-#if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS
-#endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -289,22 +272,14 @@ INTEGER             :: i,j,k
 !==================================================================================================================================
 DO k=0,PP_NZ;  DO j=0,PP_N; DO i=0,PP_N
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j,k),gradUx(:,i,j,k),gradUy(:,i,j,k),gradUz(:,i,j,k), &
-                                                f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  &
-#if EDDYVISCOSITY
-                            ,muSGS(1,i,j,k,iElem)&
-#endif
-                            )
+                                                f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  )
 END DO; END DO; END DO ! i,j,k
 END SUBROUTINE EvalDiffFlux3D_Volume
 
 !==================================================================================================================================
 !> Wrapper routine to compute the diffusive part of the Navier-Stokes fluxes for a single side
 !==================================================================================================================================
-PPURE SUBROUTINE EvalDiffFlux3D_Surface(Nloc,UPrim,gradUx,gradUy,gradUz,f,g,h &
-#if EDDYVISCOSITY
-                                 ,muSGS &
-#endif
-                                 )
+PPURE SUBROUTINE EvalDiffFlux3D_Surface(Nloc,UPrim,gradUx,gradUy,gradUz,f,g,h )
 ! MODULES
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -313,20 +288,13 @@ INTEGER                                           ,INTENT(IN)  :: Nloc          
 REAL,DIMENSION(PP_nVarPrim   ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: UPrim                !< Solution vector
 REAL,DIMENSION(PP_nVarLifting,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: gradUx,gradUy,gradUz !> Gradients in x,y,z directions
 REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: f,g,h                !> Physical fluxes in x,y,z directions
-#if EDDYVISCOSITY
-REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS                !< SGS viscosity
-#endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j
 !==================================================================================================================================
 DO j=0,ZDIM(Nloc); DO i=0,Nloc
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j),gradUx(:,i,j),gradUy(:,i,j),gradUz(:,i,j), &
-                                               f(:,i,j),     g(:,i,j),     h(:,i,j)  &
-#if EDDYVISCOSITY
-                            ,muSGS(1,i,j) &
-#endif
-                            )
+                                               f(:,i,j),     g(:,i,j),     h(:,i,j)  )
 END DO; END DO ! i,j
 END SUBROUTINE EvalDiffFlux3D_Surface
 #endif /*PARABOLIC*/
