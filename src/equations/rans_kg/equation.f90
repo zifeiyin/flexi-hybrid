@@ -56,9 +56,6 @@ USE MOD_Riemann    ,ONLY: DefineParametersRiemann
 #ifdef SPLIT_DG
 USE MOD_SplitFlux  ,ONLY: DefineParametersSplitDG
 #endif /*SPLIT_DG*/
-#if EDDYVISCOSITY
-USE MOD_EddyVisc,   ONLY: DefineParametersEddyVisc
-#endif
 IMPLICIT NONE
 !==================================================================================================================================
 CALL prms%SetSection("Equation")
@@ -71,9 +68,6 @@ CALL DefineParametersRiemann()
 #ifdef SPLIT_DG
 CALL DefineParametersSplitDG()
 #endif /*SPLIT_DG*/
-#if EDDYVISCOSITY
-CALL DefineParametersEddyVisc()
-#endif /*EDDYVISCOSITY*/
 END SUBROUTINE DefineParametersEquation
 
 !==================================================================================================================================
@@ -92,9 +86,6 @@ USE MOD_TestCase          ,ONLY: InitTestcase
 USE MOD_Riemann           ,ONLY: InitRiemann
 USE MOD_GetBoundaryFlux,   ONLY: InitBC
 USE MOD_CalcTimeStep      ,ONLY: InitCalctimestep
-#if EDDYVISCOSITY
-USE MOD_EddyVisc          ,ONLY: InitEddyVisc
-#endif
 #ifdef SPLIT_DG
 USE MOD_SplitFlux         ,ONLY: InitSplitDG
 #endif /*SPLIT_DG*/
@@ -163,11 +154,6 @@ CALL InitRiemann()
 ! Initialize timestep calculation
 CALL InitCalctimestep()
 
-#if EDDYVISCOSITY
-! Initialize eddyViscosity
-CALL InitEddyVisc()
-#endif
-
 #ifdef SPLIT_DG
 ! Initialize SplitDG
 CALL InitSplitDG()
@@ -175,7 +161,7 @@ CALL InitSplitDG()
 CALL InitBC()
 
 EquationInitIsDone=.TRUE.
-SWRITE(UNIT_stdOut,'(A)')' INIT NAVIER-STOKES DONE!'
+SWRITE(UNIT_stdOut,'(A)')' INIT NAVIER-STOKES with k-g equation DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
 
 ! Initialize current testcase
@@ -296,18 +282,12 @@ USE MOD_Equation_Vars
 USE MOD_TestCase        ,ONLY: FinalizeTestcase
 USE MOD_Riemann         ,ONLY: FinalizeRiemann
 USE MOD_CalcTimeStep    ,ONLY: FinalizeCalctimestep
-#if EDDYVISCOSITY
-USE MOD_EddyVisc        ,ONLY: FinalizeEddyVisc
-#endif /*EDDYVISCOSITY*/
 USE MOD_GetBoundaryFlux, ONLY: FinalizeBC
 IMPLICIT NONE
 !==================================================================================================================================
 CALL FinalizeTestcase()
 CALL FinalizeRiemann()
 CALL FinalizeCalctimestep()
-#if EDDYVISCOSITY
-CALL FinalizeEddyVisc()
-#endif /*EDDYVISCOSITY*/
 CALL FinalizeBC()
 SDEALLOCATE(RefStatePrim)
 SDEALLOCATE(RefStateCons)

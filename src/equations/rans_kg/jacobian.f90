@@ -333,9 +333,6 @@ USE MOD_Viscosity
 USE MOD_Equation_Vars,ONLY:s43,s23
 Use MOD_Equation_Vars,ONLY: PrTurb, Comega1, Comega2, Cmu, sigmaK, sigmaG
 USE MOD_EOS_Vars,     ONLY:cp,Pr
-#if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: PrSGS
-#endif
 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE

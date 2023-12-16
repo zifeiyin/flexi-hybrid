@@ -225,7 +225,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_LL(EXT_SRHO)=1./U_LL(EXT_DENS)
   U_LL(EXT_ENER)=U_L(ENER,i,j)
   U_LL(EXT_PRES)=UPrim_L(PRES,i,j)
-
+  U_LL(EXT_RHOK)=U_L(RHOK,i,j) 
+  U_LL(EXT_RHOG)=U_L(RHOG,i,j) 
 
   ! rotate velocity in normal and tangential direction
   U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV,i,j),nv(:,i,j))
@@ -244,6 +245,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_RR(EXT_SRHO)=1./U_RR(EXT_DENS)
   U_RR(EXT_ENER)=U_R(ENER,i,j)
   U_RR(EXT_PRES)=UPrim_R(PRES,i,j)
+  U_RR(EXT_RHOK)=U_R(RHOK,i,j) 
+  U_RR(EXT_RHOG)=U_R(RHOG,i,j)  
   ! rotate momentum in normal and tangential direction
   U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV,i,j),nv(:,i,j))
   U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV,i,j),t1(:,i,j))
@@ -274,6 +277,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
                + 0.
 #endif
   Fout(ENER,i,j)=F(ENER)
+  Fout(RHOK,i,j)=F(RHOK)
+  Fout(RHOG,i,j)=F(RHOG)
 END DO; END DO
 END SUBROUTINE Riemann_Side
 
@@ -313,7 +318,8 @@ U_LL(EXT_DENS)=U_L(DENS)
 U_LL(EXT_SRHO)=1./U_LL(EXT_DENS)
 U_LL(EXT_ENER)=U_L(ENER)
 U_LL(EXT_PRES)=UPrim_L(PRES)
-
+U_LL(EXT_RHOK)=U_L(RHOK)
+U_LL(EXT_RHOG)=U_L(RHOG)
 
 ! rotate velocity in normal and tangential direction
 U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV),nv(:))
@@ -332,6 +338,8 @@ U_RR(EXT_DENS)=U_R(DENS)
 U_RR(EXT_SRHO)=1./U_RR(EXT_DENS)
 U_RR(EXT_ENER)=U_R(ENER)
 U_RR(EXT_PRES)=UPrim_R(PRES)
+U_RR(EXT_RHOK)=U_R(RHOK)
+U_RR(EXT_RHOG)=U_R(RHOG)
 ! rotate momentum in normal and tangential direction
 U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV),nv(:))
 U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV),t1(:))
@@ -362,6 +370,8 @@ Fout(MOMV)=nv(:)*F(MOM1)  &
           +0.
 #endif
 Fout(ENER)=F(ENER)
+Fout(RHOK)=F(RHOK)
+Fout(RHOG)=F(RHOG)
 END SUBROUTINE Riemann_Point
 
 #if PARABOLIC
@@ -625,6 +635,7 @@ F(ENER)      = F(ENER)      - 0.5*LambdaMax*( &
          (U_RR(EXT_DENS)-U_LL(EXT_DENS))*(0.5*sKappaM1/betaLogMean +0.5*(U_RR(EXT_VEL1)*U_LL(EXT_VEL1)+U_RR(EXT_VEL2)*U_LL(EXT_VEL2)+U_RR(EXT_VEL3)*U_LL(EXT_VEL3))) &
          +rhoMean*uMean*(U_RR(EXT_VEL1)-U_LL(EXT_VEL1)) + rhoMean*vMean*(U_RR(EXT_VEL2)-U_LL(EXT_VEL2)) + rhoMean*wMean*(U_RR(EXT_VEL3)-U_LL(EXT_VEL3)) &
          +0.5*rhoMean*sKappaM1*(1./beta_RR - 1./beta_LL))
+F(RHOK:RHOG) = F(RHOK:RHOG) - 0.5*LambdaMax*(U_RR(EXT_RHOK:EXT_RHOG)-U_LL(EXT_RHOK:EXT_RHOG))
 
 END SUBROUTINE Riemann_CH
 #endif /*SPLIT_DG*/
