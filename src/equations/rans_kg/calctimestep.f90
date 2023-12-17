@@ -170,7 +170,7 @@ DO iElem=1,nElems
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
     ! add turbulence part
-    muTurb = Cmu * prim(DENS) * prim(TKE) * prim(OMG) * prim(OMG)  
+    muTurb = Cmu * UE(EXT_SRHO) * UE(EXT_SRHO) * UE(EXT_RHOK) * UE(EXT_RHOG) * UE(EXT_RHOG)
     muEff  = MAX(mu, mu + muTurb)
     Max_Lambda_v=MAX(Max_Lambda_v,muEff*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))
 #endif /* PARABOLIC*/
