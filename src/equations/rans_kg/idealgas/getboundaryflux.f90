@@ -324,6 +324,7 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
     UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
     UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q) 
+    UPrim_boundary(NUT, p,q)     = UPrim_master(NUT ,p,q)
   END DO; END DO !p,q
 
 
@@ -369,6 +370,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_master(DENS,p,q) ! density from inside
       ! set temperature via ideal gas equation, consistent to density and pressure
       UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(DENS,p,q) * R)
+      ! TKE, G, NUT from the inside
+      UPrim_boundary(TKE:NUT,p,q) = UPrim_master(TKE:NUT,p,q)
     END DO; END DO ! q,p
 
   ! Cases 21-29 are taken from NASA report "Inflow/Outflow Boundary Conditions with Application to FUN3D" Jan-Reneé Carlson
@@ -397,6 +400,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VELV,p,q)=UPrim_boundary(VELV,p,q)
       UPrim_boundary(PRES,p,q)=pb
       UPrim_boundary(TEMP,p,q)=UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
+      ! copy the inside values
+      UPrim_boundary(TKE:NUT,p,q) = UPrim_master(TKE:NUT,p,q)
     END DO; END DO !p,q
   CASE(24) ! Pressure outflow BC
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
@@ -518,9 +523,6 @@ USE MOD_Flux         ,ONLY: EvalDiffFlux3D
 USE MOD_Riemann      ,ONLY: ViscousFlux
 #endif
 USE MOD_Riemann      ,ONLY: Riemann
-#if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS_master
-#endif
 USE MOD_TestCase     ,ONLY: GetBoundaryFluxTestcase
 USE MOD_DG_Vars      ,ONLY: UPrim_Boundary
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -588,24 +590,19 @@ ELSE
     CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
          gradUx_master,gradUy_master,gradUz_master,&
          gradUx_master,gradUy_master,gradUz_master,&
-         NormVec&
-#if EDDYVISCOSITY
-        ,muSGS_master(:,:,:,SideID),muSGS_master(:,:,:,SideID)&
-#endif
-    )
+         NormVec)
     Flux = Flux + Fd_Face_loc
 #endif /*PARABOLIC*/
 
   CASE(3,4,9,91) ! Walls
-#if EDDYVISCOSITY
-    muSGS_master(:,:,:,SideID)=0.
-#endif
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       ! Now we compute the 1D Euler flux, but use the info that the normal component u=0
       ! we directly tranform the flux back into the Cartesian coords: F=(0,n1*p,n2*p,n3*p,0)^T
       Flux(DENS  ,p,q) = 0.
-      Flux(MOMV,p,q)   = UPrim_boundary(PRES,p,q)*NormVec(:,p,q)
+      Flux(MOMV  ,p,q) = UPrim_boundary(PRES,p,q)*NormVec(:,p,q)
       Flux(ENER  ,p,q) = 0.
+      Flux(RHOK  ,p,q) = 0.
+      Flux(RHOG  ,p,q) = 0.
     END DO; END DO !p,q
     ! Diffusion
 #if PARABOLIC
@@ -614,11 +611,7 @@ ELSE
       ! Evaluate 3D Diffusion Flux with interior state and symmetry gradients
       CALL EvalDiffFlux3D(Nloc,UPrim_boundary,&
                           gradUx_master, gradUy_master, gradUz_master, &
-                          Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    &
-#if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID) &
-#endif
-                         )
+                          Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    )
       IF (BCType.EQ.3) THEN
         ! Enforce energy flux is exactly zero at adiabatic wall
         Fd_Face_loc(ENER,:,:)=0.
@@ -667,11 +660,7 @@ ELSE
       ! Only velocities will be used from state (=inner velocities, except normal vel=0)
       CALL EvalDiffFlux3D(Nloc, UPrim_boundary,                              &
                           gradUx_Face_loc, gradUy_Face_loc, gradUz_Face_loc, &
-                          Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              &
-#if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID)                         &
-#endif
-      )
+                          Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              )
     CASE(91)
       ! Euler/(full-)slip wall
       ! Version 2: For scalars and tangential velocity, set gradients in normal direction to zero.
@@ -691,24 +680,15 @@ ELSE
         BCGradMat(2,1) = BCGradMat(1,2)
         BCGradMat(3,1) = BCGradMat(1,3)
         BCGradMat(2,3) = BCGradMat(3,2)
-        gradUx_Face_loc(LIFT_TEMP,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP,p,q)
-        gradUy_Face_loc(LIFT_TEMP,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP,p,q)
-        gradUz_Face_loc(LIFT_TEMP,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
-        gradUx_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_TKE,p,q)
-        gradUy_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_TKE,p,q)
-        gradUz_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+        gradUx_Face_loc(LIFT_DENS,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(1,2) * gradUy_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(1,3) * gradUz_master(LIFT_DENS,p,q)
+        gradUy_Face_loc(LIFT_DENS,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(2,2) * gradUy_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(2,3) * gradUz_master(LIFT_DENS,p,q)
+        gradUz_Face_loc(LIFT_DENS,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(3,2) * gradUy_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(3,3) * gradUz_master(LIFT_DENS,p,q)
         gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
                                        + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
                                        + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
@@ -763,15 +743,10 @@ ELSE
         BCGradMat(2,2) = 1. - nv(2)*nv(2)
         BCGradMat(1,2) = -nv(1)*nv(2)
         BCGradMat(2,1) = BCGradMat(1,2)
-        gradUx_Face_loc(LIFT_TEMP,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP,p,q)
-        gradUy_Face_loc(LIFT_TEMP,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP,p,q)
-        gradUz_Face_loc(LIFT_TEMP,p,q) = 0.
-        gradUx_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                                 + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q)
-        gradUy_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_TKE,p,q) &
-                                                 + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_TKE,p,q)
+        gradUx_Face_loc(LIFT_DENS,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(1,2) * gradUy_master(LIFT_DENS,p,q)
+        gradUy_Face_loc(LIFT_DENS,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_DENS,p,q) &
+                                       + BCGradMat(2,2) * gradUy_master(LIFT_DENS,p,q)
         gradUz_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = 0.
         gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
                                                  + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
@@ -808,11 +783,7 @@ ELSE
       ! Only velocities will be used from state (=inner velocities, except normal vel=0)
       CALL EvalDiffFlux3D(Nloc,UPrim_boundary,                            &
                           gradUx_Face_loc,gradUy_Face_loc,gradUz_Face_loc, &
-                          Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            &
-#if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID)&
-#endif
-      )
+                          Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            )
     END SELECT
 
     ! Sum up Euler and Diffusion Flux

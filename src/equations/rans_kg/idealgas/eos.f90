@@ -209,7 +209,7 @@ prim(VEL3)=cons(MOM3)*sRho
 prim(VEL3)=0.
 #endif
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))) - cons(RHOK)
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - cons(RHOK))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 
@@ -306,7 +306,7 @@ cons(MOM3)=prim(VEL3)*prim(DENS)
 cons(MOM3)=0.
 #endif
 ! energy
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))
+cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV)) + prim(TKE)*prim(DENS)
 
 cons(RHOK)=prim(TKE)*prim(DENS)
 cons(RHOG)=prim(OMG)*prim(DENS)

@@ -124,7 +124,6 @@ INTEGER  :: iStage
 b_dt = RKb*dt
 
 DO iStage = 1,nRKStages
-  print* ,"Current Runge-Kutta step No. = ", iStage
   ! NOTE: perform timestep in rk
   CurrentStage = iStage
   IF (CurrentStage.EQ.1) THEN; tStage = t
