@@ -105,8 +105,8 @@ h(MOM1) = f(MOM3)                             ! rho*u*w
 h(MOM2) = g(MOM3)                             ! rho*v*w
 h(MOM3) = U(MOM3) * UPrim(VEL3) + UPrim(PRES) ! rho*v²+p
 h(ENER) = Ep * UPrim(VEL3)                    ! (rho*e+p)*w
-g(RHOK) = U(MOM3) * UPrim(TKE)                ! rho*u*k
-g(RHOG) = U(MOM3) * UPrim(OMG)                ! rho*u*tg
+h(RHOK) = U(MOM3) * UPrim(TKE)                ! rho*u*k
+h(RHOG) = U(MOM3) * UPrim(OMG)                ! rho*u*tg
 #else
 
 ! Euler part
