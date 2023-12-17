@@ -194,12 +194,12 @@ ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => U
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
 ! viscous fluxes in x-direction
-tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
-tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
-tau_zz = muS * (-s23 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) + s43 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x-2/3*mu*v_y +4/3*mu*w*z
-tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
-tau_xz = muS * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
-tau_yz = muS * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
+tau_xx = muEff * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
+tau_yy = muEff * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
+tau_zz = muEff * (-s23 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) + s43 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x-2/3*mu*v_y +4/3*mu*w*z
+tau_xy = muEff * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
+tau_xz = muEff * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
+tau_yz = muEff * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
 
 f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
@@ -228,9 +228,9 @@ h(RHOG) = -gDiffEff*gradUz(LIFT_OMG)                    ! F_euler-(muS+sigmaO*mu
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
 ! viscous fluxes in x-direction
-tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
-tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
-tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
+tau_xx = muEff * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
+tau_yy = muEff * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
+tau_xy = muEff * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
 
 f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)

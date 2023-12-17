@@ -227,6 +227,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_LL(EXT_PRES)=UPrim_L(PRES,i,j)
   U_LL(EXT_RHOK)=U_L(RHOK,i,j) 
   U_LL(EXT_RHOG)=U_L(RHOG,i,j) 
+  U_LL(EXT_TKE) =UPrim_L(TKE,i,j)
+  U_LL(EXT_OMG) =UPrim_L(OMG,i,j)
 
   ! rotate velocity in normal and tangential direction
   U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV,i,j),nv(:,i,j))
@@ -247,6 +249,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_RR(EXT_PRES)=UPrim_R(PRES,i,j)
   U_RR(EXT_RHOK)=U_R(RHOK,i,j) 
   U_RR(EXT_RHOG)=U_R(RHOG,i,j)  
+  U_RR(EXT_TKE) =UPrim_R(TKE,i,j)
+  U_RR(EXT_OMG) =UPrim_R(OMG,i,j)
   ! rotate momentum in normal and tangential direction
   U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV,i,j),nv(:,i,j))
   U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV,i,j),t1(:,i,j))
@@ -320,6 +324,8 @@ U_LL(EXT_ENER)=U_L(ENER)
 U_LL(EXT_PRES)=UPrim_L(PRES)
 U_LL(EXT_RHOK)=U_L(RHOK)
 U_LL(EXT_RHOG)=U_L(RHOG)
+U_LL(EXT_TKE) =UPrim_L(TKE)
+U_LL(EXT_OMG) =UPrim_L(OMG)
 
 ! rotate velocity in normal and tangential direction
 U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV),nv(:))
@@ -340,6 +346,8 @@ U_RR(EXT_ENER)=U_R(ENER)
 U_RR(EXT_PRES)=UPrim_R(PRES)
 U_RR(EXT_RHOK)=U_R(RHOK)
 U_RR(EXT_RHOG)=U_R(RHOG)
+U_RR(EXT_TKE) =UPrim_R(TKE)
+U_RR(EXT_OMG) =UPrim_R(OMG)
 ! rotate momentum in normal and tangential direction
 U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV),nv(:))
 U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV),t1(:))
