@@ -661,7 +661,7 @@ USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy
 #if PP_dim == 3
 USE MOD_Lifting_Vars     ,ONLY: gradUz
 #endif
-USE MOD_Eos_Vars         ,ONLY: mu0,Pr
+USE MOD_Eos_Vars         ,ONLY: mu0
 #endif
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 #if FV_ENABLED
@@ -676,8 +676,8 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
-REAL                :: invG
-REAL                :: invR, ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG
+REAL                :: invG, Plim
+REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG
 REAL                :: mut, muS
 REAL                :: Sxx, Syy, Szz, Sxy, Sxz, Syz
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
@@ -729,8 +729,9 @@ DO iElem=1,nElems
             + Syz * gradUy(LIFT_VEL3,i,j,k,iElem) &
             + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
-    ! production of k
-    ProdK = 2.0 * mut * SijSij
+    ! production of k, with realizability constraint
+    Plim  = k * SQRT(3.0*SijSij)
+    ProdK = MIN( 2.0 * mut * SijSij, Plim )
     ! dissipation of k
     DissK = -prim(DENS) * prim(TKE) * invG * invG
 

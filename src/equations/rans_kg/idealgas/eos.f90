@@ -188,7 +188,7 @@ END SUBROUTINE InitEos
 PPURE SUBROUTINE ConsToPrim(prim,cons)
 ! MODULES
 USE MOD_EOS_Vars,ONLY:KappaM1,R
-USE MOD_Equation_Vars,ONLY:Cmu
+USE MOD_Equation_Vars,ONLY:Cmu, epsTKE, epsOMG
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -198,6 +198,8 @@ REAL,INTENT(OUT) :: prim(PP_nVarPrim) !< vector of primitive variables (density,
 ! LOCAL VARIABLES
 REAL             :: sRho    ! 1/Rho
 !==================================================================================================================================
+
+! inverse of density
 sRho=1./cons(DENS)
 ! density
 prim(DENS)=cons(DENS)
@@ -208,15 +210,17 @@ prim(VEL3)=cons(MOM3)*sRho
 #else
 prim(VEL3)=0.
 #endif
+
+! turbulence quantities
+prim(TKE)  = MAX( cons(RHOK)*sRho, epsTKE )
+prim(OMG)  = MAX( cons(RHOG)*sRho, epsOMG )
+prim(NUT)  = Cmu * prim(DENS) * prim(TKE) * prim(OMG) * prim(OMG)
+
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - cons(RHOK))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 
-prim(TKE)  = cons(RHOK)*sRho
-prim(OMG)  = cons(RHOG)*sRho
-
-prim(NUT)  = Cmu * cons(RHOK) * cons(RHOG) * cons(RHOG) * sRho * sRho * sRho
 END SUBROUTINE ConsToPrim
 
 !==================================================================================================================================
@@ -288,6 +292,7 @@ END SUBROUTINE ConsToPrim_Volume
 PPURE SUBROUTINE PrimToCons(prim,cons)
 ! MODULES
 USE MOD_EOS_Vars,ONLY:sKappaM1
+USE MOD_Equation_Vars,ONLY:epsTKE, epsOMG
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -305,11 +310,12 @@ cons(MOM3)=prim(VEL3)*prim(DENS)
 #else
 cons(MOM3)=0.
 #endif
-! energy
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV)) + prim(TKE)*prim(DENS)
 
-cons(RHOK)=prim(TKE)*prim(DENS)
-cons(RHOG)=prim(OMG)*prim(DENS)
+cons(RHOK)=MAX(prim(TKE), epsTKE)*prim(DENS)
+cons(RHOG)=MAX(prim(OMG), epsOMG)*prim(DENS)
+
+! energy
+cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV)) + cons(RHOK)
 
 END SUBROUTINE PrimToCons
 
