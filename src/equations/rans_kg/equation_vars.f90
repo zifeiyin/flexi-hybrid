@@ -45,7 +45,7 @@ REAL              :: PrTurb  = 0.9     !< Turbulent Prandtl number
 REAL, PARAMETER   :: sigmaK  = 0.5     !< diffusivity coefficient for k equation
 REAL, PARAMETER   :: sigmaG  = 0.5     !< diffusivity coefficient for omega equation
 REAL, PARAMETER   :: Comega1 = 5./9.    !< alpha in k omega model 
-REAL, PARAMETER   :: Comega2 = 0.072   !< beta in k omega model 
+REAL, PARAMETER   :: Comega2 = 0.075   !< beta in k omega model 
 REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k omega model
 
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
