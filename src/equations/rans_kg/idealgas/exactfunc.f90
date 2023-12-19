@@ -653,7 +653,7 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc, sigmaK, sigmaG, Comega1, Comega2, Cmu
+USE MOD_Equation_Vars    ,ONLY: IniExactFunc, sigmaK, sigmaG, Comega1, Comega2, Cmu, epsOMG, epsTKE
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_EOS              ,ONLY: ConsToPrim
 #if PARABOLIC
@@ -701,9 +701,10 @@ DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL ConsToPrim(prim,U(:,i,j,k,iElem))
 
-    muS  = VISCOSITY_PRIM(prim)
-    mut  = prim(DENS) * prim(NUT)
-    invR = 1.0 / MAX( 0.01 * muS, prim(DENS)*prim(TKE)*prim(OMG)*prim(OMG) )
+    muS   = VISCOSITY_PRIM(prim)
+    mut   = Cmu * prim(TKE) * U(RHOG,i,j,k,iElem)**2 / U(DENS,i,j,k,iElem)
+
+    invR  = 1.0 / MAX( 0.01 * muS, mut )
      
     ! production of rho*TKE
 #if PP_dim==2
@@ -729,20 +730,21 @@ DO iElem=1,nElems
             + Syz * gradUy(LIFT_VEL3,i,j,k,iElem) &
             + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
-    ! production of k, with realizability constraint
-    Plim  = k * SQRT(3.0*SijSij)
-    ProdK = 2.0 * mut * SijSij
     ! dissipation of k
-    DissK = -Cmu * (prim(DENS) * prim(TKE))**2 * invR
+    DissK = -U(RHOK,i,j,k,iElem) * ABS( U(RHOK,i,j,k,iElem) ) * invR
+    ! production of k, with realizability constraint
+    Plim  = 20.0 * U(RHOK,i,j,k,iElem)**2 * invR
+    ProdK = MIN( 2.0 * mut * SijSij, Plim )
 
-    ! adding to source term of k
-    Ut_src(RHOK,i,j,k) = MIN(ProdK, Plim) + DissK
+    ! add to source term of k equation
+    Ut_src(RHOK,i,j,k) = ProdK + DissK
     
+    !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation
     ! production of g
     ProdG = 0.5 * Comega2 * prim(DENS) * prim(DENS) * prim(TKE) * prim(OMG) * invR
 
     ! dissipation of g
-    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
+    DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem) * prim(OMG)**2 * ProdK * invR
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
@@ -755,9 +757,9 @@ DO iElem=1,nElems
          + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
 #endif
 
-    crossG = -3.0 * diffEff * Cmu * prim(DENS) * prim(TKE) * prim(OMG) * invR * dGdG 
+    crossG = -3.0 * diffEff * Cmu * U(RHOG,i,j,k,iElem) * prim(TKE) * invR * dGdG 
 
-    Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG 
+    Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
 
   END DO ; END DO; END DO ! i,j,k
 
