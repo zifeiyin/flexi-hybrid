@@ -653,10 +653,15 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc
-USE MOD_Eos_Vars         ,ONLY: Kappa,KappaM1
+USE MOD_Equation_Vars    ,ONLY: IniExactFunc, sigmaK, sigmaG, Comega1, Comega2, Cmu
+USE MOD_DG_Vars          ,ONLY: U
+USE MOD_EOS              ,ONLY: ConsToPrim
 #if PARABOLIC
-USE MOD_Eos_Vars         ,ONLY: mu0,Pr
+USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy
+#if PP_dim == 3
+USE MOD_Lifting_Vars     ,ONLY: gradUz
+#endif
+USE MOD_Eos_Vars         ,ONLY: mu0
 #endif
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 #if FV_ENABLED
@@ -671,12 +676,110 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
+REAL                :: Plim, invR
+REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG
+REAL                :: mut, muS
+REAL                :: Sxx, Syy, Szz, Sxy, Sxz, Syz
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
+REAL                :: prim(PP_nVarPrim)
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
+INTEGER             :: FV_Elem
 !==================================================================================================================================
 ! do something here to add source to k-g
+
+#if PARABOLIC
+
+DO iElem=1,nElems
+#if FV_ENABLED
+  FV_Elem = FV_Elems(iElem)
+#else
+  FV_Elem = 0
+#endif
+
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    CALL ConsToPrim(prim,U(:,i,j,k,iElem))
+
+    muS  = VISCOSITY_PRIM(prim)
+    mut  = prim(DENS) * prim(NUT)
+    invR = 1.0 / MAX( 0.01 * muS, prim(DENS)*prim(TKE)*prim(OMG)*prim(OMG) )
+     
+    ! production of rho*TKE
+#if PP_dim==2
+    Sxx   = gradUx(LIFT_VEL1,i,j,k,iElem)
+    Syy   = gradUy(LIFT_VEL2,i,j,k,iElem)
+    Sxy   = 0.5 * ( gradUx(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL1,i,j,k,iElem) )
+    SijSij= Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
+          + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) + Syy * gradUy(LIFT_VEL2,i,j,k,iElem) 
+#else
+    Sxx   = gradUx(LIFT_VEL1,i,j,k,iElem)
+    Syy   = gradUy(LIFT_VEL2,i,j,k,iElem)
+    Szz   = gradUz(LIFT_VEL3,i,j,k,iElem)
+    Sxy   = 0.5 * ( gradUx(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL1,i,j,k,iElem) )
+    Sxz   = 0.5 * ( gradUx(LIFT_VEL3,i,j,k,iElem) + gradUz(LIFT_VEL1,i,j,k,iElem) ) 
+    Syz   = 0.5 * ( gradUy(LIFT_VEL3,i,j,k,iElem) + gradUz(LIFT_VEL2,i,j,k,iElem) ) 
+    SijSij= ( Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) &
+            + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
+            + Sxz * gradUz(LIFT_VEL1,i,j,k,iElem) &
+            + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) &
+            + Syy * gradUy(LIFT_VEL2,i,j,k,iElem) &
+            + Syz * gradUz(LIFT_VEL2,i,j,k,iElem) &
+            + Sxz * gradUx(LIFT_VEL3,i,j,k,iElem) &
+            + Syz * gradUy(LIFT_VEL3,i,j,k,iElem) &
+            + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
+#endif
+    ! production of k, with realizability constraint
+    Plim  = k * SQRT(3.0*SijSij)
+    ProdK = 2.0 * mut * SijSij
+    ! dissipation of k
+    DissK = -Cmu * (prim(DENS) * prim(TKE))**2 * invR
+
+    ! adding to source term of k
+    Ut_src(RHOK,i,j,k) = MIN(ProdK, Plim) + DissK
+    
+    ! production of g
+    ProdG = 0.5 * Comega2 * prim(DENS) * prim(DENS) * prim(TKE) * prim(OMG) * invR
+
+    ! dissipation of g
+    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
+          
+    ! cross diffusion of g
+    diffEff = muS + mut * sigmaG
+#if PP_dim==2
+    dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
+         + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)
+#else
+    dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
+         + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)&
+         + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
+#endif
+
+    crossG = -3.0 * diffEff * Cmu * prim(DENS) * prim(TKE) * prim(OMG) * invR * dGdG 
+
+    Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG 
+
+  END DO ; END DO; END DO ! i,j,k
+
+#if FV_ENABLED
+  IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+    DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
+      Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem)+Ut_src2(RHOK,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+      Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem)+Ut_src2(RHOG,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+    END DO; END DO; END DO ! i,j,k
+  ELSE
+#endif 
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem)+Ut_src(RHOK,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+      Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem)+Ut_src(RHOG,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+    END DO; END DO; END DO ! i,j,k
+#if FV_ENABLED
+  END IF
+#endif
+
+END DO ! element loop 
+#endif /* PARABOLIC */
 
 END SUBROUTINE CalcSource
 

@@ -181,7 +181,7 @@ muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
-muTurb = Cmu * UPrim(DENS) * UPrim(TKE) * UPrim(OMG) * UPrim(OMG)
+muTurb = MUT_HP(UPrim)
 muEff  = MAX(muS, muS + muTurb)
 lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
 !diffusivity of turbulence variables
@@ -214,8 +214,8 @@ g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2  ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
-g(RHOK) = kDiffEff*gradUy(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_y
-g(RHOG) = gDiffEff*gradUy(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_y
+g(RHOK) = -kDiffEff*gradUy(LIFT_TKE)                    ! F_euler-(muS+sigmaK*muT)*k_y
+g(RHOG) = -gDiffEff*gradUy(LIFT_OMG)                    ! F_euler-(muS+sigmaO*muT)*g_y
 ! viscous fluxes in z-direction
 h(DENS) = 0.
 h(MOM1) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
