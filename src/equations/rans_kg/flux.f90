@@ -181,7 +181,7 @@ muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
-muTurb = MUT_HP(UPrim)
+muTurb = UPrim(MUT)
 muEff  = MAX(muS, muS + muTurb)
 lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
 !diffusivity of turbulence variables

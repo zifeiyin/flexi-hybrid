@@ -41,7 +41,7 @@
 #define VELVTEMP (/VEL1,VEL2,VEL3,TEMP/) /* velocity range and temperature */
 #define TKE   7             /* turbulent kinetic energy*/
 #define OMG   8             /* turbulent g*/
-#define NUT   9             /* turbulence eddy viscosity*/
+#define MUT   9             /* rho *turbulence eddy viscosity*/
 
 ! routines to compute physical quantities
 #define KAPPASPR_MAX_TIMESTEP_H()      (MAX(4./3.,KappasPr))
@@ -113,7 +113,7 @@
 #define EXT_TEMP    PP_nVar+TEMP               /* temperature */
 #define EXT_TKE     PP_nVar+TKE                /* kinetic energy*/
 #define EXT_OMG     PP_nVar+OMG                /* turbulence g*/
-#define EXT_NUT     PP_nVar+NUT                /* nut */
+#define EXT_MUT     PP_nVar+MUT                /* mut */
 
 ! lifting variables
 #if PP_OPTLIFT == 0

@@ -101,7 +101,7 @@ USE MOD_DG_Vars      ,ONLY:U
 USE MOD_EOS_Vars
 USE MOD_Mesh_Vars    ,ONLY:sJ,Metrics_fTilde,Metrics_gTilde,Elem_xGP,nElems
 USE MOD_TimeDisc_Vars,ONLY:CFLScale,ViscousTimeStep,dtElem
-USE MOD_Equation_Vars,ONLY:Cmu
+USE MOD_Equation_Vars,ONLY:Cmu, epsTKE
 #ifndef GNU
 USE, INTRINSIC :: IEEE_ARITHMETIC,ONLY:IEEE_IS_NAN
 #endif
@@ -170,7 +170,7 @@ DO iElem=1,nElems
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
     ! add turbulence part
-    muTurb = MUT_HE(UE)
+    muTurb = Cmu * MAX(U(RHOK,i,j,k,iElem)* UE(EXT_SRHO), epsTKE) * U(RHOG,i,j,k,iElem)**2 * UE(EXT_SRHO)
     muEff  = MAX(mu, mu + muTurb)
     Max_Lambda_v=MAX(Max_Lambda_v,muEff*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))
 #endif /* PARABOLIC*/

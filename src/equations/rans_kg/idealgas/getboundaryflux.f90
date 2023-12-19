@@ -324,7 +324,7 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
     UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
     UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q) 
-    UPrim_boundary(NUT, p,q)     = UPrim_master(NUT ,p,q)
+    UPrim_boundary(MUT, p,q)     = UPrim_master(MUT ,p,q)
   END DO; END DO !p,q
 
 
@@ -342,7 +342,7 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
       UPrim_boundary(TKE,p,q) = 0.
       UPrim_boundary(OMG,p,q) = 0.
-      UPrim_boundary(NUT,p,q) = 0.
+      UPrim_boundary(MUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(4) ! Isothermal wall
     ! For isothermal wall, all gradients are from interior
@@ -356,7 +356,7 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
       UPrim_boundary(TKE,p,q) = 0.
       UPrim_boundary(OMG,p,q) = 0.
-      UPrim_boundary(NUT,p,q) = 0.
+      UPrim_boundary(MUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(9,91) ! Euler (slip) wall
     ! vel=(0,v_in,w_in)
@@ -370,8 +370,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_master(DENS,p,q) ! density from inside
       ! set temperature via ideal gas equation, consistent to density and pressure
       UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(DENS,p,q) * R)
-      ! TKE, G, NUT from the inside
-      UPrim_boundary(TKE:NUT,p,q) = UPrim_master(TKE:NUT,p,q)
+      ! TKE, G, MUT from the inside
+      UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
     END DO; END DO ! q,p
 
   ! Cases 21-29 are taken from NASA report "Inflow/Outflow Boundary Conditions with Application to FUN3D" Jan-Reneé Carlson
@@ -401,7 +401,7 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(PRES,p,q)=pb
       UPrim_boundary(TEMP,p,q)=UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
       ! copy the inside values
-      UPrim_boundary(TKE:NUT,p,q) = UPrim_master(TKE:NUT,p,q)
+      UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
     END DO; END DO !p,q
   CASE(24) ! Pressure outflow BC
     DO q=0,ZDIM(Nloc); DO p=0,Nloc

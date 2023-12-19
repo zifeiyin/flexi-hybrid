@@ -678,7 +678,7 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 INTEGER             :: i,j,k,iElem
 REAL                :: Plim, invR
 REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG
-REAL                :: mut, muS
+REAL                :: mut, muS, sRho
 REAL                :: Sxx, Syy, Szz, Sxy, Sxz, Syz
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 REAL                :: prim(PP_nVarPrim)
@@ -699,10 +699,17 @@ DO iElem=1,nElems
 #endif
 
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+
+    ! regularize solution
+    U(RHOK,i,j,k,iElem) = MAX( U(RHOK,i,j,k,iElem), epsTKE*U(DENS,i,j,k,iElem) )
+    U(RHOG,i,j,k,iElem) = MAX( U(RHOG,i,j,k,iElem), epsOMG*U(DENS,i,j,k,iElem) )
+
+    ! start to compute the source terms
     CALL ConsToPrim(prim,U(:,i,j,k,iElem))
 
+    sRho  = 1./prim(DENS)
     muS   = VISCOSITY_PRIM(prim)
-    mut   = Cmu * prim(TKE) * U(RHOG,i,j,k,iElem)**2 / U(DENS,i,j,k,iElem)
+    mut   = prim(MUT)
 
     invR  = 1.0 / MAX( 0.01 * muS, mut )
      
@@ -731,9 +738,9 @@ DO iElem=1,nElems
             + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
     ! dissipation of k
-    DissK = -U(RHOK,i,j,k,iElem) * ABS( U(RHOK,i,j,k,iElem) ) * invR
+    DissK = -Cmu * U(RHOK,i,j,k,iElem)**2 * invR
     ! production of k, with realizability constraint
-    Plim  = 20.0 * U(RHOK,i,j,k,iElem)**2 * invR
+    Plim  = 20.0 * Cmu * U(RHOK,i,j,k,iElem)**2 * invR
     ProdK = MIN( 2.0 * mut * SijSij, Plim )
 
     ! add to source term of k equation
@@ -741,10 +748,10 @@ DO iElem=1,nElems
     
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation
     ! production of g
-    ProdG = 0.5 * Comega2 * prim(DENS) * prim(DENS) * prim(TKE) * prim(OMG) * invR
+    ProdG = 0.5 * Comega2 * U(RHOK,i,j,k,iElem) * U(RHOG,i,j,k,iElem) * invR
 
     ! dissipation of g
-    DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem) * prim(OMG)**2 * ProdK * invR
+    DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * ProdK * invR
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
@@ -757,7 +764,7 @@ DO iElem=1,nElems
          + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
 #endif
 
-    crossG = -3.0 * diffEff * Cmu * U(RHOG,i,j,k,iElem) * prim(TKE) * invR * dGdG 
+    crossG = 3.0 * diffEff * Cmu * U(RHOG,i,j,k,iElem) * prim(TKE) * invR * dGdG
 
     Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
 
