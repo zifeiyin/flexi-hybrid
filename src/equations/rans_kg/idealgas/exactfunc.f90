@@ -676,7 +676,7 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
-REAL                :: invG, Plim
+REAL                :: Plim, invR
 REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG
 REAL                :: mut, muS
 REAL                :: Sxx, Syy, Szz, Sxy, Sxz, Syz
@@ -703,7 +703,7 @@ DO iElem=1,nElems
 
     muS  = VISCOSITY_PRIM(prim)
     mut  = prim(DENS) * prim(NUT)
-    invG = MIN( 1.0 / MAX( prim(OMG), 1.e-16 ), SQRT( 100.0 * Cmu * prim(DENS) * prim(TKE) / muS  ) )
+    invR = 1.0 / MAX( 0.01 * muS, prim(DENS)*prim(TKE)*prim(OMG)*prim(OMG) )
      
     ! production of rho*TKE
 #if PP_dim==2
@@ -731,18 +731,18 @@ DO iElem=1,nElems
 #endif
     ! production of k, with realizability constraint
     Plim  = k * SQRT(3.0*SijSij)
-    ProdK = MIN( 2.0 * mut * SijSij, Plim )
+    ProdK = 2.0 * mut * SijSij
     ! dissipation of k
-    DissK = -prim(DENS) * prim(TKE) * invG * invG
+    DissK = -Cmu * (prim(DENS) * prim(TKE))**2 * invR
 
     ! adding to source term of k
-    Ut_src(RHOK,i,j,k) = ProdK + DissK
+    Ut_src(RHOK,i,j,k) = MIN(ProdK, Plim) + DissK
     
     ! production of g
-    ProdG = 0.5 * Comega2 * prim(DENS) * invG / Cmu 
+    ProdG = 0.5 * Comega2 * prim(DENS) * prim(DENS) * prim(TKE) * prim(OMG) * invR
 
     ! dissipation of g
-    DissG = -Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * SijSij
+    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
@@ -755,7 +755,7 @@ DO iElem=1,nElems
          + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
 #endif
 
-    crossG = -3.0 * diffEff * invG * dGdG 
+    crossG = -3.0 * diffEff * Cmu * prim(DENS) * prim(TKE) * prim(OMG) * invR * dGdG 
 
     Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG 
 
