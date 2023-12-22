@@ -217,7 +217,7 @@ prim(OMG)  = MAX( cons(RHOG)*sRho, epsOMG )
 prim(MUT)  = Cmu * prim(TKE) * cons(RHOG)**2 * sRho
 
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - cons(RHOK))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 

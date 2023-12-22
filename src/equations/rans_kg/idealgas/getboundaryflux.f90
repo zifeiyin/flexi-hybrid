@@ -322,9 +322,9 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(VEL3,p,q)     = SUM(UPrim_master(VELV,p,q)*TangVec2(:,p,q))
     UPrim_boundary(PRES,p,q)     = UPrim_master(PRES,p,q)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
-    UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
-    UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q) 
-    UPrim_boundary(MUT, p,q)     = UPrim_master(MUT ,p,q)
+    !UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
+    !UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q) 
+    !UPrim_boundary(MUT, p,q)     = UPrim_master(MUT ,p,q)
   END DO; END DO !p,q
 
 
@@ -371,7 +371,7 @@ CASE(3,4,9,91,23,24,25,27)
       ! set temperature via ideal gas equation, consistent to density and pressure
       UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(DENS,p,q) * R)
       ! TKE, G, MUT from the inside
-      UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
+      !UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
     END DO; END DO ! q,p
 
   ! Cases 21-29 are taken from NASA report "Inflow/Outflow Boundary Conditions with Application to FUN3D" Jan-Reneé Carlson
@@ -482,6 +482,7 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q)=Tb
       UPrim_boundary(TKE ,p,q)=RefStatePrim(TKE,BCState)
       UPrim_boundary(OMG ,p,q)=RefStatePrim(OMG,BCState)
+      UPrim_boundary(MUT ,p,q)=0.09*UPrim_boundary(DENS,p,q)*RefStatePrim(TKE,BCState)*RefStatePrim(OMG,BCState)*RefStatePrim(OMG,BCState)
     END DO; END DO !p,q
   END SELECT
 
@@ -680,15 +681,6 @@ ELSE
         BCGradMat(2,1) = BCGradMat(1,2)
         BCGradMat(3,1) = BCGradMat(1,3)
         BCGradMat(2,3) = BCGradMat(3,2)
-        gradUx_Face_loc(LIFT_DENS,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(1,3) * gradUz_master(LIFT_DENS,p,q)
-        gradUy_Face_loc(LIFT_DENS,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(2,3) * gradUz_master(LIFT_DENS,p,q)
-        gradUz_Face_loc(LIFT_DENS,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(3,2) * gradUy_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(3,3) * gradUz_master(LIFT_DENS,p,q)
         gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
                                        + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
                                        + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
@@ -743,11 +735,6 @@ ELSE
         BCGradMat(2,2) = 1. - nv(2)*nv(2)
         BCGradMat(1,2) = -nv(1)*nv(2)
         BCGradMat(2,1) = BCGradMat(1,2)
-        gradUx_Face_loc(LIFT_DENS,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_DENS,p,q)
-        gradUy_Face_loc(LIFT_DENS,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_DENS,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_DENS,p,q)
-        gradUz_Face_loc(LIFT_TEMP:LIFT_TKE,p,q) = 0.
         gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
                                                  + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
