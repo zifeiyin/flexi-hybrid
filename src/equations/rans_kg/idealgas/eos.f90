@@ -214,7 +214,7 @@ prim(VEL3)=0.
 ! turbulence quantities
 prim(TKE)  = MAX( cons(RHOK)*sRho, epsTKE )
 prim(OMG)  = MAX( cons(RHOG)*sRho, epsOMG )
-prim(NUT)  = Cmu * prim(DENS) * prim(TKE) * prim(OMG) * prim(OMG)
+prim(MUT)  = Cmu * prim(TKE) * cons(RHOG)**2 * sRho
 
 ! pressure
 prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
@@ -279,6 +279,7 @@ REAL,INTENT(OUT)   :: prim(PP_nVarPrim,0:Nloc,0:Nloc,0:ZDIM(Nloc),1:nElems) !< v
 ! LOCAL VARIABLES
 INTEGER            :: i,j,k,iElem
 !==================================================================================================================================
+
 DO iElem=1,nElems
   DO k=0,ZDIM(Nloc); DO j=0,Nloc; DO i=0,Nloc
     CALL ConsToPrim(prim(:,i,j,k,iElem),cons(:,i,j,k,iElem))

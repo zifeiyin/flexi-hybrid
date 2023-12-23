@@ -53,7 +53,7 @@ REAL, PARAMETER   :: epsOMG  = 1.e-16
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
   (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','RhoK','RhoG'/) !< conservative variable names
 CHARACTER(LEN=255),DIMENSION(9),PARAMETER :: StrVarNamesPrim=&
-  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','TurbK','TurbG','TurbNut'/) !< primitive variable names
+  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','TurbK','TurbG','TurbMut'/) !< primitive variable names
 
 LOGICAL           :: EquationInitIsDone=.FALSE.
 !==================================================================================================================================

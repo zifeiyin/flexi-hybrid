@@ -375,7 +375,7 @@ DO i=1,nDOF_loc
   dmuTurb_dg = 2.0 * Cmu * UPrim(DENS,i) * UPrim(TKE,i) * UPrim(OMG,i)
 
 #if PP_dim==3
-  !              grad(rho)         grad(v1)        grad(v2)      grad(v3) grad(p)     grad(T)    grad(k)   grad(g)  grad(nut)
+  !              grad(rho)         grad(v1)        grad(v2)      grad(v3) grad(p)     grad(T)    grad(k)   grad(g)  grad(Mut)
   ! derivatives of diffusive flux in x-direction
   fJacQx(1,1:9,i) = 0.
   fJacQx(2,1:9,i) = (/ 0.,        -muS*s43,             0.,           0.,     0.,         0.,        0.,         0.,   0.  /)
@@ -428,7 +428,7 @@ DO i=1,nDOF_loc
   gJacQz(7,1:9,i) = 0.
 
   ! derivatives of diffusive flux in z-direction
-  !              grad(rho)         grad(v1)        grad(v2)      grad(v3) grad(p)     grad(T)    grad(k)   grad(g)  grad(nut)
+  !              grad(rho)         grad(v1)        grad(v2)      grad(v3) grad(p)     grad(T)    grad(k)   grad(g)  grad(mut)
   hJacQx(1,1:9,i) = 0.
   hJacQx(2,1:9,i) = (/ 0.,              0.,             0.,         -muS,     0.,         0.,         0.,        0.,   0.  /)
   hJacQx(3,1:9,i) = 0.
@@ -544,8 +544,8 @@ dedrho = ( v1*v1 + v2*v2 + v3*v3 ) - dpdrho / KappaM1
 dedrho = ( v1*v1 + v2*v2 ) - dpdrho / KappaM1
 #endif
 
-! column 6:9 are temperature, tke, g, nut
-!                  rho,            v1                 v2                 v3         p      T       k .     g     nut  
+! column 6:9 are temperature, tke, g, mut
+!                  rho,            v1                 v2                 v3         p      T       k .     g     mut  
 Jac(1,1:9) = (/     1.,            0.,                0.,                0.,         0.,    0.,     0.,     0.,    0. /)
 Jac(2,1:9) = (/     v1,           rho,                0.,                0.,         0.,    0.,     0.,     0.,    0. /)
 Jac(3,1:9) = (/     v2,            0.,               rho,                0.,         0.,    0.,     0.,     0.,    0. /)
@@ -640,7 +640,7 @@ Jac(7,1:7) = (/ -tk * invRho,           0.,           0.,           0.,      0.,
 ! turbulence g
 Jac(8,1:7) = (/ -tg * invRho,           0.,           0.,           0.,      0.,       0.,     invRho  /)
 
-! turbulence nut
+! turbulence mut
 Jac(9,1)   = -3. * Cmu * tk * tg * tg * invRho
 Jac(9,2:5) = 0.
 Jac(9,6)   = Cmu * tg * tg * invRho

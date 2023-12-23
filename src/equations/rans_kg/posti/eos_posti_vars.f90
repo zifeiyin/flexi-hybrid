@@ -52,7 +52,7 @@ INTEGER,PARAMETER :: nVarDepEOS=24
 ! e e e e e e n n o o o e r e l n  n y   n n n r e e          i i i n l a t t l c c c n a
 ! r n n n n n s s c c c s a n e c  i S   a a t a s D          c c c i i m a e i t t t i n
 ! a s t t t s i i i i i s t e n e  t o M t t r t s e          i i i t c b t r e i i i t s
-! t i u u u i t t t t t u u r c n  u u a i i o u u r          t t t u i d i i r o o o u f
+! t i u u u i t t t t t u u r c m  u u a i i o u u r          t t t u i d i i r o o o u f
 ! o t m m m t y y y y y r r g e u  d n c o o p r r i          y y y d t a o o e n n n d e x y z
 ! r y X Y Z y k g X Y Z e e y g t  e d h n n y e e v          X Y Z e y 2 n n n X Y Z e r + + +
 INTEGER,DIMENSION(1:nVarDepEOS,0:nVarDepEOS),PARAMETER :: DepTableEOS = TRANSPOSE(RESHAPE(&
@@ -71,7 +71,7 @@ INTEGER,DIMENSION(1:nVarDepEOS,0:nVarDepEOS),PARAMETER :: DepTableEOS = TRANSPOS
   0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !12 Temperature
   0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !13 kineticEnergy
   0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !14 turbulenceG
-  0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !15 Nut 
+  0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !15 Mut 
   0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !16 VelocityMagnitude
   0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0, 0,0,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !17 VelocitySound
   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 1,1,0,0,0,0,0,0,0, CUT(&)  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !18 Mach
@@ -165,7 +165,7 @@ CHARACTER(LEN=255),DIMENSION(nVarDepEOS),PARAMETER :: DepNames = &
 "Temperature"              ,& !12
 "kineticEnergy"            ,& !13
 "turbG"                    ,& !14
-"Nut"                      ,& !15
+"Mut"                      ,& !15
 "VelocityMagnitude"        ,& !16
 "VelocitySound"            ,& !17
 "Mach"                     ,& !18

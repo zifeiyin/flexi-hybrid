@@ -513,7 +513,7 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT):: F    !< resulting Riemann flux
 ! LOCAL VARIABLES
 REAL    :: H_L,H_R
 REAL    :: SqrtRho_L,SqrtRho_R,sSqrtRho
-REAL    :: RoeVel(3),RoeH,Roec,absVel
+REAL    :: RoeVel(3),RoeH,Roec,absVel, RoeK
 REAL    :: Ssl,Ssr,SStar
 REAL    :: U_Star(PP_nVar),EStar
 REAL    :: sMu_L,sMu_R
@@ -540,8 +540,10 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 ! Roe mean values
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L       )     * sSqrtRho
+RoeK      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE) ) * sSqrtRho
+
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roec      = SQRT(KappaM1*(RoeH-0.5*absVel))
+Roec      = SQRT(KappaM1*(RoeH-0.5*absVel-RoeK))
 Ssl       = RoeVel(1) - Roec
 Ssr       = RoeVel(1) + Roec
 
@@ -567,7 +569,6 @@ ELSE
   END IF
 END IF ! subsonic case
 END SUBROUTINE Riemann_HLLC
-
 
 #ifdef SPLIT_DG
 !==================================================================================================================================

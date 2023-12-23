@@ -181,7 +181,7 @@ muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
-muTurb = MUT_HP(UPrim)
+muTurb = UPrim(MUT)
 muEff  = MAX(muS, muS + muTurb)
 lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
 !diffusivity of turbulence variables
@@ -320,6 +320,8 @@ UE(EXT_CONS)=U
 UE(EXT_SRHO)=1./UE(EXT_DENS)
 UE(EXT_VELV)=VELOCITY_HE(UE)
 UE(EXT_PRES)=PRESSURE_HE(UE)
+UE(EXT_TKE)=U(RHOK)*UE(EXT_SRHO)
+UE(EXT_OMG)=U(RHOG)*UE(EXT_SRHO)
 ! Euler fluxes x-direction
 F(DENS)= U(MOM1)                             ! rho*u
 F(MOM1)= U(MOM1)*UE(EXT_VEL1)+UE(EXT_PRES)   ! rho*u²+p
@@ -330,6 +332,8 @@ F(MOM3)=U(MOM1)*UE(EXT_VEL3)                 ! rho*u*w
 F(MOM3)=0.
 #endif
 F(ENER)=(U(ENER)+UE(EXT_PRES))*UE(EXT_VEL1)  ! (rho*e+p)*u
+F(RHOK)=U(MOM1)*UE(EXT_TKE) !rho*k
+F(RHOG)=U(MOM1)*UE(EXT_OMG) !rho*g
 END SUBROUTINE EvalEulerFlux1D
 
 !==================================================================================================================================
