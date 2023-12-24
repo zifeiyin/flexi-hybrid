@@ -180,6 +180,9 @@ fTilde(MOM3) = (URef(MOM1)*UPrimRef(VEL3) + U(MOM1)*UPrim(VEL3))                
 fTilde(MOM3) = 0.
 #endif
 fTilde(ENER) = (rhoEpRef*UPrimRef(VEL1) + rhoEp*UPrim(VEL1))                                ! {(rho*E+p)*u}
+fTilde(RHOK) = (URef(RHOK)*UPrimRef(VEL1) + U(RHOK)*UPrim(VEL1))                              ! {rho*u*k}
+fTilde(RHOG) = (URef(RHOG)*UPrimRef(VEL1) + U(RHOG)*UPrim(VEL1))                              ! {rho*u*g}
+
 ! local Euler fluxes y-direction
 gTilde(DENS) = (URef(MOM2) + U(MOM2))                                                       ! {rho*v}
 gTilde(MOM1) = (URef(MOM1)*UPrimRef(VEL2) + U(MOM1)*UPrim(VEL2))                            ! {rho*u*v}
@@ -190,6 +193,9 @@ gTilde(MOM3) = (URef(MOM2)*UPrimRef(VEL3) + U(MOM2)*UPrim(VEL3))                
 gTilde(MOM3) = 0.
 #endif
 gTilde(ENER) = (rhoEpRef*UPrimRef(VEL2) + rhoEp*UPrim(VEL2))                                ! {(rho*E+p)*v}
+gTilde(RHOK) = (URef(RHOK)*UPrimRef(VEL2) + U(RHOK)*UPrim(VEL2))                              ! {rho*v*k}
+gTilde(RHOG) = (URef(RHOG)*UPrimRef(VEL2) + U(RHOG)*UPrim(VEL2))                              ! {rho*v*g}
+
 #if PP_dim == 3
 ! local Euler fluxes z-direction
 hTilde(DENS) = (URef(MOM3) + U(MOM3))                                                       ! {rho*w}
@@ -198,6 +204,8 @@ hTilde(MOM2) = (URef(MOM2)*UPrimRef(VEL3) + U(MOM2)*UPrim(VEL3))                
 hTilde(MOM3) = (URef(MOM3)*UPrimRef(VEL3)+UPrimRef(PRES) + U(MOM3)*UPrim(VEL3)+UPrim(PRES)) ! {rho*v²+p}
 hTilde(ENER) = (rhoEpRef*UPrimRef(VEL3) + rhoEp*UPrim(VEL3))                                ! {(rho*E+p)*w}
 #endif
+hTilde(RHOK) = (URef(RHOK)*UPrimRef(VEL3) + U(RHOK)*UPrim(VEL3))                              ! {rho*w*k}
+hTilde(RHOG) = (URef(RHOG)*UPrimRef(VEL3) + U(RHOG)*UPrim(VEL3))                              ! {rho*w*g}
 
 ! transform into reference space
 Flux(:) = 0.5*(MRef(1)+M(1))*fTilde(:) + &
@@ -233,6 +241,9 @@ F(MOM3)= 0.5*(U_LL(EXT_MOM1)*U_LL(EXT_VEL3)+U_RR(EXT_MOM1)*U_RR(EXT_VEL3))      
 F(MOM3)= 0.
 #endif
 F(ENER)= 0.5*((U_LL(EXT_ENER)+U_LL(EXT_PRES))*U_LL(EXT_VEL1)+(U_RR(EXT_ENER)+U_RR(EXT_PRES))*U_RR(EXT_VEL1)) ! {(rho*E+p)*u}
+
+F(RHOK)= 0.5*(U_LL(EXT_MOM1)*U_LL(EXT_TKE)+U_RR(EXT_MOM1)*U_RR(EXT_TKE))
+F(RHOG)= 0.5*(U_LL(EXT_MOM1)*U_LL(EXT_OMG)+U_RR(EXT_MOM1)*U_RR(EXT_OMG))
 
 END SUBROUTINE SplitSurfaceFluxSD
 
@@ -274,6 +285,9 @@ fTilde(MOM3) = 0.5*(URef(MOM3)+U(MOM3))*(UPrimRef(VEL1)+UPrim(VEL1))            
 fTilde(MOM3) = 0.
 #endif
 fTilde(ENER) = 0.5*(URef(ENER)+U(ENER)+UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL1)+UPrim(VEL1))     ! ({rho*E}+{p})*{u}
+fTilde(RHOK) = 0.5*(URef(RHOK)+U(RHOK))*(UPrimRef(VEL1)+UPrim(VEL1))                                ! {rho*k}*{u}
+fTilde(RHOG) = 0.5*(URef(RHOG)+U(RHOG))*(UPrimRef(VEL1)+UPrim(VEL1))                                ! {rho*k}*{u}
+
 ! local Euler fluxes y-direction
 gTilde(DENS) = 0.5*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))                                ! {rho}*{v}
 gTilde(MOM1) = 0.5*(URef(MOM1)+U(MOM1))*(UPrimRef(VEL2)+UPrim(VEL2))                                ! {rho*u}*{v}
@@ -284,6 +298,9 @@ gTilde(MOM3) = 0.5*(URef(MOM3)+U(MOM3))*(UPrimRef(VEL2)+UPrim(VEL2))            
 gTilde(MOM3) = 0.
 #endif
 gTilde(ENER) = 0.5*(URef(ENER)+U(ENER)+UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL2)+UPrim(VEL2))     ! ({rho*E}+{p})*{v}
+gTilde(RHOK) = 0.5*(URef(RHOK)+U(RHOK))*(UPrimRef(VEL2)+UPrim(VEL2))                                ! {rho*k}*{u}
+gTilde(RHOG) = 0.5*(URef(RHOG)+U(RHOG))*(UPrimRef(VEL2)+UPrim(VEL2))   
+
 #if PP_dim == 3
 ! local Euler fluxes z-direction
 hTilde(DENS) = 0.5*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho}*{w}
@@ -291,6 +308,8 @@ hTilde(MOM1) = 0.5*(URef(MOM1)+U(MOM1))*(UPrimRef(VEL3)+UPrim(VEL3))            
 hTilde(MOM2) = 0.5*(URef(MOM2)+U(MOM2))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*v}*{w}
 hTilde(MOM3) = 0.5*(URef(MOM3)+U(MOM3))*(UPrimRef(VEL3)+UPrim(VEL3)) + (UPrimRef(PRES)+UPrim(PRES)) ! {rho*w}*{w}+{p}
 hTilde(ENER) = 0.5*(URef(ENER)+U(ENER)+UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL3)+UPrim(VEL3))     ! ({rho*E}+{p})*{w}
+hTilde(RHOK) = 0.5*(URef(RHOK)+U(RHOK))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*k}*{u}
+hTilde(RHOG) = 0.5*(URef(RHOG)+U(RHOG))*(UPrimRef(VEL3)+UPrim(VEL3))  
 #endif
 
 ! transform into reference space
@@ -326,6 +345,9 @@ F(MOM3)= 0.25*(U_LL(EXT_MOM3)+U_RR(EXT_MOM3))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))   
 F(MOM3)= 0.
 #endif
 F(ENER)= 0.25*(U_LL(EXT_ENER)+U_RR(EXT_ENER)+U_LL(EXT_PRES)+U_RR(EXT_PRES))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))         ! ({rho*E}+{p})*{u}
+
+F(RHOK)= 0.25*(U_LL(EXT_RHOK)+U_RR(EXT_RHOK))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*k}*{u} 
+F(RHOG)= 0.25*(U_LL(EXT_RHOG)+U_RR(EXT_RHOG))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*g}*{u}
 
 END SUBROUTINE SplitSurfaceFluxDU
 
@@ -373,6 +395,10 @@ fTilde(MOM3) = 0.
 #endif
 fTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(eRef+e) + &
                0.5* (UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL1)+UPrim(VEL1))                           ! {rho}*{E}*{u}+{p}*{u}
+
+fTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{u}*{k}
+fTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{u}*{k}
+              
 ! local Euler fluxes y-direction
 gTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))                                   ! {rho}*{v}
 gTilde(MOM1) = fTilde(MOM2)                                                                             ! {rho}*{v}*{u}
@@ -384,6 +410,9 @@ gTilde(MOM3) = 0.
 #endif
 gTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(eRef+e) + &
                0.5* (UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL2)+UPrim(VEL2))                           ! {rho}*{E}*{v}+{p}*{v}
+gTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{u}*{k}
+gTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{u}*{k}
+
 #if PP_dim == 3
 ! local Euler fluxes z-direction
 hTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))                                   ! {rho}*{w}
@@ -392,6 +421,8 @@ hTilde(MOM2) = gTilde(MOM3)                                                     
 hTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))**2 + (UPrimRef(PRES)+UPrim(PRES)) ! {rho}*{w}²+{p}
 hTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(eRef+e) + &
                0.5 *(UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL3)+UPrim(VEL3))                           ! {rho}*{E}*{w}+{p}*{w}
+hTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{u}*{k}
+hTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{u}*{k}
 #endif
 
 ! transform into reference space
@@ -433,6 +464,9 @@ F(MOM3)= 0.
 #endif
 F(ENER)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(E_LL+E_RR)*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1)) + &
          0.25 *(U_LL(EXT_PRES)+U_RR(EXT_PRES))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                          ! {rho}*{E}*{u}+{p}*{u}
+
+F(RHOK) = 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_TKE)+U_RR(EXT_TKE))
+F(RHOG) = 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_OMG)+U_RR(EXT_OMG))
 
 END SUBROUTINE SplitSurfaceFluxKG
 
@@ -486,6 +520,9 @@ fTilde(ENER) = (rhoepRef*UPrimRef(VEL1)+rhoep*UPrim(VEL1)) + &                  
             0.5*(URef(MOM1)*UPrimRef(VEL1)*UPrimRef(VEL1)+U(MOM1)*UPrim(VEL1)*UPrim(VEL1))   - &    !1/2*({rho*u³} +
             0.5*(URef(MOM1)*UPrimRef(VEL2)*UPrimRef(VEL2)+U(MOM1)*UPrim(VEL2)*UPrim(VEL2))   - &    !{rho*u*v²} +
             0.5*(URef(MOM1)*UPrimRef(VEL3)*UPrimRef(VEL3)+U(MOM1)*UPrim(VEL3)*UPrim(VEL3))          !{rho*u*w²})
+fTilde(RHOK) = 0.5*(URef(MOM1)+U(MOM1))*(UPrimRef(TKE)+UPrim(TKE))                                  ! {rho*u}*{k}
+fTilde(RHOG) = 0.5*(URef(MOM1)+U(MOM1))*(UPrimRef(OMG)+UPrim(OMG))                                  ! {rho*u}*{g}
+
 ! local Euler fluxes y-direction
 gTilde(DENS) =     (URef(MOM2)+U(MOM2))                                                             ! {rho*v}
 gTilde(MOM1) = 0.5*(URef(MOM2)+U(MOM2))*(UPrimRef(VEL1)+UPrim(VEL1))                                ! {rho*v}*{u}
@@ -502,6 +539,9 @@ gTilde(ENER) = (rhoepRef*UPrimRef(VEL2)+rhoep*UPrim(VEL2)) + &                  
             0.5*(URef(MOM2)*UPrimRef(VEL1)*UPrimRef(VEL1)+U(MOM2)*UPrim(VEL1)*UPrim(VEL1))   - &    !1/2*({rho*v*u²} +
             0.5*(URef(MOM2)*UPrimRef(VEL2)*UPrimRef(VEL2)+U(MOM2)*UPrim(VEL2)*UPrim(VEL2))   - &    !{rho*v³} +
             0.5*(URef(MOM2)*UPrimRef(VEL3)*UPrimRef(VEL3)+U(MOM2)*UPrim(VEL3)*UPrim(VEL3))          !{rho*v*w²})
+gTilde(RHOK) = 0.5*(URef(MOM2)+U(MOM2))*(UPrimRef(TKE)+UPrim(TKE))                                ! {rho*v}*{k}
+gTilde(RHOG) = 0.5*(URef(MOM2)+U(MOM2))*(UPrimRef(OMG)+UPrim(OMG))                                ! {rho*v}*{g}
+
 #if PP_dim == 3
 ! local Euler fluxes z-direction
 hTilde(DENS) =     (URef(MOM3)+U(MOM3))                                                             ! {rho*w}
@@ -515,6 +555,8 @@ hTilde(ENER) = (rhoepRef*UPrimRef(VEL3)+rhoep*UPrim(VEL3)) + &                  
             0.5*(URef(MOM3)*UPrimRef(VEL1)*UPrimRef(VEL1)+U(MOM3)*UPrim(VEL1)*UPrim(VEL1))   - &    !1/2*({rho*w*u²} +
             0.5*(URef(MOM3)*UPrimRef(VEL2)*UPrimRef(VEL2)+U(MOM3)*UPrim(VEL2)*UPrim(VEL2))   - &    !{rho*w*v²} +
             0.5*(URef(MOM3)*UPrimRef(VEL3)*UPrimRef(VEL3)+U(MOM3)*UPrim(VEL3)*UPrim(VEL3))          !{rho*w³})
+hTilde(RHOK) = 0.5*(URef(MOM3)+U(MOM3))*(UPrimRef(TKE)+UPrim(TKE))                                ! {rho*v}*{k}
+hTilde(RHOG) = 0.5*(URef(MOM3)+U(MOM3))*(UPrimRef(OMG)+UPrim(OMG))                                ! {rho*v}*{g}
 #endif
 
 ! transform into reference space
@@ -562,6 +604,9 @@ F(ENER)= 0.5 *(rhoep_LL*U_LL(EXT_VEL1)+rhoep_RR*U_RR(EXT_VEL1)) +  &            
          0.25*(U_LL(EXT_MOM1)*U_LL(EXT_VEL1)*U_LL(EXT_VEL1)+U_RR(EXT_MOM1)*U_RR(EXT_VEL1)*U_RR(EXT_VEL1)) - &       !1/2*({rho*u³} -
          0.25*(U_LL(EXT_MOM1)*U_LL(EXT_VEL2)*U_LL(EXT_VEL2)+U_RR(EXT_MOM1)*U_RR(EXT_VEL2)*U_RR(EXT_VEL2)) - &       !{rho*u*v²} -
          0.25*(U_LL(EXT_MOM1)*U_LL(EXT_VEL3)*U_LL(EXT_VEL3)+U_RR(EXT_MOM1)*U_RR(EXT_VEL3)*U_RR(EXT_VEL3))           !{rho*u*w²})
+F(RHOK)= 0.25*(U_LL(EXT_MOM1)+U_RR(EXT_MOM1))*(U_LL(EXT_TKE)+U_RR(EXT_TKE))                                         ! {rho*u}*{k}
+F(RHOG)= 0.25*(U_LL(EXT_MOM1)+U_RR(EXT_MOM1))*(U_LL(EXT_OMG)+U_RR(EXT_OMG))                                         ! {rho*u}*{g}
+
 
 END SUBROUTINE SplitSurfaceFluxMO
 
@@ -608,6 +653,8 @@ fTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(
 fTilde(MOM3) = 0.
 #endif
 fTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(HRef+H)                          ! {rho}*{H}*{u}
+fTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{u}*{k}
+fTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{u}*{g}
 ! local Euler fluxes y-direction
 gTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))                                   ! {rho}*{v}
 gTilde(MOM1) = fTilde(MOM2)                                                                             ! {rho}*{v}*{u}
@@ -618,6 +665,8 @@ gTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(
 gTilde(MOM3) = 0.
 #endif
 gTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(HRef+H)                          ! {rho}*{H}*{v}
+gTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{v}*{k}
+gTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{v}*{g}
 #if PP_dim == 3
 ! local Euler fluxes z-direction
 hTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))                                   ! {rho}*{w}
@@ -625,6 +674,8 @@ hTilde(MOM1) = fTilde(MOM3)                                                     
 hTilde(MOM2) = gTilde(MOM3)                                                                             ! {rho}*{w}*{v}
 hTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))**2 + (UPrimRef(PRES)+UPrim(PRES)) ! {rho}*{w}²+{p}
 hTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(HRef+H)                          ! {rho}*{H}*{w}
+hTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{w}*{k}
+hTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{w}*{g}
 #endif
 
 ! transform into reference space
@@ -666,6 +717,9 @@ F(MOM3)= 0.
 #endif
 F(ENER)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(H_LL+H_RR)*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                              ! {rho}*{H}*{u}
 
+F(RHOK)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_TKE)+U_RR(EXT_TKE))          ! {rho}*{u}*{v}
+F(RHOG)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_OMG)+U_RR(EXT_OMG))          ! {rho}*{u}*{v}
+
 END SUBROUTINE SplitSurfaceFluxPI
 
 !==================================================================================================================================
@@ -695,6 +749,7 @@ REAL,DIMENSION(CONS),INTENT(OUT) :: Flux     !< flux in reverence space
 REAL                                    :: beta,betaRef            ! auxiliary variables for the inverse Temperature
 REAL                                    :: pHatMean,HMean          ! auxiliary variable for the mean pressure and specific enthalpy
 REAL                                    :: uMean,vMean,wMean       ! auxiliary variable for the average velocities
+REAL                                    :: kMean, gMean            ! auxiliary variable for the average turbulence quantities
 REAL                                    :: rhoLogMean,betaLogMean  ! auxiliary variable for the logarithmic means
 REAL,DIMENSION(PP_nVar)                 :: fTilde,gTilde           ! flux in physical space
 #if PP_dim == 3
@@ -705,6 +760,8 @@ REAL,DIMENSION(PP_nVar)                 :: hTilde                  ! flux in phy
 uMean = 0.5*(UPrimRef(VEL1) + UPrim(VEL1))
 vMean = 0.5*(UPrimRef(VEL2) + UPrim(VEL2))
 wMean = 0.5*(UPrimRef(VEL3) + UPrim(VEL3))
+kMean = 0.5*(UPrimRef(TKE)  + UPrim(TKE) )
+gMean = 0.5*(UPrimRef(OMG)  + UPrim(OMG) )
 
 ! inverse temperature
 betaRef  = 0.5*URef(DENS)/UPrimRef(PRES)
@@ -728,6 +785,9 @@ fTilde(MOM3) = rhoLogMean*uMean*wMean                                ! {rho}_log
 fTilde(MOM3) = 0.
 #endif
 fTilde(ENER) = rhoLogMean*HMean*uMean                                ! {rho}_log*{H}*{u}
+fTilde(RHOK) = rhoLogMean*uMean*kMean                                ! {rho}_log*{u}*{k}
+fTilde(RHOG) = rhoLogMean*uMean*gMean                                ! {rho}_log*{u}*{g}
+
 ! local Euler fluxes y-direction
 gTilde(DENS) = rhoLogMean*vMean                                      ! {rho}_log*{v}
 gTilde(MOM1) = rhoLogMean*vMean*uMean                                ! {rho}_log*{v}*{u}
@@ -738,6 +798,9 @@ gTilde(MOM3) = rhoLogMean*vMean*wMean                                ! {rho}_log
 gTilde(MOM3) = 0.
 #endif
 gTilde(ENER) = rhoLogMean*HMean*vMean                                ! {rho}_log*{H}*{v}
+gTilde(RHOK) = rhoLogMean*vMean*kMean                                ! {rho}_log*{v}*{k}
+gTilde(RHOG) = rhoLogMean*vMean*gMean                                ! {rho}_log*{v}*{g}
+
 #if PP_dim == 3
 ! local Euler fluxes z-direction
 hTilde(DENS) = rhoLogMean*wMean                                      ! {rho}_log*{w}
@@ -745,6 +808,8 @@ hTilde(MOM1) = rhoLogMean*wMean*uMean                                ! {rho}_log
 hTilde(MOM2) = rhoLogMean*wMean*vMean                                ! {rho}_log*{w}*{v}
 hTilde(MOM3) = rhoLogMean*wMean**2 + pHatMean                        ! {rho}_log*{w}²+{pHat}
 hTilde(ENER) = rhoLogMean*HMean*wMean                                ! {rho}_log*{H}*{w}
+hTilde(RHOK) = rhoLogMean*wMean*kMean                                ! {rho}_log*{w}*{k}
+hTilde(RHOG) = rhoLogMean*wMean*gMean                                ! {rho}_log*{w}*{g}
 #endif
 
 ! transform into reference space
@@ -805,6 +870,8 @@ F(MOM1) = F(DENS)*uMean + pHatMean
 F(MOM2) = F(DENS)*vMean
 F(MOM3) = F(DENS)*wMean
 F(ENER) = F(DENS)*HMean
+F(RHOK) = F(DENS)*0.5*(U_LL(EXT_TKE) + U_RR(EXT_TKE))
+F(RHOG) = F(DENS)*0.5*(U_LL(EXT_OMG) + U_RR(EXT_OMG))
 
 END SUBROUTINE SplitSurfaceFluxCH
 

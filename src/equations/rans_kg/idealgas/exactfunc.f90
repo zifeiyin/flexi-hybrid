@@ -709,7 +709,7 @@ DO iElem=1,nElems
     mut   = prim(MUT)
 
     invR  = 1.0 / MAX( 0.01 * muS, mut )
-    invG  = 1.0 / MAX( prim(OMG), 1.e-16 )
+    invG  = 1.0 / MAX( prim(OMG), epsOMG )
 
     ! production of rho*TKE
 #if PP_dim==2
@@ -740,11 +740,14 @@ DO iElem=1,nElems
              + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
     ! dissipation of k
-    DissK = -Cmu * (prim(DENS) * prim(TKE))**2 * invR 
+    !DissK = -(prim(DENS) * prim(TKE)) * invG * invG
+    !DissK = -U(RHOK,i,j,k,iElem) * invG * invG
+    DissK = -Cmu * ( prim(DENS) * prim(TKE) )**2 * invR 
     ! production of k, with realizability constraint
     !Plim  = 20.0 * Cmu * U(RHOK,i,j,k,iElem)**2 * invR
-    Plim = ABS( U(RHOK,i,j,k,iElem) ) * SQRT( SijSij / 3.0 ) ;
-    ProdK = MIN( 2.0 * mut * SijGradU, Plim )
+    !Plim = ABS( U(RHOK,i,j,k,iElem) ) * SQRT( SijSij / 3.0 ) ;
+    !ProdK = MIN( 2.0 * mut * SijGradU, Plim )
+    ProdK = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
     Ut_src(RHOK,i,j,k) = ProdK + DissK 
@@ -752,6 +755,7 @@ DO iElem=1,nElems
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation
     ! production of g
     ProdG = 0.5 * Comega2 * prim(DENS) * invG
+    !ProdG = 0.5 * Cmu * prim(DENS)**2 * prim(TKE) * prim(OMG) * invR
 
     ! dissipation of g
     DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * SijSij
@@ -767,7 +771,8 @@ DO iElem=1,nElems
          + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
 #endif
 
-    crossG = 3.0 * diffEff * Cmu * U(RHOG,i,j,k,iElem) * prim(TKE) * invR * dGdG
+    crossG = -3.0 * diffEff * Cmu * prim(DENS) * prim(TKE) * prim(OMG) * invR * dGdG
+    !crossG = -3.0 * diffEff * invG * dGdG
 
     Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
 
