@@ -23,3 +23,4 @@ autoInstall.sh
 autoInstallLocal.sh
 CMakeCache.txt
 CMakeFiles/cmake.check_cache
+hybrid_tutorials/01_flatplate/01_RK_explicit/userblock.tmp

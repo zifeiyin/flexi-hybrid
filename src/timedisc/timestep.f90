@@ -155,6 +155,12 @@ DO iStage = 1,nRKStages
 #endif /*PP_LIMITER*/
 END DO
 
+print*, "t = ", t
+print*, "max/min rhoU = ", MAXVAL(U(2,:,:,:,:)), ", ", MINVAL(U(2,:,:,:,:))
+print*, "max/min rhoE = ", MAXVAL(U(5,:,:,:,:)), ", ", MINVAL(U(5,:,:,:,:))
+print*, "max/min rhok = ", MAXVAL(U(6,:,:,:,:)), ", ", MINVAL(U(6,:,:,:,:))
+print*, "max/min rhog = ", MAXVAL(U(7,:,:,:,:)), ", ", MINVAL(U(7,:,:,:,:))
+
 END SUBROUTINE TimeStepByLSERKW2
 
 
