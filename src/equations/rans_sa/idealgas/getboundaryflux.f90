@@ -685,8 +685,8 @@ ELSE
                                                  + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_NUSA,p,q) &
                                                  + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_NUSA,p,q)
         gradUz_Face_loc(LIFT_TEMP:LIFT_NUSA,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_NUSA,p,q) &
-                                                 + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                                 + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+                                                 + BCGradMat(3,2) * gradUy_master(LIFT_TEMP:LIFT_NUSA,p,q) &
+                                                 + BCGradMat(3,3) * gradUz_master(LIFT_TEMP:LIFT_NUSA,p,q)
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)+nv(3 )*gradUx_master(LIFT_VEL3,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)+tv1(3)*gradUx_master(LIFT_VEL3,p,q)

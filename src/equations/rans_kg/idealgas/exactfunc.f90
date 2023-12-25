@@ -755,13 +755,6 @@ DO iElem=1,nElems
     ! add to source term of k equation
     Ut_src(RHOK,i,j,k) = ProdK + DissK 
     
-    IF ( SijGradU .ge. 5000.0 ) THEN
-
-      tmpVar(1) = MAX( tmpVar(1), ProdK )
-      tmpVar(2) = MIN( tmpVar(2), DissK )
-      tmpVar(3) = MAX( tmpVar(3), Ut_src(RHOK,i,j,k) )
-      print*, "terms of k = ",  SijGradU, tmpVar(1), tmpVar(2), tmpVar(3)
-    END IF
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation
     ! production of g
     !ProdG = 0.5 * Comega2 * prim(DENS) * invG

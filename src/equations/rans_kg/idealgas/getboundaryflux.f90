@@ -400,8 +400,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VELV,p,q)=UPrim_boundary(VELV,p,q)
       UPrim_boundary(PRES,p,q)=pb
       UPrim_boundary(TEMP,p,q)=UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
-      ! copy the inside values
-      UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
     END DO; END DO !p,q
   CASE(24) ! Pressure outflow BC
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
@@ -682,14 +680,14 @@ ELSE
         BCGradMat(3,1) = BCGradMat(1,3)
         BCGradMat(2,3) = BCGradMat(3,2)
         gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+                                                + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+                                                + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+                                                + BCGradMat(3,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                + BCGradMat(3,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)+nv(3 )*gradUx_master(LIFT_VEL3,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)+tv1(3)*gradUx_master(LIFT_VEL3,p,q)
