@@ -687,10 +687,13 @@ REAL                :: prim(PP_nVarPrim)
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
 INTEGER             :: FV_Elem
+REAL                :: tmpVar(3)
 !==================================================================================================================================
 ! do something here to add source to k-g
 
 #if PARABOLIC
+
+tmpVar = 0.
 
 DO iElem=1,nElems
 #if FV_ENABLED
@@ -752,13 +755,21 @@ DO iElem=1,nElems
     ! add to source term of k equation
     Ut_src(RHOK,i,j,k) = ProdK + DissK 
     
+    IF ( SijGradU .ge. 5000.0 ) THEN
+
+      tmpVar(1) = MAX( tmpVar(1), ProdK )
+      tmpVar(2) = MIN( tmpVar(2), DissK )
+      tmpVar(3) = MAX( tmpVar(3), Ut_src(RHOK,i,j,k) )
+      print*, "terms of k = ",  SijGradU, tmpVar(1), tmpVar(2), tmpVar(3)
+    END IF
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation
     ! production of g
-    ProdG = 0.5 * Comega2 * prim(DENS) * invG
-    !ProdG = 0.5 * Cmu * prim(DENS)**2 * prim(TKE) * prim(OMG) * invR
+    !ProdG = 0.5 * Comega2 * prim(DENS) * invG
+    ProdG = 0.5 * Comega2 * prim(DENS)**2 * prim(TKE) * prim(OMG) * invR
 
     ! dissipation of g
-    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * SijSij
+    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * SijSij
+    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
