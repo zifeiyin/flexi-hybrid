@@ -324,7 +324,6 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
     !UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
     !UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q) 
-    !UPrim_boundary(MUT, p,q)     = UPrim_master(MUT ,p,q)
   END DO; END DO !p,q
 
 
@@ -342,7 +341,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
       UPrim_boundary(TKE,p,q) = 0.
       UPrim_boundary(OMG,p,q) = 0.
-      UPrim_boundary(MUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(4) ! Isothermal wall
     ! For isothermal wall, all gradients are from interior
@@ -356,7 +354,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(TEMP,p,q) * R)
       UPrim_boundary(TKE,p,q) = 0.
       UPrim_boundary(OMG,p,q) = 0.
-      UPrim_boundary(MUT,p,q) = 0.
     END DO; END DO ! q,p
   CASE(9,91) ! Euler (slip) wall
     ! vel=(0,v_in,w_in)
@@ -370,8 +367,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(DENS,p,q) = UPrim_master(DENS,p,q) ! density from inside
       ! set temperature via ideal gas equation, consistent to density and pressure
       UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q) / (UPrim_boundary(DENS,p,q) * R)
-      ! TKE, G, MUT from the inside
-      !UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
     END DO; END DO ! q,p
 
   ! Cases 21-29 are taken from NASA report "Inflow/Outflow Boundary Conditions with Application to FUN3D" Jan-Reneé Carlson
@@ -400,8 +395,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VELV,p,q)=UPrim_boundary(VELV,p,q)
       UPrim_boundary(PRES,p,q)=pb
       UPrim_boundary(TEMP,p,q)=UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
-      ! copy the inside values
-      UPrim_boundary(TKE:MUT,p,q) = UPrim_master(TKE:MUT,p,q)
     END DO; END DO !p,q
   CASE(24) ! Pressure outflow BC
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
@@ -482,7 +475,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q)=Tb
       UPrim_boundary(TKE ,p,q)=RefStatePrim(TKE,BCState)
       UPrim_boundary(OMG ,p,q)=RefStatePrim(OMG,BCState)
-      UPrim_boundary(MUT ,p,q)=0.09*UPrim_boundary(DENS,p,q)*RefStatePrim(TKE,BCState)*RefStatePrim(OMG,BCState)*RefStatePrim(OMG,BCState)
     END DO; END DO !p,q
   END SELECT
 
@@ -522,6 +514,9 @@ USE MOD_ExactFunc    ,ONLY: ExactFunc
 #if PARABOLIC
 USE MOD_Flux         ,ONLY: EvalDiffFlux3D
 USE MOD_Riemann      ,ONLY: ViscousFlux
+#endif
+#if EDDYVISCOSITY
+USE MOD_EddyVisc_Vars,ONLY: muSGS_master
 #endif
 USE MOD_Riemann      ,ONLY: Riemann
 USE MOD_TestCase     ,ONLY: GetBoundaryFluxTestcase
@@ -591,11 +586,18 @@ ELSE
     CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
          gradUx_master,gradUy_master,gradUz_master,&
          gradUx_master,gradUy_master,gradUz_master,&
-         NormVec)
+         NormVec&
+#if EDDYVISCOSITY
+         ,muSGS_master(:,:,:,SideID),muSGS_master(:,:,:,SideID)&
+#endif
+    )
     Flux = Flux + Fd_Face_loc
 #endif /*PARABOLIC*/
 
   CASE(3,4,9,91) ! Walls
+#if EDDYVISCOSITY
+    muSGS_master(:,:,:,SideID)=0.
+#endif
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       ! Now we compute the 1D Euler flux, but use the info that the normal component u=0
       ! we directly tranform the flux back into the Cartesian coords: F=(0,n1*p,n2*p,n3*p,0)^T
@@ -612,7 +614,11 @@ ELSE
       ! Evaluate 3D Diffusion Flux with interior state and symmetry gradients
       CALL EvalDiffFlux3D(Nloc,UPrim_boundary,&
                           gradUx_master, gradUy_master, gradUz_master, &
-                          Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    )
+                          Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    &
+#if EDDYVISCOSITY
+                          ,muSGS_master(:,:,:,SideID) &
+#endif                  
+                          )
       IF (BCType.EQ.3) THEN
         ! Enforce energy flux is exactly zero at adiabatic wall
         Fd_Face_loc(ENER,:,:)=0.
@@ -661,7 +667,11 @@ ELSE
       ! Only velocities will be used from state (=inner velocities, except normal vel=0)
       CALL EvalDiffFlux3D(Nloc, UPrim_boundary,                              &
                           gradUx_Face_loc, gradUy_Face_loc, gradUz_Face_loc, &
-                          Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              )
+                          Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              &
+#if EDDYVISCOSITY
+                          ,muSGS_master(:,:,:,SideID)                        &
+#endif                    
+      )
     CASE(91)
       ! Euler/(full-)slip wall
       ! Version 2: For scalars and tangential velocity, set gradients in normal direction to zero.
@@ -682,14 +692,14 @@ ELSE
         BCGradMat(3,1) = BCGradMat(1,3)
         BCGradMat(2,3) = BCGradMat(3,2)
         gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+                                                + BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                + BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+                                                + BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                + BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
-                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+                                                + BCGradMat(3,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) &
+                                                + BCGradMat(3,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)+nv(3 )*gradUx_master(LIFT_VEL3,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)+tv1(3)*gradUx_master(LIFT_VEL3,p,q)
@@ -770,7 +780,11 @@ ELSE
       ! Only velocities will be used from state (=inner velocities, except normal vel=0)
       CALL EvalDiffFlux3D(Nloc,UPrim_boundary,                            &
                           gradUx_Face_loc,gradUy_Face_loc,gradUz_Face_loc, &
-                          Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            )
+                          Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            &
+#if EDDYVISCOSITY
+                          ,muSGS_master(:,:,:,SideID)&
+#endif                    
+      )
     END SELECT
 
     ! Sum up Euler and Diffusion Flux

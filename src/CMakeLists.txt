@@ -46,7 +46,7 @@ ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_sa")
   ADD_DEFINITIONS(-DPP_nVar=6 -DPP_nVarPrim=7 -DEQNSYSNR=3)
   SET(WITHEOS 1)
 ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_kg")
-  ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=9 -DEQNSYSNR=4)
+  ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=8 -DEQNSYSNR=4)
   SET(WITHEOS 1)
 ELSE()
   MESSAGE(SEND_ERROR "Unknown equation system.")
@@ -138,11 +138,6 @@ IF(((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "ra
     ELSE()
       MESSAGE(SEND_ERROR "No such VISCOSITY known.")
     ENDIF()
-    IF (FLEXI_EDDYVISCOSITY)
-      IF(FLEXI_2D)
-        MESSAGE(SEND_ERROR " FLEXI_EDDYVISCOSITY is enabled, please disable FLEXI_2D")
-      ENDIF()
-    ENDIF()
   ENDIF()
 ELSE()
   ADD_DEFINITIONS(-DPARABOLIC=0)
@@ -154,9 +149,16 @@ ENDIF()
 CMAKE_DEPENDENT_OPTION(FLEXI_EDDYVISCOSITY "Enable eddy viscosity modells" OFF
                                            "FLEXI_PARABOLIC"               OFF)
 IF (FLEXI_EDDYVISCOSITY)
-  ADD_DEFINITIONS(-DEDDYVISCOSITY=1)
+  IF ( FLEXI_EQNSYSNAME STREQUAL "navierstokes" OR FLEXI_EQNSYSNAME STREQUAL "rans_kg" )
+    ADD_DEFINITIONS(-DEDDYVISCOSITY=1)
+  ELSE()
+    MESSAGE(SEND_ERROR "Eddy viscosity is not compatible with the current equation set")
+  ENDIF()
 ELSE()
   ADD_DEFINITIONS(-DEDDYVISCOSITY=0)
+  IF ( FLEXI_EQNSYSNAME STREQUAL "rans_kg" )
+    MESSAGE(SEND_ERROR "The k-g implementation uses eddy viscosity module, please set FLEXI_EDDYVISCOSITY=ON")
+  ENDIF ()
 ENDIF()
 
 # =========================================================================
@@ -311,12 +313,20 @@ ENDIF()
 
 # >> append F90 files of the eddy viscosity to 'eqnsysF90'-list
 IF (FLEXI_EDDYVISCOSITY)
-  FILE(GLOB eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/default/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/smagorinsky/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/dynSmagorinsky/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/vreman/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/sigmaModel/*.f90)
+  IF (FLEXI_EQNSYSNAME STREQUAL "navierstokes")
+    FILE(GLOB eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/default/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/smagorinsky/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/dynSmagorinsky/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/vreman/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/sigmaModel/*.f90)
+  ELSEIF ( FLEXI_EQNSYSNAME STREQUAL "rans_kg" )
+    FILE(GLOB eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/default/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/smagorinsky/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/dynSmagorinsky/*.f90
+              eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/vreman/*.f90 )
+  ENDIF() 
   LIST(APPEND eqnsysF90 ${eddyviscF90})
 ENDIF()
 

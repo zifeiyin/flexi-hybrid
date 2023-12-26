@@ -13,7 +13,7 @@
 !=================================================================================================================================
 ! Define variables for normal and extended state vector
 ! Normal   U(1:7)  with conservative variables
-! Extended U(1:16) with conservative and primitive variables
+! Extended U(1:15) with conservative and primitive variables
 
 #define CONS 1:PP_nVar          /* all cons variables */
 #define PRIM 1:PP_nVarPrim      /* all prim variables */
@@ -41,7 +41,6 @@
 #define VELVTEMP (/VEL1,VEL2,VEL3,TEMP/) /* velocity range and temperature */
 #define TKE   7             /* turbulent kinetic energy*/
 #define OMG   8             /* turbulent g*/
-#define MUT   9             /* rho *turbulence eddy viscosity*/
 
 ! routines to compute physical quantities
 #define KAPPASPR_MAX_TIMESTEP_H()      (MAX(4./3.,KappasPr))
@@ -60,7 +59,6 @@
 #define TOTALENTHALPY_H(U,p,sRho)      ((U(ENER)+p)*sRho)
 #define ENTROPY_H(U,T)                 (R*(sKappaM1*LOG(T)-LOG(U(DENS))))
 #define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS)-U(RHOK))/(U(DENS)*cv))
-#define MUT_H(U)                       (0.09*MAX(U(RHOK),0.) * MAX(U(RHOG),0) * MAX(U(RHOG),0.)/U(DENS)/U(DENS))
 
 ! extended (NOTE: compute from cons. When computing derived (neither prim or cons) variables
 ! assume that both prim and cons vars are filled
@@ -71,10 +69,6 @@
 #define TOTALENTHALPY_HE(UE)           ((UE(EXT_ENER)+UE(EXT_PRES))*UE(EXT_SRHO))
 #define TEMPERATURE_HE(UE)             (UE(EXT_PRES)*UE(EXT_SRHO)/R)
 #define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV))+UE(EXT_RHOK))
-#define MUT_HE(UE)                     (0.09*MAX(UE(RHOK),0.) * MAX(UE(RHOG),0.) * MAX(UE(RHOG),0.)/UE(DENS)/UE(DENS))  
-
-! primative variable 
-#define MUT_HP(UP)                     (0.09*UP(DENS)*MAX(UP(TKE),0.)*MAX(UP(OMG),0.)*MAX(UP(OMG),0.))
 
 #if PP_VISC == 0
 #define VISCOSITY_PRIM(U)              mu0
@@ -113,7 +107,6 @@
 #define EXT_TEMP    PP_nVar+TEMP               /* temperature */
 #define EXT_TKE     PP_nVar+TKE                /* kinetic energy*/
 #define EXT_OMG     PP_nVar+OMG                /* turbulence g*/
-#define EXT_MUT     PP_nVar+MUT                /* mut */
 
 ! lifting variables
 #if PP_OPTLIFT == 0

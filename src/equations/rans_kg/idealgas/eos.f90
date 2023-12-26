@@ -214,7 +214,6 @@ prim(VEL3)=0.
 ! turbulence quantities
 prim(TKE)  = MAX( cons(RHOK)*sRho, epsTKE )
 prim(OMG)  = MAX( cons(RHOG)*sRho, epsOMG )
-prim(MUT)  = Cmu * prim(TKE) * cons(RHOG)**2 * sRho
 
 ! pressure
 prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
