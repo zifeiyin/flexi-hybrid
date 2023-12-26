@@ -89,7 +89,7 @@ jobs:
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
-          -DFLEXI_EDDYVISCOSITY=OFF \
+          -DFLEXI_EDDYVISCOSITY=ON \
           -DFLEXI_EQNSYSNAME=rans_kg \
           -DFLEXI_EXACT_MASSMATRIX=OFF \
           -DFLEXI_FV=OFF \
@@ -120,7 +120,7 @@ jobs:
           cd build
           cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
-          -DFLEXI_EDDYVISCOSITY=OFF \
+          -DFLEXI_EDDYVISCOSITY=ON \
           -DFLEXI_EQNSYSNAME=rans_kg \
           -DFLEXI_EXACT_MASSMATRIX=OFF \
           -DFLEXI_FV=SWITCH \
