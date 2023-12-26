@@ -156,11 +156,10 @@ DO iStage = 1,nRKStages
 
 END DO
 
-!print*, "t = ", t, ", iStage = ", iStage
-!print*, "max/min RhoU = ", MAXVAL(U(2,:,:,:,:)), ", ", MINVAL(U(2,:,:,:,:))
-!print*, "max/min RhoE = ", MAXVAL(U(5,:,:,:,:)), ", ", MINVAL(U(5,:,:,:,:))
-!print*, "max/min RhoK = ", MAXVAL(U(6,:,:,:,:)), ", ", MINVAL(U(6,:,:,:,:))
-!print*, "max/min RhoG = ", MAXVAL(U(7,:,:,:,:)), ", ", MINVAL(U(7,:,:,:,:))
+print*, "max/min RhoU = ", MAXVAL(U(2,:,:,:,:)), ", ", MINVAL(U(2,:,:,:,:))
+print*, "max/min RhoE = ", MAXVAL(U(5,:,:,:,:)), ", ", MINVAL(U(5,:,:,:,:))
+print*, "max/min RhoK = ", MAXVAL(U(6,:,:,:,:)), ", ", MINVAL(U(6,:,:,:,:))
+print*, "max/min RhoG = ", MAXVAL(U(7,:,:,:,:)), ", ", MINVAL(U(7,:,:,:,:))
 
 END SUBROUTINE TimeStepByLSERKW2
 

@@ -156,11 +156,18 @@ END SUBROUTINE EvalFlux3D_Volume
 !==================================================================================================================================
 !> Compute Navier-Stokes diffusive flux using the primitive variables and derivatives.
 !==================================================================================================================================
-PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h)
+PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
+#if EDDYVISCOSITY
+                                      ,muSGS &
+#endif
+)
 ! MODULES
-USE MOD_Equation_Vars,ONLY: s23,s43,PrTurb,Comega1,Comega2,Cmu,sigmaK,sigmaG
+USE MOD_Equation_Vars,ONLY: s23,s43,Comega1,Comega2,Cmu,sigmaK,sigmaG
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
+#if EDDYVISCOSITY
+USE MOD_EddyVisc_Vars,ONLY: PrSGS
+#endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -174,19 +181,26 @@ REAL                :: tau_xx,tau_yy,tau_xy
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
 #endif
-REAL                :: muTurb, muEff, kDiffEff, gDiffEff
+REAL                :: kDiffEff, gDiffEff
+#if EDDYVISCOSITY
+REAL   ,INTENT(IN)  :: muSGS                 !< SGS viscosity
+#endif
 !==================================================================================================================================
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
-muTurb = UPrim(MUT)
-muEff  = MAX(muS, muS + muTurb)
-lambda = MAX(lambda,lambda+muTurb*cp/PrTurb)
+#if EDDYVISCOSITY
+muS    = muS    + muSGS
+lambda = lambda + muSGS*cp/PrSGS
 !diffusivity of turbulence variables
-kDiffEff = MAX(muS, muS + muTurb * sigmaK)
-gDiffEff = MAX(muS, muS + muTurb * sigmaG)
+kDiffEff = MAX(muS, muS + muSGS * sigmaK)
+gDiffEff = MAX(muS, muS + muSGS * sigmaG)
+#else
+kDiffEff = muS 
+gDiffEff = muS
+#endif
 
 ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => UPrim(VEL3), &
            gradT1 => GradUx(LIFT_TEMP), gradT2 => GradUy(LIFT_TEMP), gradT3 => GradUz(LIFT_TEMP) )
@@ -194,12 +208,12 @@ ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => U
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
 ! viscous fluxes in x-direction
-tau_xx = muEff * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
-tau_yy = muEff * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
-tau_zz = muEff * (-s23 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) + s43 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x-2/3*mu*v_y +4/3*mu*w*z
-tau_xy = muEff * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
-tau_xz = muEff * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
-tau_yz = muEff * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
+tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
+tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2) - s23 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
+tau_zz = muS * (-s23 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) + s43 * gradUz(LIFT_VEL3)) !-2/3*mu*u_x-2/3*mu*v_y +4/3*mu*w*z
+tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
+tau_xz = muS * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
+tau_yz = muS * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
 
 f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
@@ -228,9 +242,9 @@ h(RHOG) = -gDiffEff*gradUz(LIFT_OMG)                    ! F_euler-(muS+sigmaO*mu
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
 ! viscous fluxes in x-direction
-tau_xx = muEff * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
-tau_yy = muEff * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
-tau_xy = muEff * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
+tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
+tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
+tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
 
 f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
@@ -259,6 +273,9 @@ END SUBROUTINE EvalDiffFlux3D_Point
 SUBROUTINE EvalDiffFlux3D_Volume(UPrim,gradUx,gradUy,gradUz,f,g,h,iElem)
 ! MODULES
 USE MOD_PreProc
+#if EDDYVISCOSITY
+USE MOD_EddyVisc_Vars,ONLY: muSGS
+#endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -272,14 +289,22 @@ INTEGER             :: i,j,k
 !==================================================================================================================================
 DO k=0,PP_NZ;  DO j=0,PP_N; DO i=0,PP_N
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j,k),gradUx(:,i,j,k),gradUy(:,i,j,k),gradUz(:,i,j,k), &
-                                                f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  )
+                                                f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  &
+#if EDDYVISCOSITY
+                            ,muSGS(1,i,j,k,iElem)&
+#endif                                              
+)
 END DO; END DO; END DO ! i,j,k
 END SUBROUTINE EvalDiffFlux3D_Volume
 
 !==================================================================================================================================
 !> Wrapper routine to compute the diffusive part of the Navier-Stokes fluxes for a single side
 !==================================================================================================================================
-PPURE SUBROUTINE EvalDiffFlux3D_Surface(Nloc,UPrim,gradUx,gradUy,gradUz,f,g,h )
+PPURE SUBROUTINE EvalDiffFlux3D_Surface(Nloc,UPrim,gradUx,gradUy,gradUz,f,g,h &
+#if EDDYVISCOSITY
+                                 ,muSGS &
+#endif
+                                 )
 ! MODULES
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -288,13 +313,20 @@ INTEGER                                           ,INTENT(IN)  :: Nloc          
 REAL,DIMENSION(PP_nVarPrim   ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: UPrim                !< Solution vector
 REAL,DIMENSION(PP_nVarLifting,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: gradUx,gradUy,gradUz !> Gradients in x,y,z directions
 REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: f,g,h                !> Physical fluxes in x,y,z directions
+#if EDDYVISCOSITY
+REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS                !< SGS viscosity
+#endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j
 !==================================================================================================================================
 DO j=0,ZDIM(Nloc); DO i=0,Nloc
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j),gradUx(:,i,j),gradUy(:,i,j),gradUz(:,i,j), &
-                                               f(:,i,j),     g(:,i,j),     h(:,i,j)  )
+                                               f(:,i,j),     g(:,i,j),     h(:,i,j) &
+#if EDDYVISCOSITY
+                            ,muSGS(1,i,j) &
+#endif
+                           )
 END DO; END DO ! i,j
 END SUBROUTINE EvalDiffFlux3D_Surface
 #endif /*PARABOLIC*/

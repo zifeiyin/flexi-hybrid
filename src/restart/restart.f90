@@ -176,8 +176,6 @@ ELSE
         RestartPrim(7) = iVar
       CASE(TRIM(StrVarNamesPrim(8))) ! omega
         RestartPrim(8) = iVar
-      CASE(TRIM(StrVarNamesPrim(9))) ! nut
-        RestartPrim(9) = iVar
 #endif /* EQNSYSNR == 3, 4 */
     END SELECT
   END DO

@@ -653,6 +653,7 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
+USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 USE MOD_Equation_Vars    ,ONLY: IniExactFunc, sigmaK, sigmaG, Comega1, Comega2, Cmu, epsOMG, epsTKE, s23
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_EOS              ,ONLY: ConsToPrim
@@ -676,7 +677,7 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
-REAL                :: Plim, invR, invG
+REAL                :: invR, invG
 REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG, SijGradU
 REAL                :: mut, muS, sRho
 REAL                :: trS
@@ -709,7 +710,7 @@ DO iElem=1,nElems
 
     sRho  = 1./prim(DENS)
     muS   = VISCOSITY_PRIM(prim)
-    mut   = prim(MUT)
+    mut   = muSGS(1,i,j,k,iElem)
 
     invR  = 1.0 / MAX( 0.01 * muS, mut )
     invG  = 1.0 / MAX( prim(OMG), epsOMG )
@@ -743,26 +744,23 @@ DO iElem=1,nElems
              + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
     ! dissipation of k
-    !DissK = -(prim(DENS) * prim(TKE)) * invG * invG
-    !DissK = -U(RHOK,i,j,k,iElem) * invG * invG
     DissK = -Cmu * ( prim(DENS) * prim(TKE) )**2 * invR 
     ! production of k, with realizability constraint
-    !Plim  = 20.0 * Cmu * U(RHOK,i,j,k,iElem)**2 * invR
-    !Plim = ABS( U(RHOK,i,j,k,iElem) ) * SQRT( SijSij / 3.0 ) ;
-    !ProdK = MIN( 2.0 * mut * SijGradU, Plim )
     ProdK = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
     Ut_src(RHOK,i,j,k) = ProdK + DissK 
-    
-    !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation
+   
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! production of g
     !ProdG = 0.5 * Comega2 * prim(DENS) * invG
     ProdG = 0.5 * Comega2 * prim(DENS)**2 * prim(TKE) * prim(OMG) * invR
 
     ! dissipation of g
-    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * SijSij
-    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
+    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * SijSij
+    !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem) * prim(OMG)**2 * ProdK * invR
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
