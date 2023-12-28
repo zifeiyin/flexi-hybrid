@@ -718,8 +718,8 @@ DO iElem=1,nElems
 
     kPos  = MAX( prim(TKE), epsTKE  )
     gPos  = MAX( prim(OMG), epsOMG )
-    invG  = 1.0 / kPos
-    invK  = 1.0 / gPos
+    invK  = 1.0 / kPos
+    invG  = 1.0 / gPos
 
     ! production of rho*TKE
 #if PP_dim==2
@@ -767,17 +767,18 @@ DO iElem=1,nElems
     !ProdG = 0.5 * Comega2 * ABS(U(RHOK,i,j,k,iElem) * U(RHOG,i,j,k,iElem)) * invR
     !ProdG = 0.5 * Comega2 * prim(DENS)**2 * prim(TKE) * prim(OMG) * invR
     !ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
-    ProdG = 0.5 * Comega2 * prim(DENS)**2 * kPos * gPos * invR 
+    !ProdG = 0.5 * Comega2 * prim(DENS)**2 * kPos * gPos * invR
+    ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
 
     ! dissipation of g
-    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
     !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * SijSij
     !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
     !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * ProdK * invR
     !DissG  = -0.5 * Comega1 * prim(OMG) * invK * ProdG 
     !DissG  = -0.5 * Cmu * Comega1 * prim(DENS) * gPos * ProdK * invR
     !DissG  = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
-    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * ProdK * invR
+    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * ProdK * invR
+    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
