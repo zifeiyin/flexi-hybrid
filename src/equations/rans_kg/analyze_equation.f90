@@ -349,7 +349,7 @@ SUBROUTINE CalcTurbulence(kgnut)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_DG_Vars,            ONLY: UPrim
+USE MOD_DG_Vars,            ONLY: U
 USE MOD_EddyVisc_Vars,      ONLY: muSGS
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -359,10 +359,10 @@ REAL,INTENT(OUT)                :: kgnut(6)                   !> Conservative re
 ! LOCAL VARIABLES
 !==================================================================================================================================
 
-kgnut(1) = MAXVAL( UPrim(TKE,:,:,:,:) )
-kgnut(2) = MINVAL( UPrim(TKE,:,:,:,:) )
-kgnut(3) = MAXVAL( UPrim(OMG,:,:,:,:) )
-kgnut(4) = MINVAL( UPrim(OMG,:,:,:,:) )
+kgnut(1) = MAXVAL( U(RHOK,:,:,:,:) )
+kgnut(2) = MINVAL( U(RHOK,:,:,:,:) )
+kgnut(3) = MAXVAL( U(RHOG,:,:,:,:) )
+kgnut(4) = MINVAL( U(RHOG,:,:,:,:) )
 kgnut(5) = MAXVAL( muSGS(1,:,:,:,:) )
 kgnut(6) = MINVAL( muSGS(1,:,:,:,:) )
 

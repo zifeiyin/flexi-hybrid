@@ -691,7 +691,6 @@ REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
 INTEGER             :: FV_Elem
 REAL                :: tmpVar(3), massImb
-LOGICAL             :: negK, negG
 !==================================================================================================================================
 ! do something here to add source to k-g
 
@@ -705,16 +704,6 @@ DO iElem=1,nElems
 #else
   FV_Elem = 0
 #endif
-
-  negK = .FALSE.
-  negG = .FALSE.
-  IF ( MINVAL( U(RHOK,:,:,:,iElem)) .lt. 0. ) THEN
-    negK = .TRUE.
-  ENDIF
-
-  IF ( MINVAL( U(RHOG,:,:,:,iElem)) .lt. 0. )  THEN
-    negG = .TRUE.
-  ENDIF
 
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
 
@@ -760,15 +749,16 @@ DO iElem=1,nElems
 #endif
     ! dissipation of k
     DissK = -Cmu * (prim(DENS)*kPos)**2 * invR
+    !DissK = -Cmu * ABS(U(RHOK,i,j,k,iElem)) * U(RHOK,i,j,k,iElem) * invR
     ! production of k, with realizability constraint
     ProdK = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
-    !IF ( negK ) THEN
-    !  Ut_src(RHOK,i,j,k) = ProdK
-    !ELSE
+    IF ( U(RHOK,i,j,k,iElem) .lt. 0. ) THEN
+      Ut_src(RHOK,i,j,k) = ProdK
+    ELSE
       Ut_src(RHOK,i,j,k) = ProdK + DissK 
-    !ENDIF
+    ENDIF
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -780,11 +770,14 @@ DO iElem=1,nElems
     ProdG = 0.5 * Comega2 * prim(DENS)**2 * kPos * gPos * invR 
 
     ! dissipation of g
-    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
+    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
     !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * SijSij
     !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
     !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * ProdK * invR
     !DissG  = -0.5 * Comega1 * prim(OMG) * invK * ProdG 
+    !DissG  = -0.5 * Cmu * Comega1 * prim(DENS) * gPos * ProdK * invR
+    !DissG  = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
+    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * ProdK * invR
           
     ! cross diffusion of g
     diffEff = muS + mut * sigmaG
@@ -798,13 +791,12 @@ DO iElem=1,nElems
 #endif
 
     crossG = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invR * dGdG
-    !crossG = -3.0 * diffEff * invG * MIN(dGdG, 1.e6) 
 
-    !IF ( negG ) THEN
-    !  Ut_src(RHOG,i,j,k) = ProdG
-    !ELSE 
+    IF ( U(RHOG,i,j,k,iElem) .lt. 0. ) THEN
+      Ut_src(RHOG,i,j,k) = ProdG 
+    ELSE
       Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
-    !ENDIF
+    ENDIF
 
   END DO ; END DO; END DO ! i,j,k
 

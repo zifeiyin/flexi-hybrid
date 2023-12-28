@@ -216,7 +216,7 @@ prim(TKE)  = cons(RHOK)*sRho
 prim(OMG)  = cons(RHOG)*sRho
 
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - cons(RHOK))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 
