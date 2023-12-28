@@ -97,8 +97,8 @@ g(MOM1) = f(MOM2)                             ! rho*u*v
 g(MOM2) = U(MOM2) * UPrim(VEL2) + UPrim(PRES) ! rho*v²+p
 g(MOM3) = U(MOM2) * UPrim(VEL3)               ! rho*v*w
 g(ENER) = Ep * UPrim(VEL2)                    ! (rho*e+p)*v
-g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*u*k
-g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*u*tg
+g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*v*k
+g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*v*tg
 ! Euler fluxes z-direction
 h(DENS) = U(MOM3)                             ! rho*v
 h(MOM1) = f(MOM3)                             ! rho*u*w
@@ -116,16 +116,16 @@ f(MOM1) = U(MOM1)*UPrim(VEL1)+UPrim(PRES)     ! rho*u²+p
 f(MOM2) = U(MOM1)*UPrim(VEL2)                 ! rho*u*v
 f(MOM3) = 0.
 f(ENER) = Ep*UPrim(VEL1)                      ! (rho*e+p)*u
-f(RHOK) = U(MOM1) * UPrim(TKE)               ! rho*u*k
-f(RHOG) = U(MOM1) * UPrim(OMG)               ! rho*u*tg
+f(RHOK) = U(MOM1) * UPrim(TKE)                ! rho*u*k
+f(RHOG) = U(MOM1) * UPrim(OMG)                ! rho*u*tg
 ! Euler fluxes y-direction
 g(DENS)= U(MOM2)                              ! rho*v
 g(MOM1)= f(MOM2)                              ! rho*u*v
 g(MOM2)= U(MOM2)*UPrim(VEL2)+UPrim(PRES)      ! rho*v²+p
 g(MOM3)= 0.
 g(ENER)= Ep*UPrim(VEL2)                       ! (rho*e+p)*v
-g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*u*k
-g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*u*tg
+g(RHOK) = U(MOM2) * UPrim(TKE)               ! rho*v*k
+g(RHOG) = U(MOM2) * UPrim(OMG)               ! rho*v*tg
 ! Euler fluxes z-direction
 h   = 0.
 #endif

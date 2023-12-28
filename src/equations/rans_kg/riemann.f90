@@ -99,14 +99,14 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !==================================================================================================================================
 CALL prms%SetSection("Riemann")
-CALL prms%CreateIntFromStringOption('Riemann',   "Riemann solver to be used: LF, HLLC")
+CALL prms%CreateIntFromStringOption('Riemann',   "Riemann solver to be used: LF, HLLC", "lf")
 CALL addStrListEntry('Riemann','lf',           PRM_RIEMANN_LF)
 CALL addStrListEntry('Riemann','hllc',         PRM_RIEMANN_HLLC)
 #ifdef SPLIT_DG
 CALL addStrListEntry('Riemann','ch',           PRM_RIEMANN_CH)
 CALL addStrListEntry('Riemann','avg',          PRM_RIEMANN_Average)
 #endif
-CALL prms%CreateIntFromStringOption('RiemannBC', "Riemann solver used for boundary conditions: Same, LF, HLLC")
+CALL prms%CreateIntFromStringOption('RiemannBC', "Riemann solver used for boundary conditions: Same, LF, HLLC", "Same")
 CALL addStrListEntry('RiemannBC','lf',           PRM_RIEMANN_LF)
 CALL addStrListEntry('RiemannBC','hllc',         PRM_RIEMANN_HLLC)
 #ifdef SPLIT_DG

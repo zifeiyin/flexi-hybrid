@@ -212,8 +212,8 @@ prim(VEL3)=0.
 #endif
 
 ! turbulence quantities
-prim(TKE)  = MAX( cons(RHOK)*sRho, epsTKE )
-prim(OMG)  = MAX( cons(RHOG)*sRho, epsOMG )
+prim(TKE)  = cons(RHOK)*sRho
+prim(OMG)  = cons(RHOG)*sRho
 
 ! pressure
 prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
@@ -311,8 +311,8 @@ cons(MOM3)=prim(VEL3)*prim(DENS)
 cons(MOM3)=0.
 #endif
 
-cons(RHOK)=MAX(prim(TKE), epsTKE)*prim(DENS)
-cons(RHOG)=MAX(prim(OMG), epsOMG)*prim(DENS)
+cons(RHOK)=prim(TKE)*prim(DENS)
+cons(RHOG)=prim(OMG)*prim(DENS)
 
 ! energy
 cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV)) + cons(RHOK)
