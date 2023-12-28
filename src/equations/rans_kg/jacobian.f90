@@ -275,7 +275,7 @@ DO i=1,nDOF_loc
   ! conductivity
   fJac(5,6:7,i) = -1. * (/ dmuTurb_drhok, dmuTurb_drhog /) &
                 * ( (tau(1,1)*UPrim(2,i) + tau(1,2)*UPrim(3,i) + tau(1,3)*UPrim(4,i)) + cp/PrSgs * gradUx(LIFT_TEMP,i) )
-#elif 
+#else 
   fJac(5,6:7,i) = -1.* (/dmuTurb_drhok, dmuTurb_drhog /) & 
                 * ( (tau(1,1)*UPrim(2,i) + tau(1,2)*UPrim(3,i)) + cp/PrSGS * gradUx(LIFT_TEMP,i) )
 #endif
@@ -479,8 +479,8 @@ DO i=1,nDOF_loc
   fJacQx(3,1:8,i) = (/ 0.,              0.,           -muS,           0.,     0.,         0.,         0.,         0./)
   fJacQx(4,1:8,i) = 0.
   fJacQx(5,1:8,i) = (/ 0.,     -muS*s43*v1,        -muS*v2,           0.,     0.,    -lambda,         0.,         0./)
-  fJacQx(6,1:8,i) = (/ 0.,              0.,                           0.,     0.,         0.,  -kDiffEff,         0./)
-  fJacQx(7,1:8,i) = (/ 0.,              0.,                           0.,     0.,         0.,         0.,  -gDiffEff/)
+  fJacQx(6,1:8,i) = (/ 0.,              0.,             0.,           0.,     0.,         0.,  -kDiffEff,         0./)
+  fJacQx(7,1:8,i) = (/ 0.,              0.,             0.,           0.,     0.,         0.,         0.,  -gDiffEff/)
 
   fJacQy(1,1:8,i) = 0.
   fJacQy(2,1:8,i) = (/ 0.,              0.,        muS*s23,           0.,     0.,         0.,         0.,         0./)
@@ -682,7 +682,7 @@ REAL,DIMENSION(PP_nVarPrim,PP_nVar),INTENT(OUT) :: Jac      !< prim to cons Jaco
 REAL                                            :: sRhoR,dpdU(6)
 !===================================================================================================================================
 ! fill jacobian without temperature
-CALL dPrimdCons(UPrim,Jac(1:9,1:7))
+CALL dPrimdCons(UPrim,Jac(1:PP_nVarPrim,1:PP_nVar))
 
 ! fill jacobian of transformation to temperature
 #if PP_dim==3

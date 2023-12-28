@@ -39,7 +39,7 @@ CONTAINS
 !===================================================================================================================================
 PPURE SUBROUTINE DefaultEddyVisc_Point(gradUx, gradUy, gradUz, U, muSGS)
 ! MODULES
-USE MOD_Equation_Vars,  ONLY: Cmu
+USE MOD_Equation_Vars,  ONLY: Cmu, epsOMG, epsTKE
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -49,18 +49,25 @@ REAL                          ,INTENT(OUT) :: muSGS      !> pointwise eddyviscos
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL       :: sRho
-REAL       :: magS, mutLim
+REAL       :: magS, mutLim, muOrig
 !===================================================================================================================================
 sRho  = 1.0 / U(DENS)
 
+#if PP_dim==3
 magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) &
              + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2                    &
              + ( gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3) )**2                    &
              + ( gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3) )**2 )
+#else 
+magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) &
+             + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2    )
+#endif
 
-mutLim = U(RHOK)/ MAX( SQRT(6.0) * magS, 1.0e-16) 
+mutLim = ABS(U(RHOK))/ MAX( SQRT(6.0) * magS, 1.0e-16) 
 
-muSGS = MAX( MIN(Cmu * U(RHOK) * U(RHOG)**2 * sRho * sRho, mutLim), 1.e-16)
+muOrig = Cmu * sRho**2 * ABS(U(RHOK)) * U(RHOG)**2  
+
+muSGS = MIN( mutLim , muOrig )
     
 END SUBROUTINE DefaultEddyVisc_Point
 

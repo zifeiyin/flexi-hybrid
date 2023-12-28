@@ -64,11 +64,14 @@ CALL prms%CreateLogicalOption('CalcMeanFlux'     , "Set true to compute mean flu
 CALL prms%CreateLogicalOption('CalcWallVelocity' , "Set true to compute velocities at wall boundaries", '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTotalStates'  , "Set true to compute total states (e.g. Tt,pt)"    , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTimeAverage'  , "Set true to compute time averages"                , '.FALSE.')
+CALL prms%CreateLogicalOption('CalcResiduals'    , "Set true to compute residuals"                    , '.TRUE.')
+CALL prms%CreateLogicalOption('CalcTurbulence'   , "Set true to compute upper and lower turbulence"   , '.TRUE.')   
 CALL prms%CreateLogicalOption('WriteBodyForces'  , "Set true to write bodyforces to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBulkState'   , "Set true to write bulk state to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteMeanFlux'    , "Set true to write mean flux to file"              , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteWallVelocity', "Set true to write wall velolcities file"          , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteTotalStates' , "Set true to write total states to file"           , '.TRUE.')
+CALL prms%CreateLogicalOption('WriteResiduals '  , "Set true to write residuals to file"              , '.TRUE.')
 CALL prms%CreateStringOption( 'VarNameAvg'       , "Names of variables to be time-averaged"           , multiple=.TRUE.)
 CALL prms%CreateStringOption( 'VarNameFluc'      , "Names of variables for which Flucs (time-averaged&
                                                    & square of the variable) should be computed.&
@@ -102,11 +105,14 @@ doCalcBulkState     = GETLOGICAL('CalcBulkState')
 doCalcMeanFlux      = GETLOGICAL('CalcMeanFlux')
 doCalcWallVelocity  = GETLOGICAL('CalcWallVelocity')
 doCalcTotalStates   = GETLOGICAL('CalcTotalStates')
+doCalcResiduals     = GETLOGICAL('CalcResiduals')
+doCalcTurbulence    = GETLOGICAL('CalcTurbulence')
 doWriteBodyForces   = GETLOGICAL('WriteBodyForces')
 doWriteBulkState    = GETLOGICAL('WriteBulkState')
 doWriteMeanFlux     = GETLOGICAL('WriteMeanFlux')
 doWriteWallVelocity = GETLOGICAL('WriteWallVelocity')
 doWriteTotalStates  = GETLOGICAL('WriteTotalStates')
+doWriteResiduals    = GETLOGICAL('WriteResiduals')
 doCalcTimeAverage   = GETLOGICAL('CalcTimeAverage')
 
 ! Generate wallmap
@@ -167,6 +173,10 @@ IF(MPIRoot)THEN
       CALL InitOutputToFile(FileName_MeanFlux(i),TRIM(BoundaryName(i)),PP_nVar,StrVarNames)
     END DO
   END IF
+  IF(doCalcResiduals.AND.doWriteResiduals)THEN
+    FileName_Residuals = TRIM(ProjectName)//'_Residuals'
+    CALL InitOutputToFile(FileName_Residuals,'Residuals',PP_nVar,StrVarNames)
+  END IF
 END IF
 
 IF(doCalcTimeAverage)  CALL InitCalcTimeAverage()
@@ -199,6 +209,8 @@ REAL,DIMENSION(PP_nVar,nBCs)    :: MeanFlux
 REAL,DIMENSION(4,nBCs)          :: meanTotals
 REAL,DIMENSION(nBCs)            :: meanV,maxV,minV
 REAL                            :: BulkPrim(PP_nVarPrim),BulkCons(PP_nVar)
+REAL                            :: Residuals(PP_nVar)
+REAL                            :: kgnut(6) 
 INTEGER                         :: i
 !==================================================================================================================================
 ! Calculate derived quantities
@@ -207,6 +219,8 @@ IF(doCalcWallVelocity) CALL CalcWallVelocity(maxV,minV,meanV)
 IF(doCalcMeanFlux)     CALL CalcMeanFlux(MeanFlux)
 IF(doCalcBulkState)    CALL CalcBulkState(bulkPrim,bulkCons)
 IF(doCalcTotalStates)  CALL CalcKessel(meanTotals)
+IF(doCalcResiduals)    CALL CalcResiduals(Residuals)
+IF(doCalcTurbulence)   CALL CalcTurbulence(kgnut)
 
 
 IF(MPIRoot.AND.doCalcBodyforces)THEN
@@ -260,7 +274,109 @@ IF(MPIRoot.AND.doCalcTotalStates)THEN
     WRITE(UNIT_stdOut,formatStr) ' '//TRIM(BoundaryName(i)),MeanTotals(:,i)
   END DO
 END IF
+
+IF(MPIRoot.AND.doCalcResiduals)THEN
+  IF (doWriteResiduals) &
+    CALL OutputToFile(FileName_Residuals,(/Time/),(/PP_nVar,1/),Residuals)
+  WRITE(formatStr,'(A,I2,A)')'(A14,',PP_nVar,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Residuals Cons  : ',Residuals
+END IF
+
+IF(MPIRoot.AND.doCalcTurbulence)THEN
+  WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Max/min turb    : ', kgnut
+END IF
+
 END SUBROUTINE AnalyzeEquation
+
+!==================================================================================================================================
+!> Calculates residuals over whole domain
+!==================================================================================================================================
+SUBROUTINE CalcResiduals(Residuals)
+! MODULES
+USE MOD_Globals
+USE MOD_PreProc
+USE MOD_Analyze_Vars,       ONLY: wGPVol,Vol
+USE MOD_Mesh_Vars,          ONLY: sJ,nElems
+USE MOD_DG_Vars,            ONLY: Ut
+#if FV_ENABLED
+USE MOD_FV_Vars,            ONLY: FV_Elems,FV_w
+#endif
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(OUT)                :: Residuals(PP_nVar)                   !> Conservative residuals
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                            :: IntegrationWeight
+INTEGER                         :: iElem,i,j,k
+!==================================================================================================================================
+Residuals=0.
+DO iElem=1,nElems
+#if FV_ENABLED
+  IF (FV_Elems(iElem).GT.0) THEN ! FV Element
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      IntegrationWeight=FV_w(i)*FV_w(j)*FV_w(k)/sJ(i,j,k,iElem,1)
+      Residuals = Residuals + Ut(:,i,j,k,iElem)**2*IntegrationWeight
+    END DO; END DO; END DO !i,j,k
+  ELSE ! DG element
+#endif
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      IntegrationWeight=wGPVol(i,j,k)/sJ(i,j,k,iElem,0)
+      Residuals = Residuals + Ut(:,i,j,k,iElem)**2*IntegrationWeight
+    END DO; END DO; END DO !i,j,k
+#if FV_ENABLED
+  END IF
+#endif
+END DO ! iElem
+  
+#if USE_MPI
+IF(MPIRoot)THEN
+  CALL MPI_REDUCE(MPI_IN_PLACE,Residuals,PP_nVar,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
+ELSE
+  CALL MPI_REDUCE(Residuals         ,0  ,PP_nVar,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
+END IF
+#endif
+  
+Residuals=SQRT(Residuals/Vol)
+  
+END SUBROUTINE CalcResiduals
+
+!==================================================================================================================================
+!> Calculates residuals over whole domain
+!==================================================================================================================================
+SUBROUTINE CalcTurbulence(kgnut)
+! MODULES
+USE MOD_Globals
+USE MOD_PreProc
+USE MOD_DG_Vars,            ONLY: UPrim
+USE MOD_EddyVisc_Vars,      ONLY: muSGS
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(OUT)                :: kgnut(6)                   !> Conservative residuals
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!==================================================================================================================================
+
+kgnut(1) = MAXVAL( UPrim(TKE,:,:,:,:) )
+kgnut(2) = MINVAL( UPrim(TKE,:,:,:,:) )
+kgnut(3) = MAXVAL( UPrim(OMG,:,:,:,:) )
+kgnut(4) = MINVAL( UPrim(OMG,:,:,:,:) )
+kgnut(5) = MAXVAL( muSGS(1,:,:,:,:) )
+kgnut(6) = MINVAL( muSGS(1,:,:,:,:) )
+
+#if USE_MPI
+IF(MPIRoot)THEN
+  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(1:3),3,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(4:6),3,MPI_DOUBLE_PRECISION,MPI_MIN,0,MPI_COMM_FLEXI,iError)
+ELSE
+  CALL MPI_REDUCE(kgnut(1:3)         ,0  ,3,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_REDUCE(kgnut(4:6)         ,0  ,3,MPI_DOUBLE_PRECISION,MPI_MIN,0,MPI_COMM_FLEXI,iError)
+END IF
+#endif
+    
+END SUBROUTINE CalcTurbulence
 
 
 !==================================================================================================================================

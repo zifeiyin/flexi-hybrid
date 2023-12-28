@@ -66,9 +66,34 @@ IMPLICIT NONE
 !==================================================================================================================================
 CALL prms%SetSection("Exactfunc")
 CALL prms%CreateIntFromStringOption('IniExactFunc', "Exact function to be used for computing initial solution.")
+CALL addStrListEntry('IniExactFunc','testcase' ,-1)
+CALL addStrListEntry('IniExactFunc','testcase' ,0)
+CALL addStrListEntry('IniExactFunc','refstate' ,1)
+CALL addStrListEntry('IniExactFunc','sinedens' ,2)
+CALL addStrListEntry('IniExactFunc','sinedensx',21)
+CALL addStrListEntry('IniExactFunc','lindens'  ,3)
+CALL addStrListEntry('IniExactFunc','sinevel'  ,4)
+CALL addStrListEntry('IniExactFunc','sinevelx' ,41)
+CALL addStrListEntry('IniExactFunc','sinevely' ,42)
+CALL addStrListEntry('IniExactFunc','sinevelz' ,43)
+CALL addStrListEntry('IniExactFunc','roundjet' ,5)
+CALL addStrListEntry('IniExactFunc','cylinder' ,6)
+CALL addStrListEntry('IniExactFunc','shuvortex',7)
+CALL addStrListEntry('IniExactFunc','couette'  ,8)
+CALL addStrListEntry('IniExactFunc','cavity'   ,9)
+CALL addStrListEntry('IniExactFunc','shock'    ,10)
+CALL addStrListEntry('IniExactFunc','sod'      ,11)
+CALL addStrListEntry('IniExactFunc','dmr'      ,13)
 #if PARABOLIC
 CALL addStrListEntry('IniExactFunc','blasius'  ,1338)
 #endif
+CALL prms%CreateRealArrayOption(    'AdvVel',       "Advection velocity (v1,v2,v3) required for exactfunction CASE(2,21,4,8)")
+CALL prms%CreateRealOption(         'MachShock',    "Parameter required for CASE(10)", '1.5')
+CALL prms%CreateRealOption(         'PreShockDens', "Parameter required for CASE(10)", '1.0')
+CALL prms%CreateRealArrayOption(    'IniCenter',    "Shu Vortex CASE(7) (x,y,z)")
+CALL prms%CreateRealArrayOption(    'IniAxis',      "Shu Vortex CASE(7) (x,y,z)")
+CALL prms%CreateRealOption(         'IniAmplitude', "Shu Vortex CASE(7)", '0.2')
+CALL prms%CreateRealOption(         'IniHalfwidth', "Shu Vortex CASE(7)", '0.2')
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',   "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',         "Blasius boundary layer CASE(1338)")
@@ -101,6 +126,19 @@ IniExactFunc = GETINTFROMSTR('IniExactFunc')
 IniRefState  = GETINT('IniRefState', "-1")
 ! Read in boundary parameters
 SELECT CASE (IniExactFunc)
+CASE(2,21,3,4,41,42,43) ! synthetic test cases
+  AdvVel       = GETREALARRAY('AdvVel',3)
+CASE(7) ! Shu Vortex
+  IniCenter    = GETREALARRAY('IniCenter',3,'(/0.,0.,0./)')
+  IniAxis      = GETREALARRAY('IniAxis',3,'(/0.,0.,1./)')
+  IniAmplitude = GETREAL('IniAmplitude','0.2')
+  IniHalfwidth = GETREAL('IniHalfwidth','0.2')
+CASE(8) ! couette-poiseuille flow
+  P_Parameter  = GETREAL('P_Parameter','0.0')
+  U_Parameter  = GETREAL('U_Parameter','0.01')
+CASE(10) ! shock
+  MachShock    = GETREAL('MachShock','1.5')
+  PreShockDens = GETREAL('PreShockDens','1.0')
 #if PARABOLIC
 CASE(1338) ! Blasius boundary layer solution
   delta99_in      = GETREAL('delta99_in')
@@ -110,6 +148,15 @@ CASE(1338) ! Blasius boundary layer solution
 CASE DEFAULT
 END SELECT ! IniExactFunc
 
+#if PP_dim==2
+SELECT CASE (IniExactFunc)
+CASE(43,7) ! synthetic test cases
+  CALL CollectiveStop(__STAMP__,'The selected exact function is not available in 2D!')
+CASE(2,3,4,41,42) ! synthetic test cases
+  IF(AdvVel(3).NE.0.) THEN
+    CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set AdvVel(3) = 0!')
+  END IF
+END SELECT
 #endif
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
