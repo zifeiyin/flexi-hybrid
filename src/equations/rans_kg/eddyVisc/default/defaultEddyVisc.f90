@@ -65,7 +65,7 @@ magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) &
 
 mutLim = ABS(U(RHOK))/ MAX( SQRT(6.0) * magS, 1.0e-16) 
 
-muOrig = Cmu * sRho**2 * ABS(U(RHOK)) * U(RHOG)**2  
+muOrig = Cmu * sRho * MAX(U(RHOK)*sRho, epsTKE) * U(RHOG)**2  
 
 muSGS = MIN( mutLim , muOrig )
     

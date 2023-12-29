@@ -677,7 +677,7 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
-REAL                :: invR, invG, invK
+REAL                :: invR, invG
 REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG, SijGradU
 REAL                :: mut, muS, sRho, kPos, gPos
 REAL                :: Sxx, Syy, Sxy 
@@ -718,8 +718,7 @@ DO iElem=1,nElems
 
     kPos  = MAX( prim(TKE), epsTKE  )
     gPos  = MAX( prim(OMG), epsOMG )
-    invK  = 1.0 / kPos
-    invG  = 1.0 / gPos
+    invG  = MIN( 1.0 / gPos, 1.e8) !limiting for stability
 
     ! production of rho*TKE
 #if PP_dim==2
@@ -749,16 +748,18 @@ DO iElem=1,nElems
 #endif
     ! dissipation of k
     DissK = -Cmu * (prim(DENS)*kPos)**2 * invR
+    !DissK = -prim(DENS) * kPos * invG**2 
+    !DissK = -U(RHOK,i,j,k,iElem) * invG**2 
     !DissK = -Cmu * ABS(U(RHOK,i,j,k,iElem)) * U(RHOK,i,j,k,iElem) * invR
     ! production of k, with realizability constraint
     ProdK = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
-    IF ( U(RHOK,i,j,k,iElem) .lt. 0. ) THEN
-      Ut_src(RHOK,i,j,k) = ProdK
-    ELSE
-      Ut_src(RHOK,i,j,k) = ProdK + DissK 
-    ENDIF
+    !IF ( U(RHOK,i,j,k,iElem) .lt. 0. ) THEN
+    !  Ut_src(RHOK,i,j,k) = ProdK
+    !ELSE
+    Ut_src(RHOK,i,j,k) = ProdK + DissK 
+    !ENDIF
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
