@@ -679,7 +679,8 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 INTEGER             :: i,j,k,iElem
 REAL                :: invR, invG
 REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG, SijGradU
-REAL                :: mut, muS, sRho, kPos, gPos
+REAL                :: mut, muS, kPos, gPos
+REAL                :: extDk, extDg
 REAL                :: Sxx, Syy, Sxy 
 #if PP_dim==3 
 REAL                :: Sxz, Syz, Szz
@@ -690,7 +691,7 @@ REAL                :: prim(PP_nVarPrim)
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
 INTEGER             :: FV_Elem
-REAL                :: tmpVar(3), massImb
+REAL                :: tmpVar(3)
 !==================================================================================================================================
 ! do something here to add source to k-g
 
@@ -710,15 +711,16 @@ DO iElem=1,nElems
     ! start to compute the source terms
     CALL ConsToPrim(prim,U(:,i,j,k,iElem))
 
-    sRho  = 1./prim(DENS)
     muS   = VISCOSITY_PRIM(prim)
     mut   = muSGS(1,i,j,k,iElem)
+
+    diffEff = muS + mut * sigmaG
 
     invR  = 1.0 / MAX( 0.01 * muS, mut )
 
     kPos  = MAX( prim(TKE), epsTKE  )
     gPos  = MAX( prim(OMG), epsOMG )
-    invG  = MIN( 1.0 / gPos, 1.e8) !limiting for stability
+    invG  = MIN( 1.0 / gPos, 1.e6) !limiting for stability
 
     ! production of rho*TKE
 #if PP_dim==2
@@ -782,7 +784,7 @@ DO iElem=1,nElems
     DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
           
     ! cross diffusion of g
-    diffEff = muS + mut * sigmaG
+    
 #if PP_dim==2
     dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
          + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)
@@ -794,11 +796,11 @@ DO iElem=1,nElems
 
     crossG = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invR * dGdG
 
-    IF ( U(RHOG,i,j,k,iElem) .lt. 0. ) THEN
-      Ut_src(RHOG,i,j,k) = ProdG 
-    ELSE
+    !IF ( U(RHOG,i,j,k,iElem) .lt. 0. ) THEN
+    !  Ut_src(RHOG,i,j,k) = ProdG + DissG 
+    !ELSE
       Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
-    ENDIF
+    !ENDIF
 
   END DO ; END DO; END DO ! i,j,k
 
