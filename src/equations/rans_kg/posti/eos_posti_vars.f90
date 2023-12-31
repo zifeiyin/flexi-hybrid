@@ -156,8 +156,8 @@ CHARACTER(LEN=255),DIMENSION(nVarDepEOS),PARAMETER :: DepNames = &
 "MomentumY"                ,& !3
 "MomentumZ"                ,& !4
 "EnergyStagnationDensity"  ,& !5
-"DensityK"                 ,& !6
-"DensityG"                 ,& !7
+"RHOK"                     ,& !6
+"RHOG"                     ,& !7
 "VelocityX"                ,& !8
 "VelocityY"                ,& !9
 "VelocityZ"                ,& !10

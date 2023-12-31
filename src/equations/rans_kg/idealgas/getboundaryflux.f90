@@ -323,8 +323,8 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(VEL3,p,q)     = SUM(UPrim_master(VELV,p,q)*TangVec2(:,p,q))
     UPrim_boundary(PRES,p,q)     = UPrim_master(PRES,p,q)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
-    UPrim_boundary(TKE ,p,q)     = MAX( UPrim_master(TKE ,p,q), epsTKE)
-    UPrim_boundary(OMG ,p,q)     = MAX( UPrim_master(OMG ,p,q), epsOMG)
+    UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
+    UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q)
   END DO; END DO !p,q
 
 

@@ -203,9 +203,9 @@ hTilde(MOM1) = (URef(MOM1)*UPrimRef(VEL3) + U(MOM1)*UPrim(VEL3))                
 hTilde(MOM2) = (URef(MOM2)*UPrimRef(VEL3) + U(MOM2)*UPrim(VEL3))                            ! {rho*v*w}
 hTilde(MOM3) = (URef(MOM3)*UPrimRef(VEL3)+UPrimRef(PRES) + U(MOM3)*UPrim(VEL3)+UPrim(PRES)) ! {rho*v²+p}
 hTilde(ENER) = (rhoEpRef*UPrimRef(VEL3) + rhoEp*UPrim(VEL3))                                ! {(rho*E+p)*w}
-#endif
 hTilde(RHOK) = (URef(RHOK)*UPrimRef(VEL3) + U(RHOK)*UPrim(VEL3))                              ! {rho*w*k}
 hTilde(RHOG) = (URef(RHOG)*UPrimRef(VEL3) + U(RHOG)*UPrim(VEL3))                              ! {rho*w*g}
+#endif
 
 ! transform into reference space
 Flux(:) = 0.5*(MRef(1)+M(1))*fTilde(:) + &

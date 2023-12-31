@@ -216,7 +216,7 @@ prim(TKE)  = cons(RHOK)*sRho
 prim(OMG)  = cons(RHOG)*sRho
 
 ! pressure
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - prim(DENS)*prim(TKE))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)) - MAX(prim(DENS)*prim(TKE),0.))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 
@@ -315,7 +315,7 @@ cons(RHOK)=prim(TKE)*prim(DENS)
 cons(RHOG)=prim(OMG)*prim(DENS)
 
 ! energy
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV)) + cons(RHOK)
+cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV)) + MAX(cons(RHOK),0.)
 
 END SUBROUTINE PrimToCons
 
