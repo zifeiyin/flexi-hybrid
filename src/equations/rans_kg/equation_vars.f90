@@ -25,6 +25,7 @@ SAVE
 !----------------------------------------------------------------------------------------------------------------------------------
 LOGICAL           :: doCalcSource      !< automatically set by calcsource itself
 INTEGER           :: IniExactFunc      !< number identifying the used exact function
+INTEGER           :: IniBodyForce      !< number identifying body force type
 INTEGER           :: IniRefState       !< RefState for initialization (case IniExactFunc=1 only)
 INTEGER           :: nRefState         !< number of refstates defined in parameter file
 REAL,ALLOCATABLE  :: RefStatePrim(:,:) !< refstates in primitive variables (as read from ini file)

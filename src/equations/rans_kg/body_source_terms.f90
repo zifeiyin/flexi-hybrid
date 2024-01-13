@@ -53,6 +53,17 @@ USE MOD_Globals
 USE MOD_ReadInTools ,ONLY: prms,addStrListEntry
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!==================================================================================================================================
+CALL prms%SetSection("BodyForce")
+CALL prms%CreateIntFromStringOption('BodyForceType', "Body force to be added to momentum equation.", "none")
+CALL addStrListEntry('BodyForceType','none',-1)
+CALL addStrListEntry('BodyForceType','fixedPressureGradient',1)
+
+CALL prms%CreateRealArrayOption( 'bodyForceVector',  "pressure gradient or force vector (f1, f2, f3) required for CASE(1)")
 
 END SUBROUTINE DefineParametersBodySourceTerms
 
@@ -66,9 +77,36 @@ USE MOD_PreProc
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Mesh_Vars          ,ONLY: nElems
+USE MOD_Equation_Vars      ,ONLY: IniBodyForce
 
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!==================================================================================================================================
+SWRITE(UNIT_stdOut,'(132("-"))')
+SWRITE(UNIT_stdOut,'(A)') ' INIT BODY FORCE...'
+
+IniBodyForce = GETINTFROMSTR('BodyForceType')
+SELECT CASE (IniBodyForce)
+CASE(1) ! fixed pressure gradient
+  BodyForceVector = GETREALARRAY('bodyForceVector',3)
+CASE DEFAULT 
+END SELECT
+
+#if PP_dim==2 
+SELECT CASE (IniBodyForce)
+CASE(1) ! fixed pressure gradient
+  IF(BodyForceVector(3).NE.0.)THEN
+    CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set BodyForceVector(3) = 0!')
+  ENDIF
+END SELECT
+#endif 
+
+SWRITE(UNIT_stdOut,'(A)')' INIT BODY FORCE DONE!'
+SWRITE(UNIT_stdOut,'(132("-"))')
 
 END SUBROUTINE InitBodySourceTerms
 
@@ -82,7 +120,13 @@ SUBROUTINE AddBodySourceTerms(Ut,t)
 
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Mesh_Vars          ,ONLY: nElems
+USE MOD_Mesh_Vars          ,ONLY: nElems,Elem_xGP,sJ
+USE MOD_Equation_Vars      ,ONLY: IniBodyForce
+USE MOD_Exactfunc_Vars
+#if FV_ENABLED
+USE MOD_ChangeBasisByDim   ,ONLY: ChangeBasisVolume
+USE MOD_FV_Vars            ,ONLY: FV_Vdm,FV_Elems
+#endif
 
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -91,7 +135,44 @@ REAL,INTENT(IN)     :: t                                       !< current soluti
 REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time derivative
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+!----------------------------------------------------------------------------------------------------------------------------------
+REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
+REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
+INTEGER             :: i,j,k,iElem
+INTEGER             :: FV_Elem
+!==================================================================================================================================
 
+SELECT CASE (IniBodyForce)
+CASE(1) ! fixed pressure gradient
+DO iElem=1,nElems
+
+#if FV_ENABLED
+  FV_Elem = FV_Elems(iElem)
+#else
+  FV_Elem = 0
+#endif
+
+#if FV_ENABLED
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    Ut_src(MOM1:MOM3,i,j,k,iElem) = BodyForceVector
+  END DO ; END DO; END DO ! i,j,k
+  IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+    DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
+      Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+Ut_src2(RHOK,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+      Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+Ut_src2(RHOK,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+    END DO; END DO; END DO ! i,j,k
+  ELSE
+#endif 
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+BodyForceVector/sJ(i,j,k,iElem,FV_Elem)
+      Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+BodyForceVector/sJ(i,j,k,iElem,FV_Elem)
+    END DO; END DO; END DO ! i,j,k
+#if FV_ENABLED
+  END IF
+#endif
+END DO ! element loop
+END SELECT
 
 
 END SUBROUTINE AddBodySourceTerms 
