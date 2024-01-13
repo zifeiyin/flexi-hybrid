@@ -57,6 +57,7 @@ SUBROUTINE DefineParametersExactFunc()
 ! MODULES
 USE MOD_Globals
 USE MOD_ReadInTools ,ONLY: prms,addStrListEntry
+USE MOD_BodySourceTerms, ONLY:DefineParametersBodySourceTerms
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -101,6 +102,8 @@ CALL prms%CreateRealOption(         'delta99_in',   "Blasius boundary layer CASE
 CALL prms%CreateRealArrayOption(    'x_in',         "Blasius boundary layer CASE(1338)")
 #endif
 
+CALL DefineParametersBodySourceTerms()
+
 END SUBROUTINE DefineParametersExactFunc
 
 !==================================================================================================================================
@@ -113,6 +116,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState
+USE MOD_BodySourceTerms    ,ONLY: InitBodySourceTerms
 
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -160,6 +164,8 @@ CASE(2,3,4,41,42) ! synthetic test cases
   END IF
 END SELECT
 #endif
+
+CALL InitBodySourceTerms()
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
@@ -669,6 +675,7 @@ USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #endif
+USE MOD_BodySourceTerms  ,ONLY: AddBodySourceTerms
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -750,37 +757,17 @@ DO iElem=1,nElems
 #endif
     ! dissipation of k
     DissK = -Cmu * (prim(DENS)*kPos)**2 * invR
-    !DissK = -prim(DENS) * kPos * invG**2 
-    !DissK = -U(RHOK,i,j,k,iElem) * invG**2 
-    !DissK = -Cmu * ABS(U(RHOK,i,j,k,iElem)) * U(RHOK,i,j,k,iElem) * invR
-    ! production of k, with realizability constraint
     ProdK = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
-    !IF ( U(RHOK,i,j,k,iElem) .lt. 0. ) THEN
-    !  Ut_src(RHOK,i,j,k) = ProdK
-    !ELSE
     Ut_src(RHOK,i,j,k) = ProdK + DissK 
-    !ENDIF
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! production of g
-    !ProdG = 0.5 * Comega2 * prim(DENS) * invG
-    !ProdG = 0.5 * Comega2 * ABS(U(RHOK,i,j,k,iElem) * U(RHOG,i,j,k,iElem)) * invR
-    !ProdG = 0.5 * Comega2 * prim(DENS)**2 * prim(TKE) * prim(OMG) * invR
-    !ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
-    !ProdG = 0.5 * Comega2 * prim(DENS)**2 * kPos * gPos * invR
     ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
 
     ! dissipation of g
-    !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * SijSij
-    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * prim(OMG)**3 * ProdK * invR
-    !DissG = -0.5 * Cmu * Comega1 * U(RHOG,i,j,k,iElem)**3 * sRho**2 * ProdK * invR
-    !DissG  = -0.5 * Comega1 * prim(OMG) * invK * ProdG 
-    !DissG  = -0.5 * Cmu * Comega1 * prim(DENS) * gPos * ProdK * invR
-    !DissG  = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
-    !DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * ProdK * invR
     DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
           
     ! cross diffusion of g
@@ -796,11 +783,7 @@ DO iElem=1,nElems
 
     crossG = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invR * dGdG
 
-    !IF ( U(RHOG,i,j,k,iElem) .lt. 0. ) THEN
-    !  Ut_src(RHOG,i,j,k) = ProdG + DissG 
-    !ELSE
-      Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
-    !ENDIF
+    Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
 
   END DO ; END DO; END DO ! i,j,k
 
@@ -823,6 +806,8 @@ DO iElem=1,nElems
 
 END DO ! element loop 
 #endif /* PARABOLIC */
+
+CALL AddBodySourceTerms(Ut,t)
 
 END SUBROUTINE CalcSource
 

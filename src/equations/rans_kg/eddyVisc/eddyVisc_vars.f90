@@ -44,6 +44,9 @@ LOGICAL,ALLOCATABLE  :: doFilterDir(:,:)       !< specifies in which directions 
 
 REAL,ALLOCATABLE  :: damp(:,:,:,:,:)           !< damping factor
 REAL,ALLOCATABLE  :: IntElem(:,:,:,:)          !< integration weights for dynamic Smagorinsky model
+
+REAL,ALLOCATABLE  :: yWall(:,:,:,:,:)          !< wall distance
+
                                                !< for dynamic Smagorinsky model
 REAL,ALLOCATABLE  :: DeltaS(:)                 !< filter width
 REAL,ALLOCATABLE  :: CSdeltaS2(:)              !< precomputed (model constant*filter width)**2 => Vreman,Sigma model
@@ -54,6 +57,7 @@ REAL,ALLOCATABLE  :: muSGSmax(:)               !< maxmum eddy viscosity per elem
 REAL,ALLOCATABLE  :: FilterMat_TestFilter(:,:) !< filter matrix for test filter for dynamic Smagorinsky model
 REAL              :: muSGS_limits(2)           !< allowed range of eddy viscosity as multiple of physical viscosit
 REAL              :: CS                        !< Model coefficient for eddy viscosity models
+REAL              :: CDES                      !< Model coefficient for eddy viscosity models
 REAL              :: PrSGS                     !< turbulent Prandtl number for the sub-grid scales
 
 LOGICAL           :: VanDriest=.FALSE.         !< Logical indicating if Van Driest damping is activated (only use for channel flow)
