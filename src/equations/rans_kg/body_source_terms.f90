@@ -154,7 +154,7 @@ DO iElem=1,nElems
 
 #if FV_ENABLED
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    Ut_src(MOM1:MOM3,i,j,k,iElem) = BodyForceVector
+    Ut_src(MOM1:MOM3,i,j,k) = BodyForceVector
   END DO ; END DO; END DO ! i,j,k
   IF (FV_Elems(iElem).GT.0) THEN ! FV elem
     CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
