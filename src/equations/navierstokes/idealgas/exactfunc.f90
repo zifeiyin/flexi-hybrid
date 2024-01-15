@@ -57,6 +57,7 @@ SUBROUTINE DefineParametersExactFunc()
 ! MODULES
 USE MOD_Globals
 USE MOD_ReadInTools ,ONLY: prms,addStrListEntry
+USE MOD_BodySourceTerms, ONLY: DefineParametersBodySourceTerms
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -105,6 +106,8 @@ CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
 #endif
 
+CALL DefineParametersBodySourceTerms()
+
 END SUBROUTINE DefineParametersExactFunc
 
 !==================================================================================================================================
@@ -117,6 +120,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState
+USE MOD_BodySourceTerms,    ONLY: InitBodySourceTerms
 
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -168,6 +172,8 @@ CASE(2,3,4,41,42) ! synthetic test cases
   END IF
 END SELECT
 #endif
+
+CALL InitBodySourceTerms()
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
@@ -674,6 +680,7 @@ USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #endif
+USE MOD_BodySourceTerms  ,ONLY: AddBodySourceTerms
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -914,6 +921,9 @@ CASE DEFAULT
   ! No source -> do nothing and set marker to not run again
   doCalcSource=.FALSE.
 END SELECT ! ExactFunction
+
+CALL AddBodySourceTerms(Ut,t)
+
 END SUBROUTINE CalcSource
 
 END MODULE MOD_Exactfunc
