@@ -232,6 +232,14 @@ INTEGER                         :: nSteps,i
 REAL                            :: eta,deta,deta2,f,fp,fpp,fppp,fbar,fpbar,fppbar,fpppbar
 REAL                            :: x_eff(3),x_offset(3)
 #endif
+REAL                            :: random_noise ! see CASE(19937)
+REAL                            :: noised_prim(PP_nVarPrim)
+REAL                            :: noised_cons(PP_nVar)
+REAL                            :: sinusoidal_amp
+REAL                            :: sinusoidal_prim(PP_nVarPrim)
+REAL                            :: sinusoidal_cons(PP_nVar)
+REAL                            :: sinusoidal_box_size(3)
+REAL                            :: sinusoidal_x(3)
 !==================================================================================================================================
 tEval=MERGE(t,tIn,fullBoundaryOrder) ! prevent temporal order degradation, works only for RK3 time integration
 IF (PRESENT(RefStateOpt)) THEN
@@ -252,6 +260,50 @@ CASE(0)
   CALL ExactFuncTestcase(tEval,x,Resu,Resu_t,Resu_tt)
 CASE(1) ! constant
   Resu = RefStateCons(:,RefState)
+CASE(19937) ! Add multiplicative noise 
+  ! RANDOM_NUMBER gives number in [0, 1).
+  CALL RANDOM_NUMBER(random_noise)
+  ! A uniform distribution between [0.95, 1.05), in velocity only
+  noised_prim = RefStatePrim(:,RefState)
+  noised_prim(VELV) = (1.0 + 0.1 * (random_noise - 0.5)) * noised_prim(VELV)
+  CALL PrimToCons(noised_prim, noised_cons)
+  Resu = noised_cons
+case(517) ! Sinusoidal, copied from src/testcase/channel/testcase.f90
+  ! CALL ConsToPrim(sinusoidal_prim, RefStateCons(:,RefState))
+  sinusoidal_prim = RefStatePrim(:,RefState)
+  sinusoidal_amp = 0.1 * sinusoidal_prim(VEL1)
+
+  ! TODO(Shimushu): geometry-dependent code, should be fixed (?)
+  sinusoidal_box_size(1) = 6.0 * PP_PI
+  sinusoidal_box_size(2) = 2.0
+  sinusoidal_box_size(3) = 2.0 * PP_PI
+
+  sinusoidal_box_size(1) = 2.0 * sinusoidal_box_size(1)
+  sinusoidal_box_size(3) = 2.0 * sinusoidal_box_size(3)
+  sinusoidal_x = x / sinusoidal_box_size
+
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(20.0*PP_PI*(sinusoidal_x(2)))*SIN(20.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(30.0*PP_PI*(sinusoidal_x(2)))*SIN(30.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(35.0*PP_PI*(sinusoidal_x(2)))*SIN(35.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(40.0*PP_PI*(sinusoidal_x(2)))*SIN(40.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(45.0*PP_PI*(sinusoidal_x(2)))*SIN(45.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(50.0*PP_PI*(sinusoidal_x(2)))*SIN(50.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(30.0*PP_PI*(sinusoidal_x(1)))*SIN(30.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(35.0*PP_PI*(sinusoidal_x(1)))*SIN(35.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(40.0*PP_PI*(sinusoidal_x(1)))*SIN(40.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(45.0*PP_PI*(sinusoidal_x(1)))*SIN(45.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(50.0*PP_PI*(sinusoidal_x(1)))*SIN(50.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(30.0*PP_PI*(sinusoidal_x(1)))*SIN(30.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(35.0*PP_PI*(sinusoidal_x(1)))*SIN(35.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(40.0*PP_PI*(sinusoidal_x(1)))*SIN(40.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(45.0*PP_PI*(sinusoidal_x(1)))*SIN(45.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(50.0*PP_PI*(sinusoidal_x(1)))*SIN(50.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+
+  CALL PrimToCons(sinusoidal_prim, sinusoidal_cons)
+  Resu = sinusoidal_cons
+  ! Resu = RefStateCons(:,RefState)
 CASE(2) ! sinus
   Frequency=0.5
   Amplitude=0.3
