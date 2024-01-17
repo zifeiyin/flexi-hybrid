@@ -758,6 +758,8 @@ REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
 !==================================================================================================================================
 SELECT CASE (IniExactFunc)
+CASE(517) ! Sinusoidal perturbation for channel flow
+  ! do nothing but not setting doCalcSource to false
 CASE(4) ! exact function
   Frequency=1.
   Amplitude=0.1

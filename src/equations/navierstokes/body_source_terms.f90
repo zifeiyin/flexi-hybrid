@@ -162,12 +162,10 @@ DO iElem=1,nElems
     CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
     DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
       Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+Ut_src2(MOM1:MOM3,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
-      Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+Ut_src2(MOM1:MOM3,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
     END DO; END DO; END DO ! i,j,k
   ELSE
 #endif 
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+BodyForceVector/sJ(i,j,k,iElem,FV_Elem)
       Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+BodyForceVector/sJ(i,j,k,iElem,FV_Elem)
     END DO; END DO; END DO ! i,j,k
 #if FV_ENABLED
