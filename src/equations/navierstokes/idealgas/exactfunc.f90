@@ -86,6 +86,8 @@ CALL addStrListEntry('IniExactFunc','shock'             ,10)
 CALL addStrListEntry('IniExactFunc','sod'               ,11)
 CALL addStrListEntry('IniExactFunc','dmr'               ,13)
 CALL addStrListEntry('IniExactFunc','harmonicgausspulse',14)
+! CALL addStrListEntry('IniExactFunc','random'            ,19937)
+CALL addStrListEntry('IniExactFunc','SinInChannel'      ,517)
 #if PARABOLIC
 CALL addStrListEntry('IniExactFunc','blasius'  ,1338)
 #endif
@@ -101,6 +103,7 @@ CALL prms%CreateRealOption(         'U_Parameter',             "Couette-Poiseuil
 CALL prms%CreateRealOption(         'AmplitudeFactor',         "Harmonic Gauss Pulse CASE(14)", '0.1')
 CALL prms%CreateRealOption(         'HarmonicFrequency',       "Harmonic Gauss Pulse CASE(14)", '400')
 CALL prms%CreateRealOption(         'SigmaSqr',                "Harmonic Gauss Pulse CASE(14)", '0.1')
+CALL prms%CreateRealArrayOption(    'BoxSize',                 "Approximate box size for CASE(517) (Sinusoidal IC in channel flow)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
@@ -159,6 +162,8 @@ CASE(1338) ! Blasius boundary layer solution
   x_in            = GETREALARRAY('x_in',2,'(/0.,0./)')
   BlasiusInitDone = .TRUE. ! Mark Blasius init as done so we don't read the parameters again in BC init
 #endif
+CASE(517) ! Sinusoidal perturbation IC in channel flow 
+  ChannelBoxSize = GETREALARRAY('BoxSize', 3)
 CASE DEFAULT
 END SELECT ! IniExactFunc
 
@@ -194,6 +199,7 @@ USE MOD_Eos_Vars       ,ONLY: Kappa,sKappaM1,KappaM1,KappaP1,R
 USE MOD_Exactfunc_Vars ,ONLY: IniCenter,IniHalfwidth,IniAmplitude,IniAxis,AdvVel
 USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
+USE MOD_Exactfunc_Vars ,ONLY: ChannelBoxSize
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
@@ -232,9 +238,9 @@ INTEGER                         :: nSteps,i
 REAL                            :: eta,deta,deta2,f,fp,fpp,fppp,fbar,fpbar,fppbar,fpppbar
 REAL                            :: x_eff(3),x_offset(3)
 #endif
-REAL                            :: random_noise ! see CASE(19937)
-REAL                            :: noised_prim(PP_nVarPrim)
-REAL                            :: noised_cons(PP_nVar)
+! REAL                            :: random_noise ! see CASE(19937)
+! REAL                            :: noised_prim(PP_nVarPrim)
+! REAL                            :: noised_cons(PP_nVar)
 REAL                            :: sinusoidal_amp
 REAL                            :: sinusoidal_prim(PP_nVarPrim)
 REAL                            :: sinusoidal_cons(PP_nVar)
@@ -260,23 +266,24 @@ CASE(0)
   CALL ExactFuncTestcase(tEval,x,Resu,Resu_t,Resu_tt)
 CASE(1) ! constant
   Resu = RefStateCons(:,RefState)
-CASE(19937) ! Add multiplicative noise 
-  ! RANDOM_NUMBER gives number in [0, 1).
-  CALL RANDOM_NUMBER(random_noise)
-  ! A uniform distribution between [0.95, 1.05), in velocity only
-  noised_prim = RefStatePrim(:,RefState)
-  noised_prim(VELV) = (1.0 + 0.1 * (random_noise - 0.5)) * noised_prim(VELV)
-  CALL PrimToCons(noised_prim, noised_cons)
-  Resu = noised_cons
+! CASE(19937) ! Add multiplicative noise 
+!   ! RANDOM_NUMBER gives number in [0, 1).
+!   CALL RANDOM_NUMBER(random_noise)
+!   ! A uniform distribution between [0.95, 1.05), in velocity only
+!   noised_prim = RefStatePrim(:,RefState)
+!   noised_prim(VELV) = (1.0 + 0.1 * (random_noise - 0.5)) * noised_prim(VELV)
+!   CALL PrimToCons(noised_prim, noised_cons)
+!   Resu = noised_cons
 case(517) ! Sinusoidal, copied from src/testcase/channel/testcase.f90
   ! CALL ConsToPrim(sinusoidal_prim, RefStateCons(:,RefState))
   sinusoidal_prim = RefStatePrim(:,RefState)
   sinusoidal_amp = 0.1 * sinusoidal_prim(VEL1)
 
   ! TODO(Shimushu): geometry-dependent code, should be fixed (?)
-  sinusoidal_box_size(1) = 6.0 * PP_PI
-  sinusoidal_box_size(2) = 2.0
-  sinusoidal_box_size(3) = 2.0 * PP_PI
+  sinusoidal_box_size = ChannelBoxSize
+  ! sinusoidal_box_size(1) = 6.0 * PP_PI
+  ! sinusoidal_box_size(2) = 2.0
+  ! sinusoidal_box_size(3) = 2.0 * PP_PI
 
   sinusoidal_box_size(1) = 2.0 * sinusoidal_box_size(1)
   sinusoidal_box_size(3) = 2.0 * sinusoidal_box_size(3)
