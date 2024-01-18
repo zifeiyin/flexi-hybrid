@@ -61,7 +61,7 @@ USE MOD_FFT_Vars
 USE MOD_Commandline_Arguments
 USE MOD_Interpolation,           ONLY: GetVandermonde
 USE MOD_StringTools,             ONLY: STRICMP,GetFileExtension
-USE MOD_ReadInTools,             ONLY: GETREAL,GETINT
+USE MOD_ReadInTools,             ONLY: GETREAL,GETINT,GETLOGICAL
 USE MOD_Mesh_Vars,               ONLY: nElems_IJK,nElems
 USE MOD_DG_Vars,                 ONLY: U
 USE MOD_Interpolation_Vars ,     ONLY: NodeType,NodeTypeVISUInner
@@ -76,8 +76,9 @@ IMPLICIT NONE
 !===================================================================================================================================
 ! Read in user-defined parameters
 OutputFormat = GETINT('OutputFormat','0')
-NCalc  = GETINT('NCalc')         ! Polynomial degree to perfrom DFFT on
-Re_tau = GETREAL('Re_tau')       ! Reynolds number bases on friction velocity and channel half height
+NCalc  = GETINT('NCalc')          ! Polynomial degree to perfrom DFFT on
+Re_tau = GETREAL('Re_tau')        ! Reynolds number bases on friction velocity and channel half height
+ReadMean = GETLOGICAL('ReadMean') ! Read TimeAvg instead of State
 
 ! Allocate solution array in DG vars, used to store state
 ALLOCATE(U(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems))
