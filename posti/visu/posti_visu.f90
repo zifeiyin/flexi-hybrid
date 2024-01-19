@@ -148,6 +148,10 @@ DO iArg=1+skipArgs,nArgs
     END IF
   END DO
 
+  DO iVar=1,nVarVisu
+    print *, TRIM(varnames_loc(iVar))
+  END DO
+
   IF (Avg2D) THEN
     CALL WriteDataToVTK(nVarVisu,NVisu,nElemsAvg2D_DG,VarNames_loc,CoordsVisu_DG,UVisu_DG,FileString_DG,&
         dim=2,DGFV=0,nValAtLastDimension=.TRUE.,PostiParallel=.TRUE.,HighOrder=HighOrder)

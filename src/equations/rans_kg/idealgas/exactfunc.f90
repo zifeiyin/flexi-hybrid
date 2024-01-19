@@ -97,6 +97,7 @@ CALL prms%CreateRealOption(         'IniAmplitude', "Shu Vortex CASE(7)", '0.2')
 CALL prms%CreateRealOption(         'IniHalfwidth', "Shu Vortex CASE(7)", '0.2')
 CALL prms%CreateRealOption(         'P_Parameter', "Couette-Poiseuille flow CASE(8)", '0.0')
 CALL prms%CreateRealOption(         'U_Parameter', "Couette-Poiseuille flow CASE(8)", '0.01')
+CALL prms%CreateRealOption(         'Re_tau',                  "Approximate Re_tau for CASE(517) (Sinusoidal IC in channel flow)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',   "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',         "Blasius boundary layer CASE(1338)")
@@ -151,6 +152,8 @@ CASE(1338) ! Blasius boundary layer solution
   x_in            = GETREALARRAY('x_in',2,'(/0.,0./)')
   BlasiusInitDone = .TRUE. ! Mark Blasius init as done so we don't read the parameters again in BC init
 #endif
+CASE(517) ! Sinusoidal perturbation IC in channel flow
+  Re_tau = GETREAL('Re_tau')
 CASE DEFAULT
 END SELECT ! IniExactFunc
 
@@ -187,6 +190,7 @@ USE MOD_Exactfunc_Vars ,ONLY: IniCenter,IniHalfwidth,IniAmplitude,IniAxis,AdvVel
 USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
+USE MOD_Equation_Vars  ,ONLY: Re_tau
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
 USE MOD_EOS            ,ONLY: PrimToCons,ConsToPrim
@@ -224,6 +228,12 @@ INTEGER                         :: nSteps,i
 REAL                            :: eta,deta,deta2,f,fp,fpp,fppp,fbar,fpbar,fppbar,fpppbar
 REAL                            :: x_eff(3),x_offset(3)
 #endif
+REAL                            :: sinusoidal_amp
+REAL                            :: sinusoidal_prim(PP_nVarPrim)
+REAL                            :: sinusoidal_cons(PP_nVar)
+REAL                            :: sinusoidal_box_size(3)
+REAL                            :: sinusoidal_x(3)
+REAL                            :: y_plus
 !==================================================================================================================================
 tEval=MERGE(t,tIn,fullBoundaryOrder) ! prevent temporal order degradation, works only for RK3 time integration
 IF (PRESENT(RefStateOpt)) THEN
@@ -244,6 +254,42 @@ CASE(0)
   CALL ExactFuncTestcase(tEval,x,Resu,Resu_t,Resu_tt)
 CASE(1) ! constant
   Resu = RefStateCons(:,RefState)
+CASE(517) ! Sinusoidal, copied from src/testcase/channel/testcase.f90
+  ! We assume that y in [-1, 1]
+  IF (x(2) .LE. 0) THEN
+    y_plus = (x(2) + 1.) * Re_tau
+  ELSE
+    y_plus = (1. - x(2)) * Re_tau
+  END IF
+  sinusoidal_prim = RefStatePrim(:,RefState)
+  sinusoidal_prim(VEL1) = 1. / 0.41 * LOG(1. + 0.41 * y_plus) + &
+      7.8 * (1. - EXP(-y_plus / 11.) - y_plus / 11. * EXP(-y_plus / 3.))
+  sinusoidal_prim(VEL1) = sinusoidal_prim(VEL1) * RefStatePrim(VEL1, RefState)
+  sinusoidal_amp = 0.1 * sinusoidal_prim(VEL1)
+
+  ! copied from src/testcase/channel/testcase.f90
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+
+  CALL PrimToCons(sinusoidal_prim, sinusoidal_cons)
+  Resu = sinusoidal_cons
+  ! Resu = RefStateCons(:,RefState)
 CASE(2) ! sinus
   Frequency=0.5
   Amplitude=0.3
@@ -676,6 +722,7 @@ USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #endif
 USE MOD_BodySourceTerms  ,ONLY: AddBodySourceTerms
+USE MOD_Viscosity        ,ONLY: muSuth
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES

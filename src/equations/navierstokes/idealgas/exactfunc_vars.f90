@@ -44,7 +44,9 @@ REAL              :: x_in(2)           !< inflow position for Blasius solution
 LOGICAL           :: BlasiusInitDone = .FALSE. !< Flag indicating that the parameters for Blasius have been read (they can be read
                                                !< both in exact func init and in BC init)
 #endif
+! TODO(Shimushu): It seems that ChannelBoxSize is not used any more, remove it in the future.
 REAL              :: ChannelBoxSize(3) !< CASE(517)
+REAL              :: Re_tau            !< CASE(517)
 !==================================================================================================================================
 
 END MODULE MOD_Exactfunc_Vars

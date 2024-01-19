@@ -103,7 +103,9 @@ CALL prms%CreateRealOption(         'U_Parameter',             "Couette-Poiseuil
 CALL prms%CreateRealOption(         'AmplitudeFactor',         "Harmonic Gauss Pulse CASE(14)", '0.1')
 CALL prms%CreateRealOption(         'HarmonicFrequency',       "Harmonic Gauss Pulse CASE(14)", '400')
 CALL prms%CreateRealOption(         'SigmaSqr',                "Harmonic Gauss Pulse CASE(14)", '0.1')
+! TODO(Shimushu): It seems that BoxSize is not used any more, remove it in the future.
 CALL prms%CreateRealArrayOption(    'BoxSize',                 "Approximate box size for CASE(517) (Sinusoidal IC in channel flow)")
+CALL prms%CreateRealOption(         'Re_tau',                  "Approximate Re_tau for CASE(517) (Sinusoidal IC in channel flow)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
@@ -162,8 +164,10 @@ CASE(1338) ! Blasius boundary layer solution
   x_in            = GETREALARRAY('x_in',2,'(/0.,0./)')
   BlasiusInitDone = .TRUE. ! Mark Blasius init as done so we don't read the parameters again in BC init
 #endif
-CASE(517) ! Sinusoidal perturbation IC in channel flow 
+CASE(517) ! Sinusoidal perturbation IC in channel flow
+  ! TODO(Shimushu): It seems that BoxSize is not used any more, remove it in the future.
   ChannelBoxSize = GETREALARRAY('BoxSize', 3)
+  Re_tau         = GETREAL('Re_tau')
 CASE DEFAULT
 END SELECT ! IniExactFunc
 
@@ -193,13 +197,14 @@ END SUBROUTINE InitExactFunc
 SUBROUTINE ExactFunc(ExactFunction,tIn,x,resu,RefStateOpt)
 ! MODULES
 USE MOD_Preproc        ,ONLY: PP_PI
-USE MOD_Globals        ,ONLY: Abort
+USE MOD_Globals        ,ONLY: Abort, CollectiveStop
 USE MOD_Mathtools      ,ONLY: CROSS
 USE MOD_Eos_Vars       ,ONLY: Kappa,sKappaM1,KappaM1,KappaP1,R
 USE MOD_Exactfunc_Vars ,ONLY: IniCenter,IniHalfwidth,IniAmplitude,IniAxis,AdvVel
 USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
-USE MOD_Exactfunc_Vars ,ONLY: ChannelBoxSize
+! TODO(Shimushu): It seems that ChannelBoxSize is not used any more, remove it in the future.
+USE MOD_Exactfunc_Vars ,ONLY: ChannelBoxSize, Re_tau
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
@@ -246,6 +251,7 @@ REAL                            :: sinusoidal_prim(PP_nVarPrim)
 REAL                            :: sinusoidal_cons(PP_nVar)
 REAL                            :: sinusoidal_box_size(3)
 REAL                            :: sinusoidal_x(3)
+REAL                            :: y_plus
 !==================================================================================================================================
 tEval=MERGE(t,tIn,fullBoundaryOrder) ! prevent temporal order degradation, works only for RK3 time integration
 IF (PRESENT(RefStateOpt)) THEN
@@ -266,7 +272,7 @@ CASE(0)
   CALL ExactFuncTestcase(tEval,x,Resu,Resu_t,Resu_tt)
 CASE(1) ! constant
   Resu = RefStateCons(:,RefState)
-! CASE(19937) ! Add multiplicative noise 
+! CASE(19937) ! Add multiplicative noise
 !   ! RANDOM_NUMBER gives number in [0, 1).
 !   CALL RANDOM_NUMBER(random_noise)
 !   ! A uniform distribution between [0.95, 1.05), in velocity only
@@ -274,39 +280,72 @@ CASE(1) ! constant
 !   noised_prim(VELV) = (1.0 + 0.1 * (random_noise - 0.5)) * noised_prim(VELV)
 !   CALL PrimToCons(noised_prim, noised_cons)
 !   Resu = noised_cons
-case(517) ! Sinusoidal, copied from src/testcase/channel/testcase.f90
+CASE(517) ! Sinusoidal, copied from src/testcase/channel/testcase.f90
   ! CALL ConsToPrim(sinusoidal_prim, RefStateCons(:,RefState))
+
+  ! We assume that y in [-1, 1]
+  ! print *, "DEBUG: Re_tau = ", Re_tau
+  IF (x(2) .LE. 0) THEN
+    y_plus = (x(2) + 1.) * Re_tau
+  ELSE
+    y_plus = (1. - x(2)) * Re_tau
+  END IF
+  ! print *, "DEBUG: y_plus = ", y_plus
   sinusoidal_prim = RefStatePrim(:,RefState)
+  sinusoidal_prim(VEL1) = 1. / 0.41 * LOG(1. + 0.41 * y_plus) + &
+      7.8 * (1. - EXP(-y_plus / 11.) - y_plus / 11. * EXP(-y_plus / 3.))
+  sinusoidal_prim(VEL1) = sinusoidal_prim(VEL1) * RefStatePrim(VEL1, RefState)
+  ! IF (sinusoidal_prim(VEL1) .LE. 0.) THEN
+  !   CALL CollectiveStop(__STAMP__,'ERROR - Initial Velocity less than 0.')
+  ! END IF
   sinusoidal_amp = 0.1 * sinusoidal_prim(VEL1)
 
-  ! TODO(Shimushu): geometry-dependent code, should be fixed (?)
-  sinusoidal_box_size = ChannelBoxSize
-  ! sinusoidal_box_size(1) = 6.0 * PP_PI
-  ! sinusoidal_box_size(2) = 2.0
-  ! sinusoidal_box_size(3) = 2.0 * PP_PI
+  ! TODO(Shimushu): It seems that BoxSize is not used any more, remove it in the future.
+  ! sinusoidal_box_size = ChannelBoxSize
 
-  sinusoidal_box_size(1) = 2.0 * sinusoidal_box_size(1)
-  sinusoidal_box_size(3) = 2.0 * sinusoidal_box_size(3)
-  sinusoidal_x = x / sinusoidal_box_size
+  ! sinusoidal_box_size(1) = 2.0 * sinusoidal_box_size(1)
+  ! sinusoidal_box_size(3) = 2.0 * sinusoidal_box_size(3)
+  ! ! sinusoidal_x = x
+  ! ! sinusoidal_x(2) = sinusoidal_x(2) - 1
+  ! sinusoidal_x = x / sinusoidal_box_size
 
-  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(20.0*PP_PI*(sinusoidal_x(2)))*SIN(20.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(30.0*PP_PI*(sinusoidal_x(2)))*SIN(30.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(35.0*PP_PI*(sinusoidal_x(2)))*SIN(35.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(40.0*PP_PI*(sinusoidal_x(2)))*SIN(40.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(45.0*PP_PI*(sinusoidal_x(2)))*SIN(45.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(50.0*PP_PI*(sinusoidal_x(2)))*SIN(50.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  
-  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(30.0*PP_PI*(sinusoidal_x(1)))*SIN(30.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(35.0*PP_PI*(sinusoidal_x(1)))*SIN(35.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(40.0*PP_PI*(sinusoidal_x(1)))*SIN(40.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(45.0*PP_PI*(sinusoidal_x(1)))*SIN(45.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(50.0*PP_PI*(sinusoidal_x(1)))*SIN(50.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
-  
-  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(30.0*PP_PI*(sinusoidal_x(1)))*SIN(30.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
-  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(35.0*PP_PI*(sinusoidal_x(1)))*SIN(35.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
-  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(40.0*PP_PI*(sinusoidal_x(1)))*SIN(40.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
-  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(45.0*PP_PI*(sinusoidal_x(1)))*SIN(45.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
-  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(50.0*PP_PI*(sinusoidal_x(1)))*SIN(50.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(20.0*PP_PI*(sinusoidal_x(2)))*SIN(20.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(30.0*PP_PI*(sinusoidal_x(2)))*SIN(30.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(35.0*PP_PI*(sinusoidal_x(2)))*SIN(35.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(40.0*PP_PI*(sinusoidal_x(2)))*SIN(40.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(45.0*PP_PI*(sinusoidal_x(2)))*SIN(45.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(50.0*PP_PI*(sinusoidal_x(2)))*SIN(50.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+
+  ! sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(30.0*PP_PI*(sinusoidal_x(1)))*SIN(30.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(35.0*PP_PI*(sinusoidal_x(1)))*SIN(35.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(40.0*PP_PI*(sinusoidal_x(1)))*SIN(40.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(45.0*PP_PI*(sinusoidal_x(1)))*SIN(45.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(50.0*PP_PI*(sinusoidal_x(1)))*SIN(50.0*PP_PI*(sinusoidal_x(3)))*sinusoidal_amp
+
+  ! sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(30.0*PP_PI*(sinusoidal_x(1)))*SIN(30.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(35.0*PP_PI*(sinusoidal_x(1)))*SIN(35.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(40.0*PP_PI*(sinusoidal_x(1)))*SIN(40.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(45.0*PP_PI*(sinusoidal_x(1)))*SIN(45.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+  ! sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(50.0*PP_PI*(sinusoidal_x(1)))*SIN(50.0*PP_PI*(sinusoidal_x(2)))*sinusoidal_amp
+
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL1)=sinusoidal_prim(VEL1)+SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+  sinusoidal_prim(VEL2)=sinusoidal_prim(VEL2)+SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))*sinusoidal_amp
+
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
+  sinusoidal_prim(VEL3)=sinusoidal_prim(VEL3)+SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))*sinusoidal_amp
 
   CALL PrimToCons(sinusoidal_prim, sinusoidal_cons)
   Resu = sinusoidal_cons
