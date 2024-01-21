@@ -127,6 +127,7 @@ USE MOD_Exactfunc_Vars
 USE MOD_ChangeBasisByDim   ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars            ,ONLY: FV_Vdm,FV_Elems
 #endif
+USE MOD_DG_Vars            ,ONLY: U
 
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
