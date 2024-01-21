@@ -108,7 +108,7 @@ Ez_uu=0.;Ez_vv=0.;Ez_ww=0.;Ez_pp=0.
 ALLOCATE(U_FFT(1:5,1:N_FFT(1),1:N_FFT(2),1:N_FFT(3)))
 ALLOCATE(MS_PSD(N_FFT(2),4))
 ALLOCATE(MS_t(N_FFT(2),3))
-ALLOCATE(M_t(N_FFT(2),4))
+ALLOCATE(M_t(N_FFT(2),5))
 MS_t=0.
 MS_PSD=0.
 M_t=0.
@@ -255,6 +255,7 @@ DO j=1,N_FFT(2)
   M_t(j,2)=M_t(j,2)+SUM(U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
   M_t(j,3)=M_t(j,3)+SUM(U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
   M_t(j,4)=M_t(j,4)+SUM(U_FFT(5,1:N_FFT(1),j,1:N_FFT(3)))
+  M_t(j,5)=M_t(j,5)+SUM(U_FFT(1,1:N_FFT(1),j,1:N_FFT(3)))
   !  For mean uv
   MS_t(j,1)=MS_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
   MS_t(j,2)=MS_t(j,2)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
@@ -343,6 +344,7 @@ DO j=N_FFT(2)/2+1,N_FFT(2)
   MS_t(j,:)=(MS_t(N_FFT(2)-j+1,:)-MS_t(j,:))
   M_t(j,1)=(M_t(N_FFT(2)-j+1,1)+M_t(j,1))
   M_t(j,2:3)=(M_t(N_FFT(2)-j+1,2:3)-M_t(j,2:3))
+  M_t(j,4:5)=(M_t(N_FFT(2)-j+1,4:5)+M_t(j,4:5))
 END DO
 !Mean of u,v,w,p
 M_t=M_t/((nArgs-1)*N_FFT(1)*N_FFT(3)*2)
@@ -392,14 +394,16 @@ SELECT CASE(OutputFormat)
     WRITE(FileUnit_EK,'(a)')'"u_mean"'
     WRITE(FileUnit_EK,'(a)')'"v_mean"'
     WRITE(FileUnit_EK,'(a)')'"w_mean"'
+    WRITE(FileUnit_EK,'(a)')'"p_mean"'
+    WRITE(FileUnit_EK,'(a)')'"rho_mean"'
     WRITE(FileUnit_EK,*)'ZONE T="',ProjectName,'"'
     WRITE(FileUnit_EK,'(a)')' STRANDID=0, SOLUTIONTIME=0'
     WRITE(FileUnit_EK,*)' I=',N_FFT(2)/2,', J=1, K=1, ZONETYPE=Ordered'
     WRITE(FileUnit_EK,'(a)')' DATAPACKING=POINT'
-    WRITE(FileUnit_EK,'(a)')' DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)'
+    WRITE(FileUnit_EK,'(a)')' DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)'
     DO j=N_FFT(2)/2+1,N_FFT(2)
-      WRITE(FileUnit_EK,'(10(E20.12,X))')(1-(X_FFT(2,1,j,1)))*Re_tau,MS_PSD(j,1),MS_PSD(j,2),MS_PSD(j,3),MS_t(j,1),MS_t(j,2),&
-                                                                                       MS_t(j,3),M_t(j,1),M_t(j,2),M_t(j,3)
+      WRITE(FileUnit_EK,'(12(E20.12,X))')(1-(X_FFT(2,1,j,1)))*Re_tau,MS_PSD(j,1),MS_PSD(j,2),MS_PSD(j,3),MS_t(j,1),MS_t(j,2),&
+                                                                                       MS_t(j,3),M_t(j,1),M_t(j,2),M_t(j,3),M_t(j,4),M_t(j,5)
     END DO
     CLOSE(FILEUnit_EK)
     !-------------------------------------------------
@@ -450,7 +454,7 @@ SELECT CASE(OutputFormat)
     FileName_EK=TIMESTAMP(TRIM(ProjectName)//'_MS',time)
     FileName_EK=TRIM(Filename_EK)//'.h5'
 
-    nVal=10
+    nVal=12
     nSamples=N_FFT(2)/2
     ALLOCATE(VarNamesFFT(nVal))
     ALLOCATE(PointData(nVal,nSamples))
@@ -464,6 +468,8 @@ SELECT CASE(OutputFormat)
     VarNamesFFT(8) ='u_mean'
     VarNamesFFT(9) ='v_mean'
     VarNamesFFT(10)='w_mean'
+    VarNamesFFT(11)='p_mean'
+    VarNamesFFT(12)='rho_mean'
     i=0
     DO j=N_FFT(2)/2+1,N_FFT(2)
       k=N_FFT(2)-i
@@ -471,7 +477,7 @@ SELECT CASE(OutputFormat)
       PointData(1,i)    = (X_FFT(2,1,i,1)+1)*Re_tau
       PointData(2:4,i)  = MS_PSD(k,1:3)
       PointData(5:7,i)  = MS_t(k,1:3)
-      PointData(8:10,i) = M_t(k,1:3)
+      PointData(8:12,i) = M_t(k,1:5)
     END DO
     CALL OpenDataFile(Filename_EK,create=.TRUE.,single=.TRUE.,readOnly=.FALSE.)
     ! Write dataset attributes
