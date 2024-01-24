@@ -722,6 +722,7 @@ USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #endif
 USE MOD_BodySourceTerms  ,ONLY: AddBodySourceTerms
+USE MOD_Viscosity
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
