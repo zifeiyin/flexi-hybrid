@@ -814,7 +814,7 @@ DO iElem=1,nElems
     ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
 
     ! dissipation of g
-    DissG = -0.5 * Cmu * Comega1 * prim(DENS) * gPos**3 * SijSij
+    DissG = - Cmu * Comega1 * prim(DENS) * gPos**3 * SijGradU
           
     ! cross diffusion of g
     
