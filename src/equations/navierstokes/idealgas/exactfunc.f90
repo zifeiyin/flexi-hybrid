@@ -205,7 +205,7 @@ USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
 ! TODO(Shimushu): It seems that ChannelBoxSize is not used any more, remove it in the future.
 USE MOD_Exactfunc_Vars ,ONLY: ChannelBoxSize, Re_tau
-USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
+USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim,IniBodyForce
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
 USE MOD_EOS            ,ONLY: PrimToCons,ConsToPrim
@@ -1021,6 +1021,11 @@ CASE DEFAULT
   ! No source -> do nothing and set marker to not run again
   doCalcSource=.FALSE.
 END SELECT ! ExactFunction
+
+SELECT CASE (IniExactFunc)
+CASE(1)
+  doCalcSource=.TRUE.
+END SELECT
 
 CALL AddBodySourceTerms(Ut,t)
 
