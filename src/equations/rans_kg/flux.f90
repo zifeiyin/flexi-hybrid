@@ -192,11 +192,11 @@ lambda = THERMAL_CONDUCTIVITY_H(muS)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
 #if EDDYVISCOSITY
-muS    = muS    + muSGS
-lambda = lambda + muSGS*cp/PrSGS
 !diffusivity of turbulence variables
 kDiffEff = MAX(muS, muS + muSGS * sigmaK)
 gDiffEff = MAX(muS, muS + muSGS * sigmaG)
+muS    = muS    + muSGS
+lambda = lambda + muSGS*cp/PrSGS
 #else
 kDiffEff = muS 
 gDiffEff = muS
