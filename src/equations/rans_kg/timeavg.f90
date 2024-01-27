@@ -81,7 +81,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=15
+nMaxVarAvg=17
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -98,6 +98,8 @@ VarNamesAvgList(12) ='Mach'
 VarNamesAvgList(13) ='Temperature'
 VarNamesAvgList(14) ='TotalTemperature'
 VarNamesAvgList(15) ='TotalPressure'
+VarNamesAvgList(16) ='DensityK'
+VarNamesAvgList(17) ='DensityG'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -394,6 +396,12 @@ DO iElem=1,nElems
 
   IF(CalcAvg(5)) &  !'EnergyStagnationDensity'
     tmpVars(iAvg(5),:,:,:) = Uloc(ENER,:,:,:)
+
+  IF(CalcAvg(16)) &  !'DensityK'
+    tmpVars(iAvg(16),:,:,:) = Uloc(RHOK,:,:,:)
+
+  IF(CalcAvg(17)) &  !'DensityG'
+    tmpVars(iAvg(17),:,:,:) = Uloc(RHOG,:,:,:)
 
   IF(CalcAvg(6)) &  !'VelocityX'
     tmpVars(iAvg(6),:,:,:) = prim(VEL1,:,:,:)
