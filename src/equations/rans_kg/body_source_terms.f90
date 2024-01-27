@@ -117,9 +117,9 @@ END SUBROUTINE InitBodySourceTerms
 !> for each function resu and the first and second time derivative resu_t and resu_tt have to be defined (is trivial for constants)
 !==================================================================================================================================
 SUBROUTINE AddBodySourceTerms(Ut,t)
-
 USE MOD_Globals
 USE MOD_PreProc
+USE MOD_DG_Vars            ,ONLY: U
 USE MOD_Mesh_Vars          ,ONLY: nElems,Elem_xGP,sJ
 USE MOD_Equation_Vars      ,ONLY: IniBodyForce
 USE MOD_Exactfunc_Vars
@@ -127,7 +127,6 @@ USE MOD_Exactfunc_Vars
 USE MOD_ChangeBasisByDim   ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars            ,ONLY: FV_Vdm,FV_Elems
 #endif
-USE MOD_DG_Vars            ,ONLY: U
 
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -161,6 +160,11 @@ DO iElem=1,nElems
     CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
     DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
       Ut(MOM1:MOM3,i,j,k,iElem) = Ut(MOM1:MOM3,i,j,k,iElem)+Ut_src2(MOM1:MOM3,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
+      Ut(ENER,i,j,k,iElem) = Ut(ENER,i,j,k,iElem) + &
+          dot_product( &
+              Ut_src2(MOM1:MOM3, i, j, k) / Ut_src2(DENS, i, j, k), &
+              BodyForceVector &
+          ) / sJ(i, j, k, iElem, FV_Elem)
     END DO; END DO; END DO ! i,j,k
   ELSE
 #endif 
