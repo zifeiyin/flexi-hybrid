@@ -61,7 +61,7 @@ USE MOD_FFT_Vars
 USE MOD_Commandline_Arguments
 USE MOD_Interpolation,           ONLY: GetVandermonde
 USE MOD_StringTools,             ONLY: STRICMP,GetFileExtension
-USE MOD_ReadInTools,             ONLY: GETREAL,GETINT,GETLOGICAL
+USE MOD_ReadInTools,             ONLY: GETREAL,GETINT,GETLOGICAL,GETSTR
 USE MOD_Mesh_Vars,               ONLY: nElems_IJK,nElems
 USE MOD_DG_Vars,                 ONLY: U
 USE MOD_Interpolation_Vars ,     ONLY: NodeType,NodeTypeVISUInner
@@ -79,6 +79,7 @@ OutputFormat = GETINT('OutputFormat','0')
 NCalc  = GETINT('NCalc')          ! Polynomial degree to perfrom DFFT on
 Re_tau = GETREAL('Re_tau')        ! Reynolds number bases on friction velocity and channel half height
 ReadMean = GETLOGICAL('ReadMean') ! Read TimeAvg instead of State
+OutputNodeType = GETSTR('OutputNodeType', 'VISU_INNER')
 
 ! Allocate solution array in DG vars, used to store state
 ALLOCATE(U(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems))
@@ -105,17 +106,23 @@ ALLOCATE(Ez_ww(N_FFT(2),nSamples_specK))
 ALLOCATE(Ez_pp(N_FFT(2),nSamples_specK))
 Ex_uu=0.;Ex_vv=0.;Ex_ww=0.;Ex_pp=0.
 Ez_uu=0.;Ez_vv=0.;Ez_ww=0.;Ez_pp=0.
-ALLOCATE(U_FFT(1:5,1:N_FFT(1),1:N_FFT(2),1:N_FFT(3)))
+ALLOCATE(U_FFT(1:PP_nVar,1:N_FFT(1),1:N_FFT(2),1:N_FFT(3)))
 ALLOCATE(MS_PSD(N_FFT(2),4))
 ALLOCATE(MS_t(N_FFT(2),3))
+#if EQNSYSNR == 2
+! navierstokes
 ALLOCATE(M_t(N_FFT(2),5))
+#elif EQNSYSNR == 4
+! rans-kg
+ALLOCATE(M_t(N_FFT(2),7))
+#endif
 MS_t=0.
 MS_PSD=0.
 M_t=0.
 
 ! Get vandermonde from computation N on Gauss or Gauss-Lobatto points to equidistand FFT points
 ALLOCATE(VdmGaussEqui(0:NCalc,0:PP_N))
-CALL GetVandermonde(PP_N,NodeType,NCalc,NodeTypeVISUInner,VdmGaussEqui)
+CALL GetVandermonde(PP_N,NodeType,NCalc,OutputNodeType,VdmGaussEqui)
 
 CALL DFFTW_PLAN_DFT_1D(planI,nSamplesI,inI,outI,FFTW_FORWARD,FFTW_ESTIMATE)
 CALL DFFTW_PLAN_DFT_1D(planK,nSamplesK,inK,outK,FFTW_FORWARD,FFTW_ESTIMATE)
@@ -188,7 +195,8 @@ INTEGER                             :: iGlob,jGlob,kGlob
 REAL                                :: kappaM1
 REAL,DIMENSION(:,:,:,:),ALLOCATABLE :: U_aux
 !===================================================================================================================================
-ALLOCATE(U_aux(1:5,0:NCalc,0:NCalc,0:NCalc))
+! 1:5 does not work for RANS eq
+ALLOCATE(U_aux(1:PP_nVar,0:NCalc,0:NCalc,0:NCalc))
 
 KappaM1=0.4
 U_FFT=0.
@@ -205,7 +213,14 @@ DO iElem=1,nGlobalElems
         iGlob=(ii-1)*(NCalc+1)+i+1
         U_FFT(1,iGlob,jGlob,kGlob)=U_aux(1,i,j,k)
         U_FFT(2:4,iGlob,jGlob,kGlob)=U_aux(2:4,i,j,k)/U_aux(1,i,j,k)
+#if EQNSYSNR == 2
+        ! navierstokes
         U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*(U_aux(5,i,j,k)-U_aux(1,i,j,k)*SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
+#elif EQNSYSNR == 4
+        ! rans-kg
+        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*(U_aux(5,i,j,k)-U_aux(6,i,j,k)-U_aux(1,i,j,k)*SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
+        U_FFT(6:7,iGlob,jGlob,kGlob)=U_aux(6:7,i,j,k)/U_aux(1,i,j,k)
+#endif
       END DO
     END DO
   END DO
@@ -256,6 +271,13 @@ DO j=1,N_FFT(2)
   M_t(j,3)=M_t(j,3)+SUM(U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
   M_t(j,4)=M_t(j,4)+SUM(U_FFT(5,1:N_FFT(1),j,1:N_FFT(3)))
   M_t(j,5)=M_t(j,5)+SUM(U_FFT(1,1:N_FFT(1),j,1:N_FFT(3)))
+#if EQNSYSNR == 2
+  ! navierstokes
+#elif EQNSYSNR == 4
+  ! rans-kg
+  M_t(j,6)=M_t(j,6)+SUM(U_FFT(6,1:N_FFT(1),j,1:N_FFT(3)))
+  M_t(j,7)=M_t(j,7)+SUM(U_FFT(7,1:N_FFT(1),j,1:N_FFT(3)))
+#endif
   !  For mean uv
   MS_t(j,1)=MS_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
   MS_t(j,2)=MS_t(j,2)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
@@ -345,6 +367,12 @@ DO j=N_FFT(2)/2+1,N_FFT(2)
   M_t(j,1)=(M_t(N_FFT(2)-j+1,1)+M_t(j,1))
   M_t(j,2:3)=(M_t(N_FFT(2)-j+1,2:3)-M_t(j,2:3))
   M_t(j,4:5)=(M_t(N_FFT(2)-j+1,4:5)+M_t(j,4:5))
+#if EQNSYSNR == 2
+  ! navierstokes
+#elif EQNSYSNR == 4
+  ! rans-kg
+  M_t(j,6:7)=(M_t(N_FFT(2)-j+1,6:7)+M_t(j,6:7))
+#endif
 END DO
 !Mean of u,v,w,p
 M_t=M_t/((nArgs-1)*N_FFT(1)*N_FFT(3)*2)
@@ -396,14 +424,36 @@ SELECT CASE(OutputFormat)
     WRITE(FileUnit_EK,'(a)')'"w_mean"'
     WRITE(FileUnit_EK,'(a)')'"p_mean"'
     WRITE(FileUnit_EK,'(a)')'"rho_mean"'
+#if EQNSYSNR == 2
+    ! navierstokes
+#elif EQNSYSNR == 4
+    ! rans-kg
+    WRITE(FileUnit_EK,'(a)')'"k_mean"'
+    WRITE(FileUnit_EK,'(a)')'"g_mean"'
+#endif
     WRITE(FileUnit_EK,*)'ZONE T="',ProjectName,'"'
     WRITE(FileUnit_EK,'(a)')' STRANDID=0, SOLUTIONTIME=0'
     WRITE(FileUnit_EK,*)' I=',N_FFT(2)/2,', J=1, K=1, ZONETYPE=Ordered'
     WRITE(FileUnit_EK,'(a)')' DATAPACKING=POINT'
+#if EQNSYSNR == 2
+    ! navierstokes
     WRITE(FileUnit_EK,'(a)')' DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)'
+#elif EQNSYSNR == 4
+    ! rans-kg
+    WRITE(FileUnit_EK,'(a)')' DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)'
+#endif
+
     DO j=N_FFT(2)/2+1,N_FFT(2)
+#if EQNSYSNR == 2
+      ! navierstokes
       WRITE(FileUnit_EK,'(12(E20.12,X))')(1-(X_FFT(2,1,j,1)))*Re_tau,MS_PSD(j,1),MS_PSD(j,2),MS_PSD(j,3),MS_t(j,1),MS_t(j,2),&
-                                                                                       MS_t(j,3),M_t(j,1),M_t(j,2),M_t(j,3),M_t(j,4),M_t(j,5)
+        MS_t(j,3),M_t(j,1),M_t(j,2),M_t(j,3),M_t(j,4),M_t(j,5)
+#elif EQNSYSNR == 4
+      ! rans-kg
+      WRITE(FileUnit_EK,'(12(E20.12,X))')(1-(X_FFT(2,1,j,1)))*Re_tau,MS_PSD(j,1),MS_PSD(j,2),MS_PSD(j,3),MS_t(j,1),MS_t(j,2),&
+        MS_t(j,3),M_t(j,1),M_t(j,2),M_t(j,3),M_t(j,4),M_t(j,5),M_t(j,6),M_t(j,7)
+#endif
+
     END DO
     CLOSE(FILEUnit_EK)
     !-------------------------------------------------
@@ -454,7 +504,13 @@ SELECT CASE(OutputFormat)
     FileName_EK=TIMESTAMP(TRIM(ProjectName)//'_MS',time)
     FileName_EK=TRIM(Filename_EK)//'.h5'
 
+#if EQNSYSNR == 2
+    ! navierstokes
     nVal=12
+#elif EQNSYSNR == 4
+    ! rans-kg
+    nVal=14
+#endif
     nSamples=N_FFT(2)/2
     ALLOCATE(VarNamesFFT(nVal))
     ALLOCATE(PointData(nVal,nSamples))
@@ -470,6 +526,13 @@ SELECT CASE(OutputFormat)
     VarNamesFFT(10)='w_mean'
     VarNamesFFT(11)='p_mean'
     VarNamesFFT(12)='rho_mean'
+#if EQNSYSNR == 2
+    ! navierstokes
+#elif EQNSYSNR == 4
+    ! rans-kg
+    VarNamesFFT(13)='k_mean'
+    VarNamesFFT(14)='g_mean'
+#endif
     i=0
     DO j=N_FFT(2)/2+1,N_FFT(2)
       k=N_FFT(2)-i
@@ -477,7 +540,13 @@ SELECT CASE(OutputFormat)
       PointData(1,i)    = (X_FFT(2,1,i,1)+1)*Re_tau
       PointData(2:4,i)  = MS_PSD(k,1:3)
       PointData(5:7,i)  = MS_t(k,1:3)
+#if EQNSYSNR == 2
+      ! navierstokes
       PointData(8:12,i) = M_t(k,1:5)
+#elif EQNSYSNR == 4
+      ! rans-kg
+      PointData(8:14,i) = M_t(k,1:7)
+#endif
     END DO
     CALL OpenDataFile(Filename_EK,create=.TRUE.,single=.TRUE.,readOnly=.FALSE.)
     ! Write dataset attributes
