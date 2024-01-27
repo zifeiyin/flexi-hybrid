@@ -100,7 +100,7 @@ USE MOD_Interpolation_Vars, ONLY:InterpolationInitIsDone,NodeType,NodeTypeVISU
 USE MOD_Mesh_ReadIn,        ONLY:readMesh
 USE MOD_Prepare_Mesh,       ONLY:setLocalSideIDs,fillMeshInfo
 USE MOD_ReadInTools,        ONLY:GETLOGICAL,GETSTR,GETREAL,GETINT
-USE MOD_Metrics,            ONLY:BuildCoords,CalcMetrics
+USE MOD_Metrics,            ONLY:BuildCoords,CalcMetrics,CalcHMax
 USE MOD_DebugMesh,          ONLY:writeDebugMesh
 USE MOD_Mappings,           ONLY:buildMappings
 #if USE_MPI
@@ -232,11 +232,14 @@ END IF
 
 ! Build the coordinates of the solution gauss points in the volume
 ALLOCATE(Elem_xGP(3,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(Elem_hmx(nElems))
 IF(interpolateFromTree)THEN
   CALL BuildCoords(NodeCoords,NodeType,PP_N,Elem_xGP,TreeCoords)
 ELSE
   CALL BuildCoords(NodeCoords,NodeType,PP_N,Elem_xGP)
 ENDIF
+
+CALL CalcHMax()
 
 ! Return if no connectivity and metrics are required (e.g. for visualization mode)
 IF (meshMode.GT.0) THEN
@@ -438,6 +441,7 @@ SDEALLOCATE(BoundaryType)
 
 ! Volume
 SDEALLOCATE(Elem_xGP)
+SDEALLOCATE(Elem_hmx)
 SDEALLOCATE(Metrics_fTilde)
 SDEALLOCATE(Metrics_gTilde)
 SDEALLOCATE(Metrics_hTilde)

@@ -136,7 +136,7 @@ END SUBROUTINE InitSmagorinsky
 !===================================================================================================================================
 !> Compute Smagorinsky Eddy-Visosity
 !===================================================================================================================================
-PPURE SUBROUTINE Smagorinsky_Point(gradUx,gradUy,gradUz,UPrim,y,Delta,muSGS)
+PPURE SUBROUTINE Smagorinsky_Point(gradUx,gradUy,gradUz,UPrim,y,Delta,hmax,muSGS)
 ! MODULES
 USE MOD_Equation_Vars,  ONLY: Cmu, epsOMG, epsTKE
 USE MOD_EddyVisc_Vars,  ONLY: CDES
@@ -148,6 +148,7 @@ REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx, gradUy, gradUz   !> Gradie
 REAL,DIMENSION(PP_nVarPrim)   ,INTENT(IN)  :: UPrim   !> pointwise conserved variable
 REAL                          ,INTENT(IN)  :: y       !> pointwise wall distance
 REAL                          ,INTENT(IN)  :: Delta   !> pointwise cell spacing
+REAL                          ,INTENT(IN)  :: hmax    !> local grid size
 REAL                          ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -156,8 +157,6 @@ REAL                                    :: nuEff, dUdU
 REAL                                    :: muS
 REAL,PARAMETER                          :: kappa=0.41
 !===================================================================================================================================
-
-lLES = CDES * Delta
 
 lRANS = SQRT(MAX(UPrim(TKE), epsTKE)) * Cmu * UPrim(OMG)**2 
 
@@ -177,6 +176,8 @@ dUdU  = gradUx(LIFT_VEL1) * gradUx(LIFT_VEL1)&
 rd    = nuEff / ( ( kappa*y)**2 * MAX( 1.e-16, dUdU ) )
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
+lLES = CDES * (fd * Delta + (1. - fd) * hmax)
+
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
 muSGS = UPrim(DENS) * lDDES * lDDES / MAX( Cmu * (UPrim(OMG))**2, epsOMG )
@@ -189,7 +190,7 @@ END SUBROUTINE Smagorinsky_Point
 SUBROUTINE Smagorinsky_Volume()
 ! MODULES
 USE MOD_PreProc
-USE MOD_Mesh_Vars,         ONLY: nElems
+USE MOD_Mesh_Vars,         ONLY: nElems, Elem_hmx
 USE MOD_EddyVisc_Vars,     ONLY: muSGS, yWall, DeltaS
 USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
 USE MOD_DG_Vars,           ONLY: UPrim
@@ -205,7 +206,7 @@ DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL Smagorinsky_Point( gradUx(:,i,j,k,iElem),    gradUy(:,i,j,k,iElem),              gradUz(:,i,j,k,iElem), &
                             UPrim(:,i,j,k,iElem),     yWall(i,j,k,0,iElem),               DeltaS(iElem),         &
-                            muSGS(1,i,j,k,iElem))
+                            Elem_hmx(iElem),          muSGS(1,i,j,k,iElem))
   END DO; END DO; END DO ! i,j,k
 END DO
 END SUBROUTINE Smagorinsky_Volume
