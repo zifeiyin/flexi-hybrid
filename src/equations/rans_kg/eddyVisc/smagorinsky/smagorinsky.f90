@@ -175,7 +175,7 @@ dUdU  = gradUx(LIFT_VEL1) * gradUx(LIFT_VEL1)&
       + gradUz(LIFT_VEL2) * gradUz(LIFT_VEL2)&
       + gradUz(LIFT_VEL3) * gradUz(LIFT_VEL3)
 
-rd    = nuEff / ( ( kappa*y)**2 * MAX( 1.e-16, dUdU ) )
+rd    = nuEff / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
 lLES = CDES * (fd * Delta + (1. - fd) * hmax)
