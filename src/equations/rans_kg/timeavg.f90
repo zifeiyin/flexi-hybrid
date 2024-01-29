@@ -81,7 +81,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=17
+nMaxVarAvg=18
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -100,6 +100,7 @@ VarNamesAvgList(14) ='TotalTemperature'
 VarNamesAvgList(15) ='TotalPressure'
 VarNamesAvgList(16) ='DensityK'
 VarNamesAvgList(17) ='DensityG'
+VarNamesAvgList(18) ='fd'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -327,6 +328,7 @@ USE MOD_EOS          ,ONLY: ConsToPrim
 USE MOD_EOS_Vars     ,ONLY: Kappa
 USE MOD_Analyze_Vars ,ONLY: WriteData_dt
 USE MOD_AnalyzeEquation_Vars
+USE MOD_EddyVisc_Vars,ONLY: fd
 #if FV_ENABLED
 USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm
 USE MOD_ChangeBasisByDim,ONLY:ChangeBasisVolume
@@ -402,6 +404,9 @@ DO iElem=1,nElems
 
   IF(CalcAvg(17)) &  !'DensityG'
     tmpVars(iAvg(17),:,:,:) = Uloc(RHOG,:,:,:)
+  
+  IF(CalcAvg(18)) &  !'fd'
+    tmpVars(iAvg(18),:,:,:) = fd(:,:,:,iElem)
 
   IF(CalcAvg(6)) &  !'VelocityX'
     tmpVars(iAvg(6),:,:,:) = prim(VEL1,:,:,:)

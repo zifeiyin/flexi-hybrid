@@ -65,4 +65,6 @@ LOGICAL           :: SmagorinskyInitIsDone=.FALSE.    !< Logical indicating if S
 LOGICAL           :: DynSmagorinskyInitIsDone=.FALSE. !< Logical indicating if Smagorinsky model has been initialized
 LOGICAL           :: VremanInitIsDone=.FALSE.         !< Logical indicating if Vreman model has been initialized
 
+REAL,ALLOCATABLE  :: fd(:,:,:,:)               ! fd in each DoF
+
 END MODULE MOD_EddyVisc_Vars
