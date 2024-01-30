@@ -768,7 +768,7 @@ DO iElem=1,nElems
     muS   = VISCOSITY_PRIM(prim)
     mut   = muSGS(1,i,j,k,iElem)
 
-    diffEff = muS + mut * sigmaG
+    diffEff = muS + prim(DENS) * (Cmu * prim(TKE) * prim(OMG) ** 2) * sigmaG
 
     invR  = 1.0 / MAX( 0.01 * muS, mut )
 

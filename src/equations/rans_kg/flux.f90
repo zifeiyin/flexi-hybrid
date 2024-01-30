@@ -176,7 +176,7 @@ REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx,gradUy,gradUz  !> Gradients
 REAL,DIMENSION(PP_nVar)       ,INTENT(OUT) :: f,g,h                 !> Physical fluxes in x,y,z directions
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL                :: muS,lambda
+REAL                :: muS,lambda,muteff
 REAL                :: tau_xx,tau_yy,tau_xy
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
@@ -189,12 +189,13 @@ REAL   ,INTENT(IN)  :: muSGS                 !< SGS viscosity
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
+muteff = UPrim(DENS) * (Cmu * UPrim(TKE) * UPrim(OMG) ** 2)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
 #if EDDYVISCOSITY
 !diffusivity of turbulence variables
-kDiffEff = MAX(muS, muS + muSGS * sigmaK)
-gDiffEff = MAX(muS, muS + muSGS * sigmaG)
+kDiffEff = MAX(muS, muS + muteff * sigmaK)
+gDiffEff = MAX(muS, muS + muteff * sigmaG)
 muS    = muS    + muSGS
 lambda = lambda + muSGS*cp/PrSGS
 #else
