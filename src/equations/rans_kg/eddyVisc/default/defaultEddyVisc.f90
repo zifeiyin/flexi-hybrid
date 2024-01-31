@@ -45,7 +45,7 @@ IMPLICIT NONE
 ! INPUT/OUTPUT VARIABLES
 REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx, gradUy, gradUz   !> Gradients in x,y,z directions
 REAL,DIMENSION(PP_nVar)       ,INTENT(IN)  :: U          !> conserved variables
-REAL                          ,INTENT(OUT) :: muSGS      !> pointwise eddyviscosity
+REAL,DIMENSION(2)             ,INTENT(OUT) :: muSGS      !> pointwise eddyviscosity
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL       :: sRho
@@ -58,17 +58,18 @@ magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL
              + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2                    &
              + ( gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3) )**2                    &
              + ( gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3) )**2 )
-#else 
+#else
 magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) &
              + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2    )
 #endif
 
-mutLim = ABS(U(RHOK))/ MAX( SQRT(6.0) * magS, 1.0e-16) 
+mutLim = ABS(U(RHOK))/ MAX( SQRT(6.0) * magS, 1.0e-16)
 
-muOrig = Cmu * sRho * MAX(U(RHOK)*sRho, epsTKE) * U(RHOG)**2  
+muOrig = Cmu * sRho * MAX(U(RHOK)*sRho, epsTKE) * U(RHOG)**2
 
-muSGS = MIN( mutLim , muOrig )
-    
+muSGS(1) = MIN( mutLim , muOrig ) ! muSGS(1) = rho Cmu k g^2 with limiter
+muSGS(2) = muSGS(1) ! muSGS(2) = muSGS(1)
+
 END SUBROUTINE DefaultEddyVisc_Point
 
 !===================================================================================================================================
@@ -91,7 +92,7 @@ INTEGER             :: i,j,k,iElem
 DO iElem = 1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       CALL DefaultEddyVisc_Point(gradUx(:,i,j,k,iElem), gradUy(:,i,j,k,iElem), gradUz(:,i,j,k,iElem), &
-                                 U(:,i,j,k,iElem),      muSGS(1,i,j,k,iElem) )
+                                 U(:,i,j,k,iElem),      muSGS(:,i,j,k,iElem) )
     END DO; END DO; END DO ! i,j,k
 END DO
 

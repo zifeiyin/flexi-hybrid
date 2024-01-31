@@ -176,28 +176,27 @@ REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx,gradUy,gradUz  !> Gradients
 REAL,DIMENSION(PP_nVar)       ,INTENT(OUT) :: f,g,h                 !> Physical fluxes in x,y,z directions
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL                :: muS,lambda,muteff
+REAL                :: muS,lambda
 REAL                :: tau_xx,tau_yy,tau_xy
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
 #endif
 REAL                :: kDiffEff, gDiffEff
 #if EDDYVISCOSITY
-REAL   ,INTENT(IN)  :: muSGS                 !< SGS viscosity
+REAL,DIMENSION(2),INTENT(IN)  :: muSGS                 !< SGS viscosity
 #endif
 !==================================================================================================================================
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
-muteff = UPrim(DENS) * (Cmu * UPrim(TKE) * UPrim(OMG) ** 2)
 !Add turbulent sub grid scale viscosity to mu
 ! add turbulent viscosity and diffusivity
 #if EDDYVISCOSITY
 !diffusivity of turbulence variables
-kDiffEff = MAX(muS, muS + muteff * sigmaK)
-gDiffEff = MAX(muS, muS + muteff * sigmaG)
-muS    = muS    + muSGS
-lambda = lambda + muSGS*cp/PrSGS
+kDiffEff = MAX(muS, muS + muSGS(2) * sigmaK)
+gDiffEff = MAX(muS, muS + muSGS(2) * sigmaG)
+muS    = muS    + muSGS(1)
+lambda = lambda + muSGS(1)*cp/PrSGS
 #else
 kDiffEff = muS 
 gDiffEff = muS
@@ -292,7 +291,7 @@ DO k=0,PP_NZ;  DO j=0,PP_N; DO i=0,PP_N
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j,k),gradUx(:,i,j,k),gradUy(:,i,j,k),gradUz(:,i,j,k), &
                                                 f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  &
 #if EDDYVISCOSITY
-                            ,muSGS(1,i,j,k,iElem)&
+                            ,muSGS(:,i,j,k,iElem)&
 #endif                                              
 )
 END DO; END DO; END DO ! i,j,k
@@ -315,7 +314,7 @@ REAL,DIMENSION(PP_nVarPrim   ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: UPrim         
 REAL,DIMENSION(PP_nVarLifting,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: gradUx,gradUy,gradUz !> Gradients in x,y,z directions
 REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: f,g,h                !> Physical fluxes in x,y,z directions
 #if EDDYVISCOSITY
-REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS                !< SGS viscosity
+REAL,DIMENSION(2             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS                !< SGS viscosity
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -325,7 +324,7 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j),gradUx(:,i,j),gradUy(:,i,j),gradUz(:,i,j), &
                                                f(:,i,j),     g(:,i,j),     h(:,i,j) &
 #if EDDYVISCOSITY
-                            ,muSGS(1,i,j) &
+                            ,muSGS(:,i,j) &
 #endif
                            )
 END DO; END DO ! i,j

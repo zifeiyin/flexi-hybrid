@@ -92,10 +92,10 @@ eddyViscType = GETINTFROMSTR('eddyViscType')
 ! Allocate arrays needed by all SGS models
 ALLOCATE(DeltaS(nElems))
 DeltaS=0.
-ALLOCATE(muSGS(1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(muSGS(2,0:PP_N,0:PP_N,0:PP_NZ,nElems))
 muSGS = 0.
-ALLOCATE(muSGS_master(1,0:PP_N,0:PP_NZ,nSides))
-ALLOCATE(muSGS_slave (1,0:PP_N,0:PP_NZ,nSides))
+ALLOCATE(muSGS_master(2,0:PP_N,0:PP_NZ,nSides))
+ALLOCATE(muSGS_slave (2,0:PP_N,0:PP_NZ,nSides))
 muSGS_master=0.
 muSGS_slave =0.
 

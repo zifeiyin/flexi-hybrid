@@ -150,17 +150,36 @@ REAL,DIMENSION(PP_nVarPrim)   ,INTENT(IN)  :: UPrim   !> pointwise conserved var
 REAL                          ,INTENT(IN)  :: y       !> pointwise wall distance
 REAL                          ,INTENT(IN)  :: Delta   !> pointwise cell spacing
 REAL                          ,INTENT(IN)  :: hmax    !> local grid size
-REAL                          ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
+REAL,DIMENSION(2)             ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
 REAL                          ,INTENT(OUT) :: fd      !> fd
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+REAL                                    :: sRho
+REAL                                    :: magS, mutLim, muOrig
 REAL                                    :: lLES, lRANS, lDDES, rd
 REAL                                    :: nuEff, dUdU
 REAL                                    :: muS
 REAL,PARAMETER                          :: kappa=0.41
 !===================================================================================================================================
+sRho  = 1.0 / UPrim(DENS)
 
-lRANS = SQRT(MAX(UPrim(TKE), epsTKE)) * Cmu * UPrim(OMG)**2 
+#if PP_dim==3
+magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) &
+             + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2                    &
+             + ( gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3) )**2                    &
+             + ( gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3) )**2 )
+#else
+magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) &
+             + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2    )
+#endif
+
+mutLim = UPrim(DENS) * ABS(UPrim(TKE)) / MAX( SQRT(6.0) * magS, 1.0e-16)
+
+muOrig = Cmu * UPrim(DENS) * MAX(UPrim(TKE), epsTKE) * UPrim(OMG)**2
+
+muSGS(2) = MIN( mutLim , muOrig ) ! muSGS(2) = rho Cmu k g^2 with limiter
+
+lRANS = SQRT(muSGS(2) * sRho * Cmu * UPrim(OMG)**2)
 
 muS   = VISCOSITY_PRIM(UPrim)
 nuEff = MAX( 0., Cmu * UPrim(TKE) * UPrim(OMG)**2 ) + muS / UPrim(DENS)
@@ -182,7 +201,7 @@ lLES = CDES * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-muSGS = UPrim(DENS) * lDDES * lDDES / MAX( Cmu * (UPrim(OMG))**2, epsOMG )
+muSGS(1) = UPrim(DENS) * lDDES**2 / MAX( Cmu * (UPrim(OMG))**2, epsOMG ) ! muSGS(1) = DDES muSGS
 
 END SUBROUTINE Smagorinsky_Point
 
@@ -208,7 +227,7 @@ DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL Smagorinsky_Point( gradUx(:,i,j,k,iElem),    gradUy(:,i,j,k,iElem),              gradUz(:,i,j,k,iElem), &
                             UPrim(:,i,j,k,iElem),     yWall(i,j,k,0,iElem),               DeltaS(iElem),         &
-                            Elem_hmx(iElem),          muSGS(1,i,j,k,iElem),               fd(i,j,k,iElem))
+                            Elem_hmx(iElem),          muSGS(:,i,j,k,iElem),               fd(i,j,k,iElem))
   END DO; END DO; END DO ! i,j,k
 END DO
 END SUBROUTINE Smagorinsky_Volume
