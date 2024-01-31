@@ -813,11 +813,11 @@ SUBROUTINE CalcHMax()
       dx = MAX(dx, ABS(Elem_xGP(1, PP_N, j, k, iElem) - Elem_xGP(1, 0, j, k, iElem)))
     END DO; END DO
     DO k = 0, PP_NZ; DO i = 0, PP_N
-      dy = MAX(dy, ABS(Elem_xGP(1, i, PP_N, k, iElem) - Elem_xGP(1, i, 0, k, iElem)))
+      dy = MAX(dy, ABS(Elem_xGP(2, i, PP_N, k, iElem) - Elem_xGP(2, i, 0, k, iElem)))
     END DO; END DO
 #if (PP_dim == 3)
     DO j = 0, PP_NZ; DO i = 0, PP_N
-      dz = MAX(dz, ABS(Elem_xGP(1, i, j, PP_NZ, iElem) - Elem_xGP(1, i, j, 0, iElem)))
+      dz = MAX(dz, ABS(Elem_xGP(3, i, j, PP_NZ, iElem) - Elem_xGP(3, i, j, 0, iElem)))
     END DO; END DO
 #endif
     Elem_hmx(iElem) = MAX(dx, dy, dz) / (REAL(PP_N) + 1.)
