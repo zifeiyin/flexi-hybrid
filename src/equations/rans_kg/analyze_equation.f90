@@ -65,7 +65,7 @@ CALL prms%CreateLogicalOption('CalcWallVelocity' , "Set true to compute velociti
 CALL prms%CreateLogicalOption('CalcTotalStates'  , "Set true to compute total states (e.g. Tt,pt)"    , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTimeAverage'  , "Set true to compute time averages"                , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcResiduals'    , "Set true to compute residuals"                    , '.TRUE.')
-CALL prms%CreateLogicalOption('CalcTurbulence'   , "Set true to compute upper and lower turbulence"   , '.TRUE.')   
+CALL prms%CreateLogicalOption('CalcTurbulence'   , "Set true to compute upper and lower turbulence"   , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBodyForces'  , "Set true to write bodyforces to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBulkState'   , "Set true to write bulk state to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteMeanFlux'    , "Set true to write mean flux to file"              , '.TRUE.')
@@ -210,7 +210,7 @@ REAL,DIMENSION(4,nBCs)          :: meanTotals
 REAL,DIMENSION(nBCs)            :: meanV,maxV,minV
 REAL                            :: BulkPrim(PP_nVarPrim),BulkCons(PP_nVar)
 REAL                            :: Residuals(PP_nVar)
-REAL                            :: kgnut(6) 
+REAL                            :: kgnut(6)
 INTEGER                         :: i
 !==================================================================================================================================
 ! Calculate derived quantities
@@ -329,7 +329,7 @@ DO iElem=1,nElems
   END IF
 #endif
 END DO ! iElem
-  
+
 #if USE_MPI
 IF(MPIRoot)THEN
   CALL MPI_REDUCE(MPI_IN_PLACE,Residuals,PP_nVar,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
@@ -337,9 +337,9 @@ ELSE
   CALL MPI_REDUCE(Residuals         ,0  ,PP_nVar,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
 END IF
 #endif
-  
+
 Residuals=SQRT(Residuals/Vol)
-  
+
 END SUBROUTINE CalcResiduals
 
 !==================================================================================================================================
@@ -358,12 +358,15 @@ REAL,INTENT(OUT)                :: kgnut(6)                   !> Conservative re
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 !==================================================================================================================================
+REAL :: swap_var(6)
+integer :: i
 
+! Reorder them so that MPI_REDUCE works
 kgnut(1) = MAXVAL( U(RHOK,:,:,:,:) )
-kgnut(2) = MINVAL( U(RHOK,:,:,:,:) )
-kgnut(3) = MAXVAL( U(RHOG,:,:,:,:) )
-kgnut(4) = MINVAL( U(RHOG,:,:,:,:) )
-kgnut(5) = MAXVAL( muSGS(1,:,:,:,:) )
+kgnut(2) = MAXVAL( U(RHOG,:,:,:,:) )
+kgnut(3) = MAXVAL( muSGS(1,:,:,:,:) )
+kgnut(4) = MINVAL( U(RHOK,:,:,:,:) )
+kgnut(5) = MINVAL( U(RHOG,:,:,:,:) )
 kgnut(6) = MINVAL( muSGS(1,:,:,:,:) )
 
 #if USE_MPI
@@ -375,7 +378,14 @@ ELSE
   CALL MPI_REDUCE(kgnut(4:6)         ,0  ,3,MPI_DOUBLE_PRECISION,MPI_MIN,0,MPI_COMM_FLEXI,iError)
 END IF
 #endif
-    
+
+DO i = 1, 3
+  swap_var(2 * i - 1) = kgnut(i)
+  swap_var(2 * i)     = kgnut(3 + i)
+END DO
+
+kgnut = swap_var
+
 END SUBROUTINE CalcTurbulence
 
 
