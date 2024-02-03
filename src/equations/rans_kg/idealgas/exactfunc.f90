@@ -813,7 +813,8 @@ DO iElem=1,nElems
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! production of g
-    ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
+    ! ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
+    ProdG = (Comega2 * prim(DENS)**2 * kPos * gPos) * (0.5 * invR)
 
     ! dissipation of g
     DissG = - Cmu * Comega1 * prim(DENS) * gPos**3 * SijGradU
