@@ -731,9 +731,9 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
-REAL                :: invR, invG
+REAL                :: invR, invRRans, invG
 REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG, SijGradU
-REAL                :: mut, muS, kPos, gPos
+REAL                :: mut, mutRans, muS, kPos, gPos
 REAL                :: extDk, extDg
 REAL                :: Sxx, Syy, Sxy 
 #if PP_dim==3 
@@ -767,11 +767,12 @@ DO iElem=1,nElems
 
     muS   = VISCOSITY_PRIM(prim)
     mut   = muSGS(1,i,j,k,iElem)
+    mutRans = muSGS(2,i,j,k,iElem)
 
-    ! diffEff = muS + prim(DENS) * (Cmu * prim(TKE) * prim(OMG) ** 2) * sigmaG
-    diffEff = muS + muSGS(2,i,j,k,iElem) * sigmaG
+    diffEff = muS + mutRans * sigmaG
 
-    invR  = 1.0 / MAX( 0.01 * muS, mut )
+    invR = 1.0 / MAX(0.01 * muS, mut)
+    invRRans = 1.0 / MAX(0.01 * muS, mutRans)
 
     kPos  = MAX( prim(TKE), epsTKE  )
     gPos  = MAX( prim(OMG), epsOMG )
@@ -804,7 +805,7 @@ DO iElem=1,nElems
                + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
     ! dissipation of k
-    DissK = -Cmu * (prim(DENS)*kPos)**2 * invR
+    DissK = -Cmu * (prim(DENS)*kPos)**2 * invRRans
     ProdK = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
@@ -813,11 +814,9 @@ DO iElem=1,nElems
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! production of g
-    ! ProdG = 0.5 * Comega2 / Cmu * invG * prim(DENS)
-    ProdG = (Comega2 * prim(DENS)**2 * kPos * gPos) * (0.5 * invR)
+    ProdG = (Comega2 * prim(DENS)**2 * kPos * gPos) * (0.5 * invRRans)
 
     ! dissipation of g
-    ! DissG = - Cmu * Comega1 * prim(DENS) * gPos**3 * SijGradU
     DissG = -Comega1 * (Cmu * prim(DENS) * gPos**3) * (0.5 * invR) * ProdK
           
     ! cross diffusion of g
@@ -831,7 +830,7 @@ DO iElem=1,nElems
          + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
 #endif
 
-    crossG = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invR * dGdG
+    crossG = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invRRans * dGdG
 
     Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
 
