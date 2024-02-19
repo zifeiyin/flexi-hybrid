@@ -177,9 +177,10 @@ mutLim = UPrim(DENS) * ABS(UPrim(TKE)) / MAX( SQRT(6.0) * magS, 1.0e-16)
 
 muOrig = Cmu * UPrim(DENS) * MAX(UPrim(TKE), epsTKE) * UPrim(OMG)**2
 
-muSGS(2) = MIN( mutLim , muOrig ) ! muSGS(2) = rho Cmu k g^2 with limiter
+! muSGS(2) = MIN( mutLim , muOrig ) ! muSGS(2) = rho Cmu k g^2 with limiter
+muSGS(2) = muOrig ! muSGS(2) = rho Cmu k g^2 without limiter
 
-lRANS = SQRT(muSGS(2) * sRho * Cmu * UPrim(OMG)**2)
+lRANS = SQRT(MIN(mutLim, muOrig) * sRho * Cmu * UPrim(OMG)**2)
 
 muS   = VISCOSITY_PRIM(UPrim)
 nuEff = MAX( 0., Cmu * UPrim(TKE) * UPrim(OMG)**2 ) + muS / UPrim(DENS)
