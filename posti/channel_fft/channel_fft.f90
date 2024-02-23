@@ -68,6 +68,7 @@ CALL prms%CreateIntOption(    "NCalc",        "Polynomial degree to perform DFFT
 CALL prms%CreateRealOption(   "Re_tau",       "Reynolds number based on friction velocity and channel half height.")
 CALL prms%CreateLogicalOption("ReadMean",     "Read TimeAvg file instead of State.")
 CALL prms%CreateIntOption("NumberOfVariables","Number of variables to be dealt with, ignored if ReadMean = .FALSE. .")
+CALL prms%CreateIntOption(   "Antisymmetric" ,"Indices of variable (> PP_nVar) which is antisymmetric, e.g., du/dy.", multiple=.TRUE.)
 CALL prms%CreateStringOption("OutputNodeType","Interpolation node type, Gauss, Gauss-Lobatto, etc.")
 
 ! check for command line argument --help or --markdown

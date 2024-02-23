@@ -61,7 +61,7 @@ USE MOD_FFT_Vars
 USE MOD_Commandline_Arguments
 USE MOD_Interpolation,           ONLY: GetVandermonde
 USE MOD_StringTools,             ONLY: STRICMP,GetFileExtension
-USE MOD_ReadInTools,             ONLY: GETREAL,GETINT,GETLOGICAL,GETSTR
+USE MOD_ReadInTools,             ONLY: GETREAL,GETINT,GETLOGICAL,GETSTR,CountOption
 USE MOD_Mesh_Vars,               ONLY: nElems_IJK,nElems
 USE MOD_DG_Vars,                 ONLY: U
 USE MOD_Interpolation_Vars ,     ONLY: NodeType,NodeTypeVISUInner
@@ -73,6 +73,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER :: numberOfAntisymmetricVariables, index, i
 !===================================================================================================================================
 ! Read in user-defined parameters
 OutputFormat = GETINT('OutputFormat','0')
@@ -90,6 +91,17 @@ IF(ReadMean) THEN
 ELSE
   NumberOfVariables = PP_nVar
 END IF
+ALLOCATE(Antisymmetric(NumberOfVariables))
+Antisymmetric(:) = .FALSE.
+
+numberOfAntisymmetricVariables = CountOption('Antisymmetric')
+DO i = 1, numberOfAntisymmetricVariables
+  index = GETINT('Antisymmetric')
+  IF(index .GT. PP_nVar .AND. index .LE. NumberOfVariables) THEN
+    Antisymmetric(index) = .TRUE.
+  END IF
+END DO
+
 OutputNodeType = GETSTR('OutputNodeType', 'VISU_INNER')
 
 ALLOCATE(U(NumberOfVariables,0:PP_N,0:PP_N,0:PP_N,nElems))
@@ -392,7 +404,13 @@ DO j=N_FFT(2)/2+1,N_FFT(2)
   M_t(j,6:7)=(M_t(N_FFT(2)-j+1,6:7)+M_t(j,6:7))
 #endif
   IF (NumberOfVariables .GT. PP_nVar) THEN
-    M_t(j,(PP_nVar+1):NumberOfVariables)=(M_t(N_FFT(2)-j+1,(PP_nVar+1):NumberOfVariables)+M_t(j,(PP_nVar+1):NumberOfVariables))
+    DO i = PP_nVar + 1, NumberOfVariables
+      IF (Antisymmetric(i)) THEN
+        M_t(j,i)=(M_t(N_FFT(2)-j+1,i)-M_t(j,i))
+      ELSE
+        M_t(j,i)=(M_t(N_FFT(2)-j+1,i)+M_t(j,i))
+      END IF
+    END DO
   END IF
 END DO
 !Mean of u,v,w,p
@@ -709,6 +727,7 @@ SDEALLOCATE(VdmGaussEqui)
 SDEALLOCATE(MS_t)
 SDEALLOCATE(MS_PSD)
 SDEALLOCATE(M_t)
+SDEALLOCATE(Antisymmetric)
 END SUBROUTINE FinalizeFFT
 
 END MODULE MOD_FFT

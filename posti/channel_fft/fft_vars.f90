@@ -28,6 +28,7 @@ REAL                    :: Re_tau            !< Reynolds number based on frictio
 LOGICAL                 :: ReadMean          !< Read TimeAvg instead of State
 INTEGER                 :: NumberOfVariables !< Number of variables
 CHARACTER(LEN=255)      :: OutputNodeType    !< output node type, "Gauss", "Gauss-Lobatto", etc.
+LOGICAL,ALLOCATABLE     :: Antisymmetric(:)  !< .TRUE. if the variable is antisymmetric, false otherwise
 
 REAL,ALLOCATABLE        :: VdmGaussEqui(:,:) !< Vandermonde from state to FFT grid
 
