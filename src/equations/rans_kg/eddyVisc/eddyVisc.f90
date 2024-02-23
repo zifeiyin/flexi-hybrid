@@ -123,7 +123,7 @@ SELECT CASE(eddyViscType)
     CALL CollectiveStop(__STAMP__,&
       'Eddy Viscosity Type not specified!')
 END SELECT
-CALL AddToFieldData(FieldOut,(/1,PP_N+1,PP_N+1,PP_NZ+1/),'muSGS',(/'muSGS'/),RealArray=muSGS)
+CALL AddToFieldData(FieldOut,(/2,PP_N+1,PP_N+1,PP_NZ+1/),'muSGS',(/'muSGS'/),RealArray=muSGS)
 END SUBROUTINE
 
 !===================================================================================================================================
