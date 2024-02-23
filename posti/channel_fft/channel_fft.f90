@@ -40,7 +40,7 @@ USE MOD_HDF5_Input,              ONLY: OpenDataFile,CloseDataFile,GetDataProps,R
 USE MOD_Interpolation_Vars,      ONLY: NodeType
 USE MOD_DG_Vars,                 ONLY: U
 USE MOD_FFT,                     ONLY: InitFFT,PerformFFT,FFTOutput,FinalizeFFT,PrimStateAtFFTCoords
-USE MOD_FFT_Vars,                ONLY: ProjectName,Time, ReadMean
+USE MOD_FFT_Vars,                ONLY: ProjectName,Time,ReadMean,NumberOfVariables
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -67,6 +67,7 @@ CALL prms%CreateIntOption(    "OutputFormat", "Choose the main format for output
 CALL prms%CreateIntOption(    "NCalc",        "Polynomial degree to perform DFFT on.")
 CALL prms%CreateRealOption(   "Re_tau",       "Reynolds number based on friction velocity and channel half height.")
 CALL prms%CreateLogicalOption("ReadMean",     "Read TimeAvg file instead of State.")
+CALL prms%CreateIntOption("NumberOfVariables","Number of variables to be dealt with, ignored if ReadMean = .FALSE. .")
 CALL prms%CreateStringOption("OutputNodeType","Interpolation node type, Gauss, Gauss-Lobatto, etc.")
 
 ! check for command line argument --help or --markdown
@@ -131,7 +132,7 @@ DO iArg=2,nArgs
   ! Get Solution
   CALL OpenDataFile(Args(iArg),create=.FALSE.,single=.FALSE.,readOnly=.TRUE.)
   IF (ReadMean) THEN
-    CALL ReadArray('Mean',5,(/PP_nVar,PP_N+1,PP_N+1,PP_N+1,nElems/),OffsetElem,5,RealArray=U)
+    CALL ReadArray('Mean',5,(/NumberOfVariables,PP_N+1,PP_N+1,PP_N+1,nElems/),OffsetElem,5,RealArray=U)
   ELSE
     CALL ReadArray('DG_Solution',5,(/PP_nVar,PP_N+1,PP_N+1,PP_N+1,nElems/),OffsetElem,5,RealArray=U)
   END IF
