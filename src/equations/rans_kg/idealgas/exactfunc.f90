@@ -705,7 +705,7 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_EddyVisc_Vars    ,ONLY: muSGS
+USE MOD_EddyVisc_Vars    ,ONLY: muSGS, ProdK, DissK, ProdG, DissG, CrossG
 USE MOD_Equation_Vars    ,ONLY: IniExactFunc, sigmaK, sigmaG, Comega1, Comega2, Cmu, epsOMG, epsTKE, s23, s43
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_EOS              ,ONLY: ConsToPrim
@@ -732,11 +732,12 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
 REAL                :: invR, invRRans, invG
-REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG, SijGradU
+REAL                :: SijSij, diffEff, dGdG, SijGradU
+! REAL                :: ProdK, ProdG, DissK, DissG, SijSij, diffEff, crossG, dGdG, SijGradU
 REAL                :: mut, mutRans, muS, kPos, gPos
 REAL                :: extDk, extDg
-REAL                :: Sxx, Syy, Sxy 
-#if PP_dim==3 
+REAL                :: Sxx, Syy, Sxy
+#if PP_dim==3
 REAL                :: Sxz, Syz, Szz
 #endif
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
@@ -781,18 +782,18 @@ DO iElem=1,nElems
     ! production of rho*TKE
 #if PP_dim==2
     Sxx      = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) )
-    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) ) 
+    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) )
     Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
-    SijSij   = Sxx**2 + Syy**2 + 2.0 * Sxy**2 
+    SijSij   = Sxx**2 + Syy**2 + 2.0 * Sxy**2
     SijGradU = Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
-             + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) + Syy * gradUy(LIFT_VEL2,i,j,k,iElem) 
+             + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) + Syy * gradUy(LIFT_VEL2,i,j,k,iElem)
 #else
     Sxx      = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
-    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem)) 
+    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
     Szz      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) + s43 * gradUz(LIFT_VEL3,i,j,k,iElem))
-    Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem)) 
+    Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
     Sxz      = 0.5 * (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))
-    Syz      = 0.5 * (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem)) 
+    Syz      = 0.5 * (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))
     SijSij   = Sxx**2 + Syy**2 + Szz**2 + (Sxy**2 + Sxz**2 + Syz**2) * 2.0
     SijGradU = ( Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) &
                + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
@@ -805,22 +806,22 @@ DO iElem=1,nElems
                + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
 #endif
     ! dissipation of k
-    DissK = -Cmu * (prim(DENS)*kPos)**2 * invRRans
-    ProdK = 2.0 * mut * SijGradU
+    DissK(i,j,k,iElem) = -Cmu * (prim(DENS)*kPos)**2 * invRRans
+    ProdK(i,j,k,iElem) = 2.0 * mut * SijGradU
 
     ! add to source term of k equation
-    Ut_src(RHOK,i,j,k) = ProdK + DissK 
+    Ut_src(RHOK,i,j,k) = ProdK(i,j,k,iElem) + DissK(i,j,k,iElem)
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!! starting assembly of omega equation !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! production of g
-    ProdG = (Comega2 * prim(DENS)**2 * kPos * gPos) * (0.5 * invRRans)
+    ProdG(i,j,k,iElem) = (Comega2 * prim(DENS)**2 * kPos * gPos) * (0.5 * invRRans)
 
     ! dissipation of g
-    DissG = -Comega1 * (Cmu * prim(DENS) * gPos**3) * (0.5 * invR) * ProdK
-          
+    DissG(i,j,k,iElem) = -Comega1 * (Cmu * prim(DENS) * gPos**3) * (0.5 * invR) * ProdK(i,j,k,iElem)
+
     ! cross diffusion of g
-    
+
 #if PP_dim==2
     dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
          + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)
@@ -830,9 +831,9 @@ DO iElem=1,nElems
          + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
 #endif
 
-    crossG = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invRRans * dGdG
+    crossG(i,j,k,iElem) = -3.0 * diffEff * Cmu * prim(DENS) * kPos * gPos * invRRans * dGdG
 
-    Ut_src(RHOG,i,j,k) = ProdG + DissG + crossG
+    Ut_src(RHOG,i,j,k) = ProdG(i,j,k,iElem) + DissG(i,j,k,iElem) + crossG(i,j,k,iElem)
 
   END DO ; END DO; END DO ! i,j,k
 
@@ -844,7 +845,7 @@ DO iElem=1,nElems
       Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem)+Ut_src2(RHOG,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
     END DO; END DO; END DO ! i,j,k
   ELSE
-#endif 
+#endif
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem)+Ut_src(RHOK,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
       Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem)+Ut_src(RHOG,i,j,k)/sJ(i,j,k,iElem,FV_Elem)
@@ -853,7 +854,7 @@ DO iElem=1,nElems
   END IF
 #endif
 
-END DO ! element loop 
+END DO ! element loop
 #endif /* PARABOLIC */
 
 CALL AddBodySourceTerms(Ut,t)

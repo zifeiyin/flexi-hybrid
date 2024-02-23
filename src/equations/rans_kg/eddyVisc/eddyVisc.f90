@@ -104,7 +104,7 @@ PrSGS  = GETREAL('PrSGS')
 
 SELECT CASE(eddyViscType)
   CASE(EDDYVISCTYPE_RANS) ! No eddy viscosity model, set function pointers to dummy subroutines which do nothing
-    ! Nothing to init
+    CALL InitDefaultEddyVisc()
     ComputeEddyViscosity  => DefaultEddyVisc_Volume
     FinalizeEddyViscosity => FinalizeDefaultEddyViscosity
   CASE(EDDYVISCTYPE_SMAGO)  ! Smagorinsky Model with optional Van Driest damping for channel flow

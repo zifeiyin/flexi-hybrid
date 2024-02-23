@@ -81,7 +81,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=19
+nMaxVarAvg=24
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -102,6 +102,11 @@ VarNamesAvgList(16) ='DensityK'
 VarNamesAvgList(17) ='DensityG'
 VarNamesAvgList(18) ='fd'
 VarNamesAvgList(19) ='muSGS'
+VarNamesAvgList(20) ='ProdK'
+VarNamesAvgList(21) ='DissK'
+VarNamesAvgList(22) ='ProdG'
+VarNamesAvgList(23) ='DissG'
+VarNamesAvgList(24) ='CrossG'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -329,7 +334,7 @@ USE MOD_EOS          ,ONLY: ConsToPrim
 USE MOD_EOS_Vars     ,ONLY: Kappa
 USE MOD_Analyze_Vars ,ONLY: WriteData_dt
 USE MOD_AnalyzeEquation_Vars
-USE MOD_EddyVisc_Vars,ONLY: fd,muSGS
+USE MOD_EddyVisc_Vars,ONLY: fd,muSGS,ProdK,DissK,ProdG,DissG,CrossG
 #if FV_ENABLED
 USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm
 USE MOD_ChangeBasisByDim,ONLY:ChangeBasisVolume
@@ -405,12 +410,27 @@ DO iElem=1,nElems
 
   IF(CalcAvg(17)) &  !'DensityG'
     tmpVars(iAvg(17),:,:,:) = Uloc(RHOG,:,:,:)
-  
+
   IF(CalcAvg(18)) &  !'fd'
     tmpVars(iAvg(18),:,:,:) = fd(:,:,:,iElem)
 
   IF(CalcAvg(19)) &  !'muSGS'
     tmpVars(iAvg(19),:,:,:) = muSGS(1,:,:,:,iElem)
+
+  IF(CalcAvg(20)) &  !'ProdK'
+    tmpVars(iAvg(20),:,:,:) = ProdK(:,:,:,iElem)
+
+  IF(CalcAvg(21)) &  !'DissK'
+    tmpVars(iAvg(21),:,:,:) = DissK(:,:,:,iElem)
+
+  IF(CalcAvg(22)) &  !'ProdG'
+    tmpVars(iAvg(22),:,:,:) = ProdG(:,:,:,iElem)
+
+  IF(CalcAvg(23)) &  !'DissG'
+    tmpVars(iAvg(23),:,:,:) = DissG(:,:,:,iElem)
+
+  IF(CalcAvg(24)) &  !'CrossG'
+    tmpVars(iAvg(24),:,:,:) = CrossG(:,:,:,iElem)
 
   IF(CalcAvg(6)) &  !'VelocityX'
     tmpVars(iAvg(6),:,:,:) = prim(VEL1,:,:,:)

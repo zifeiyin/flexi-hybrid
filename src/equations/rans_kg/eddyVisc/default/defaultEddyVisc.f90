@@ -24,15 +24,36 @@ MODULE MOD_DefaultEddyVisc
 IMPLICIT NONE
 PRIVATE
 
+INTERFACE InitDefaultEddyVisc
+   MODULE PROCEDURE InitDefaultEddyVisc
+END INTERFACE
+
 INTERFACE DefaultEddyVisc
    MODULE PROCEDURE DefaultEddyVisc_Point
    MODULE PROCEDURE DefaultEddyVisc_Volume
 END INTERFACE
 
-PUBLIC::DefaultEddyVisc_Volume, FinalizeDefaultEddyViscosity
+PUBLIC::InitDefaultEddyVisc, DefaultEddyVisc_Volume, FinalizeDefaultEddyViscosity
 !===================================================================================================================================
 
 CONTAINS
+
+!===================================================================================================================================
+!> Initialize kg model
+!===================================================================================================================================
+SUBROUTINE InitDefaultEddyVisc()
+! MODULES
+USE MOD_PreProc,           ONLY: PP_N
+USE MOD_Mesh_Vars,         ONLY: nElems
+USE MOD_EddyVisc_Vars
+IMPLICIT NONE
+
+ALLOCATE(ProdK(0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(DissK(0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(ProdG(0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(DissG(0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(CrossG(0:PP_N,0:PP_N,0:PP_NZ,nElems))
+END SUBROUTINE InitDefaultEddyVisc
 
 !===================================================================================================================================
 !> Compute the default turbulent eddy viscosity based on k-g RANS model
@@ -103,8 +124,14 @@ END SUBROUTINE DefaultEddyVisc_Volume
 !===============================================================================================================================
 SUBROUTINE FinalizeDefaultEddyviscosity()
 ! MODULES
+USE MOD_EddyVisc_Vars
 IMPLICIT NONE
 !===============================================================================================================================
+SDEALLOCATE(ProdK)
+SDEALLOCATE(DissK)
+SDEALLOCATE(ProdG)
+SDEALLOCATE(DissG)
+SDEALLOCATE(CrossG)
 END SUBROUTINE FinalizeDefaultEddyViscosity
 
 END MODULE MOD_DefaultEddyVisc

@@ -66,5 +66,10 @@ LOGICAL           :: DynSmagorinskyInitIsDone=.FALSE. !< Logical indicating if S
 LOGICAL           :: VremanInitIsDone=.FALSE.         !< Logical indicating if Vreman model has been initialized
 
 REAL,ALLOCATABLE  :: fd(:,:,:,:)               ! fd in each DoF
+REAL,ALLOCATABLE  :: ProdK(:,:,:,:)            ! ProdK in each DoF
+REAL,ALLOCATABLE  :: DissK(:,:,:,:)            ! DissK in each DoF
+REAL,ALLOCATABLE  :: ProdG(:,:,:,:)            ! ProdG in each DoF
+REAL,ALLOCATABLE  :: DissG(:,:,:,:)            ! DissG in each DoF
+REAL,ALLOCATABLE  :: CrossG(:,:,:,:)           ! CrossG in each DoF
 
 END MODULE MOD_EddyVisc_Vars
