@@ -89,7 +89,7 @@ mutLim = ABS(U(RHOK))/ MAX( SQRT(6.0) * magS, 1.0e-16)
 muOrig = Cmu * sRho * MAX(U(RHOK)*sRho, epsTKE) * U(RHOG)**2
 
 muSGS(1) = MIN( mutLim , muOrig ) ! muSGS(1) = rho Cmu k g^2 with limiter
-muSGS(2) = muSGS(1) ! muSGS(2) = muSGS(1)
+muSGS(2) = muOrig ! muSGS(2) = rho Cmu k g^2 without limiter
 
 END SUBROUTINE DefaultEddyVisc_Point
 
