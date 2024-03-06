@@ -137,13 +137,13 @@ DO iSide=1,nBCSides
   IF (locState.LT.1) THEN
     SELECT CASE (locType)
     CASE(4)
-      CALL Abort(__STAMP__,'No refstate (rho,x,x,x,p) defined to compute temperature from density and pressure for BC_TYPE',locType)
+      CALL Abort(__STAMP__,'No refstate (rho,x,x,x,p,x,x) defined to compute temperature from density and pressure for BC_TYPE',locType)
     CASE(23)
-      CALL Abort(__STAMP__,'No outflow Mach number in refstate (x,Ma,x,x,x) defined for BC_TYPE',locType)
+      CALL Abort(__STAMP__,'No outflow Mach number in refstate (x,Ma,x,x,x,x,x) defined for BC_TYPE',locType)
     CASE(24,25)
-      CALL Abort(__STAMP__,'No outflow pressure in refstate (x,x,x,x,p) defined for BC_TYPE',locType)
+      CALL Abort(__STAMP__,'No outflow pressure in refstate (x,x,x,x,p,x,x) defined for BC_TYPE',locType)
     CASE(27)
-      CALL Abort(__STAMP__,'No inflow refstate (Tt,alpha,beta,<empty>,pT) in refstate defined for BC_TYPE',locType)
+      CALL Abort(__STAMP__,'No inflow refstate (Tt,alpha,beta,<empty>,pT,x,x) in refstate defined for BC_TYPE',locType)
     CASE(121,22)
       CALL Abort(__STAMP__,'No exactfunc defined for BC_TYPE',locType) ! Technically not a missing refstate but exactfunc
     END SELECT
@@ -320,6 +320,8 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(VEL3,p,q)     = DOT_PRODUCT(UPrim_master(VELV,p,q),TangVec2(:,p,q))
     UPrim_boundary(PRES,p,q)     = UPrim_master(PRES,p,q)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
+    UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
+    UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q)
   END DO; END DO !p,q
 
   SELECT CASE(BCType)
@@ -332,6 +334,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q)                  ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
+      UPrim_boundary(TKE ,p,q) = 0.
+      UPrim_boundary(OMG ,p,q) = 0.
     END DO; END DO ! q,p
 
   CASE(4) ! Isothermal wall
@@ -344,6 +348,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState)              ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
+      UPrim_boundary(TKE ,p,q) = 0.
+      UPrim_boundary(OMG ,p,q) = 0.
     END DO; END DO ! q,p
 
   CASE(9,91) ! Euler (slip) wall
@@ -489,6 +495,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VEL3,p,q) = U*DOT_PRODUCT(nv(:),Tangvec2(:,p,q)) ! correctly into global coordinates below
       UPrim_boundary(PRES,p,q) = pb
       UPrim_boundary(TEMP,p,q) = Tb
+      UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
+      UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
     END DO; END DO !p,q
   END SELECT
 
@@ -621,6 +629,8 @@ ELSE
       Flux(DENS,p,q) = 0.
       Flux(MOMV,p,q) = UPrim_boundary(PRES,p,q)*NormVec(:,p,q)
       Flux(ENER,p,q) = 0.
+      Flux(RHOK,p,q) = 0.
+      Flux(RHOG,p,q) = 0.
     END DO; END DO !p,q
     ! Diffusion
 #if PARABOLIC
@@ -919,9 +929,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_Boundary(DENS,p,q)
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = 0.
+      Flux(LIFT_OMG ,p,q) = 0.
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = 0.
+      Flux(LIFT_OMG ,p,q) = 0.
 #endif
     END DO; END DO !p,q
   CASE(9,91)
@@ -933,9 +947,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_master(  DENS,p,q)
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_master(OMG,p,q)
 #else
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_master(OMG,p,q)
 #endif
     END DO; END DO !p,q
   CASE(1) !Periodic already filled!

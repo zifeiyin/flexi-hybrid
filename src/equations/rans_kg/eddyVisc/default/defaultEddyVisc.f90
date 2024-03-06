@@ -12,6 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
+#include "eos.h"
 
 !==================================================================================================================================
 !> Subroutines needed by the eddy viscosity model. This is the default  model, which means no eddy viscosity.
@@ -34,8 +35,60 @@ CONTAINS
 !===================================================================================================================================
 SUBROUTINE DefaultEddyVisc()
 ! MODULES
+USE MOD_PreProc
+USE MOD_Mesh_Vars,         ONLY: nElems
+USE MOD_EddyVisc_Vars,     ONLY: muSGS
+USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
+USE MOD_DG_Vars,           ONLY: U
+USE MOD_EOS_Vars,          ONLY: mu0
+USE MOD_Equation_Vars,     ONLY: s43,s23,epsTKE,epsOMG,Cmu
 IMPLICIT NONE
+! LOCAL VARIABLES
+INTEGER :: i,j,k,iElem
+REAL    :: magS
+! REAL    :: Sxx, Sxy, Syy
+! #if PP_dim == 3
+! REAL    :: Sxz, Syz, Szz
+! #endif
+REAL    :: rho, kPos, gPos, muu
 !===================================================================================================================================
+
+DO iElem=1,nElems
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+
+! #if PP_dim == 2
+!     Sxx = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) )
+!     Syy = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) )
+!     Sxy = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
+! #else
+!     Sxx = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
+!     Syy = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
+!     Szz = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) + s43 * gradUz(LIFT_VEL3,i,j,k,iElem))
+!     Sxy = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
+!     Sxz = 0.5 * (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))
+!     Syz = 0.5 * (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))
+! #endif
+
+#if PP_dim==3
+    magS = SQRT( &
+        2. * (gradUx(LIFT_VEL1,i,j,k,iElem)**2 + gradUy(LIFT_VEL2,i,j,k,iElem)**2 + gradUz(LIFT_VEL3,i,j,k,iElem)**2) + &
+        (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))**2 + &
+        (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))**2 + &
+        (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))**2)
+#else
+    magS = SQRT( &
+        2. * (gradUx(LIFT_VEL1,i,j,k,iElem)**2 + gradUy(LIFT_VEL2,i,j,k,iElem)**2) + &
+        (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))**2)
+#endif
+
+    rho = U(DENS,i,j,k,iElem)
+    kPos = MAX(U(RHOK,i,j,k,iElem) / rho, epsTKE)
+    gPos = MAX(U(RHOG,i,j,k,iElem) / rho, epsOMG)
+    muu = Cmu * rho * kPos * gPos**2
+    muSGS(1,i,j,k,iElem) = MIN(muu, rho * kPos / MAX(SQRT(6.) * magS, epsOMG))
+  END DO; END DO; END DO
+END DO
+
 END SUBROUTINE DefaultEddyVisc
 
 !===============================================================================================================================
