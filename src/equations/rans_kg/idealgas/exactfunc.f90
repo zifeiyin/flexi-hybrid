@@ -675,16 +675,26 @@ SUBROUTINE CalcSource(Ut,t)
 USE MOD_Globals
 USE MOD_PreProc
 USE MOD_EOS_Vars         ,ONLY: Kappa,KappaM1
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc,doCalcSource
+USE MOD_EOS              ,ONLY: ConsToPrim
+USE MOD_Equation_Vars    ,ONLY: Cmu,Comega1,Comega2,epsTKE,epsOMG,sigmaG,s23,s43
 USE MOD_Exactfunc_Vars   ,ONLY: AdvVel,IniAmplitude,IniFrequency
 USE MOD_Exactfunc_Vars   ,ONLY: HarmonicFrequency,AmplitudeFactor,SiqmaSqr
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
+USE MOD_DG_Vars          ,ONLY: U
+USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 #if PARABOLIC
+USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy
+#if PP_dim == 3
+USE MOD_Lifting_Vars     ,ONLY: gradUz
+#endif
 USE MOD_EOS_Vars         ,ONLY: mu0,Pr
 #endif
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
+#endif
+#if PP_VISC == 1
+USE MOD_Viscosity        ,ONLY: muSuth
 #endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -695,237 +705,108 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
-REAL                :: Frequency,Amplitude,Omega,a
-REAL                :: sinXGP,sinXGP2,cosXGP,at
-REAL                :: tmp(6)
-REAL                :: C
+REAL                :: UPrim(PP_nVarPrim)
+REAL                :: muS, mut, muu, kPos, gPos, invR
+REAL                :: ProdK, DissK, ProdG, DissG, CrossG, dGdG
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
+REAL                :: Sxx, Sxy, Syy, SijGradU
+#if PP_dim == 3
+REAL                :: Sxz, Syz, Szz
+#endif
+REAL                :: FV_Elem
 !==================================================================================================================================
-SELECT CASE (IniExactFunc)
-CASE(4) ! exact function
-  Frequency=IniFrequency
-  Amplitude=IniAmplitude
-  Omega=PP_Pi*Frequency
-  a=AdvVel(1)*2.*PP_Pi
-  tmp(1)=-a+REAL(PP_dim)*Omega
-#if (PP_dim == 3)
-  tmp(2)=-a+0.5*Omega*(1.+kappa*5.)
-#else
-  tmp(2)=-a+Omega*(-1.+kappa*3.)
-#endif
-  tmp(3)=Amplitude*Omega*KappaM1
-#if (PP_dim == 3)
-  tmp(4)=0.5*((9.+Kappa*15.)*Omega-8.*a)
-  tmp(5)=Amplitude*(3.*Omega*Kappa-a)
-#else
-  tmp(4)=((2.+Kappa*6.)*Omega-4.*a)
-  tmp(5)=Amplitude*(2.*Omega*Kappa-a)
-#endif
+
 #if PARABOLIC
-  tmp(6)=REAL(PP_dim)*mu0*Kappa*Omega*Omega/Pr
+
+DO iElem=1,nElems
+#if FV_ENABLED
+  FV_Elem = FV_Elems(iElem)
 #else
-  tmp(6)=0.
+  FV_Elem = 0
 #endif
-  tmp=tmp*Amplitude
-  at=a*t
-  DO iElem=1,nElems
+
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
+
+    kPos = MAX(UPrim(TKE), epsTKE)
+    gPos = MAX(UPrim(OMG), epsOMG)
+
+    muS  = VISCOSITY_PRIM(prim)
+    mut  = muSGS(1,i,j,k,iElem)
+    muu  = UPrim(DENS) * Cmu * kPos * gPos**2
+
+    invR = 1. / MAX(muu, 0.01 * muS)
+
+#if PP_dim == 2
+    Sxx      = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) )
+    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) )
+    Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
+    SijGradU = Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
+             + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) + Syy * gradUy(LIFT_VEL2,i,j,k,iElem)
+#else
+    Sxx      = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
+    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
+    Szz      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) + s43 * gradUz(LIFT_VEL3,i,j,k,iElem))
+    Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
+    Sxz      = 0.5 * (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))
+    Syz      = 0.5 * (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))
+    SijGradU = ( Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) &
+               + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
+               + Sxz * gradUz(LIFT_VEL1,i,j,k,iElem) &
+               + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) &
+               + Syy * gradUy(LIFT_VEL2,i,j,k,iElem) &
+               + Syz * gradUz(LIFT_VEL2,i,j,k,iElem) &
+               + Sxz * gradUx(LIFT_VEL3,i,j,k,iElem) &
+               + Syz * gradUy(LIFT_VEL3,i,j,k,iElem) &
+               + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
+#endif
+
+#if PP_dim == 2
+    dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
+         + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)
+#else
+    dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
+         + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)&
+         + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
+#endif
+
+    ProdK = 2.0 * mut * SijGradU
+    DissK = -Cmu * (UPrim(DENS) * kPos)**2 * invR
+
+    ProdG = (Comega2 * UPrim(DENS)) / (2. * Cmu * MIN(gPos, 1.e6))
+    DissG = -Comega1 * (Cmu * UPrim(DENS) * gPos**3) * SijGradU
+    CrossG = -(muS + sigmaG * muu) * 3. * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
+    
+    Ut_src(RHOK,i,j,k) = ProdK + DissK
+    Ut_src(RHOG,i,j,k) = ProdG + DissG + CrossG
+  END DO; END DO; END DO
+
+#if FV_ENABLED
+  IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      cosXGP=COS(omega*SUM(Elem_xGP(1:PP_dim,i,j,k,iElem))-at)
-      sinXGP=SIN(omega*SUM(Elem_xGP(1:PP_dim,i,j,k,iElem))-at)
-      sinXGP2=2.*sinXGP*cosXGP !=SIN(2.*(omega*SUM(Elem_xGP(:,i,j,k,iElem))-a*t))
-      Ut_src(DENS      ,i,j,k) = tmp(1)*cosXGP
-#if (PP_dim == 3)
-      Ut_src(MOM1:MOM3,i,j,k)  = tmp(2)*cosXGP + tmp(3)*sinXGP2
-#else
-      Ut_src(MOM1:MOM2,i,j,k)  = tmp(2)*cosXGP + tmp(3)*sinXGP2
-      Ut_src(MOM3      ,i,j,k) = 0.
-#endif
-      Ut_src(ENER,i,j,k)       = tmp(4)*cosXGP + tmp(5)*sinXGP2 + tmp(6)*sinXGP
+      Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem) + Ut_src2(RHOK,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+      Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem) + Ut_src2(RHOG,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
     END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
-      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
-      END DO; END DO; END DO ! i,j,k
-    ELSE
-#endif
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
-      END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    END IF
-#endif
-  END DO ! iElem
-CASE(14) ! Harmonic Gausspulse
-  DO iElem=1,nElems
+  ELSE
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      Ut_src(1,i,j,k) = AmplitudeFactor*cos(2.*PP_Pi*HarmonicFrequency*t)*1/sqrt(((2*PP_Pi)**2)*2*SiqmaSqr)*EXP(-0.5*SUM(Elem_xGP(1:2,i,j,k,iElem)**2)/SiqmaSqr)
-      Ut_src(2:5,i,j,k) = 0.0
+      Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem) + Ut_src(RHOK,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+      Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem) + Ut_src(RHOG,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
     END DO; END DO; END DO ! i,j,k
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
-      END DO; END DO; END DO ! i,j,k
-  END DO
-CASE(41) ! Sinus in x
-  Frequency=IniFrequency
-  Amplitude=IniAmplitude
-  Omega=PP_Pi*Frequency
-  a=AdvVel(1)*2.*PP_Pi
-  C = 2.0
-
-  DO iElem=1,nElems
-    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-#if PARABOLIC
-      Ut_src(DENS,i,j,k) = (-Amplitude*a+Amplitude*omega)*cos(omega*Elem_xGP(1,i,j,k,iElem)-a*t)
-
-      Ut_src(MOM1,i,j,k) = (-Amplitude**2*omega+Amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(1,i,j,k,iElem)-2.*a*t)+&
-                           (-Amplitude*a+2.*Amplitude*omega*kappa*C-1./2.*Amplitude*omega*kappa+&
-                           3./2.*Amplitude*omega-2.*Amplitude*omega*C)*cos(omega*Elem_xGP(1,i,j,k,iElem)-a*t)
-
-      Ut_src(MOM2:MOM3,i,j,k) = 0.0
-
-      Ut_src(ENER,i,j,k) = mu0*kappa*Amplitude*sin(omega*Elem_xGP(1,i,j,k,iElem)-a*t)*omega**2/Pr+&
-                           (-Amplitude**2*a+Amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(1,i,j,k,iElem)-2.*a*t)+&
-                           1./2.*(-4.*Amplitude*a*C+4.*Amplitude*omega*kappa*C-Amplitude*omega*kappa+&
-                                Amplitude*omega)*cos(omega*Elem_xGP(1,i,j,k,iElem)-a*t)
+  END IF
 #else
-      Ut_src(DENS,i,j,k) = (-amplitude*a+amplitude*omega)*cos(omega*Elem_xGP(1,i,j,k,iElem)-a*t)
-      Ut_src(MOM1,i,j,k) = (-amplitude**2*omega+amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(1,i,j,k,iElem)-2.*a*t)+ &
-                           (-amplitude*a+2.*amplitude*omega*kappa*C-1./2.*omega*kappa*amplitude+ &
-                           3./2.*amplitude*omega-2.*amplitude*omega*C)*cos(omega*Elem_xGP(1,i,j,k,iElem)-a*t)
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem) + Ut_src(RHOK,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+    Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem) + Ut_src(RHOG,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+  END DO; END DO; END DO ! i,j,k
+#endif
 
-      Ut_src(MOM2:MOM3,i,j,k) = 0.0
-      Ut_src(ENER,i,j,k) = (-amplitude**2*a+amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(1,i,j,k,iElem)-2.*a*t)+&
-                           (-2.*amplitude*a*C+2.*amplitude*omega*kappa*C-1./2.*omega*kappa*amplitude+&
-                           1./2.*amplitude*omega)*cos(omega*Elem_xGP(1,i,j,k,iElem)-a*t)
+END DO
 
 #endif
-    END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
-      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
-      END DO; END DO; END DO ! i,j,k
-    ELSE
-#endif
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
-      END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    END IF
-#endif
-  END DO
-CASE(42) ! Sinus in y
-  Frequency=IniFrequency
-  Amplitude=IniAmplitude
-  Omega=PP_Pi*Frequency
-  a=AdvVel(2)*2.*PP_Pi
-  C = 2.0
 
-  DO iElem=1,nElems
-    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-#if PARABOLIC
-      Ut_src(DENS,i,j,k) = (-Amplitude*a+Amplitude*omega)*cos(omega*Elem_xGP(2,i,j,k,iElem)-a*t)
-      Ut_src(MOM1,i,j,k) = 0.0
-      Ut_src(MOM2,i,j,k) = (-Amplitude**2*omega+Amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(2,i,j,k,iElem)-2.*a*t)+&
-                           (-Amplitude*a+2.*Amplitude*omega*kappa*C-1./2.*Amplitude*omega*kappa+&
-                           3./2.*Amplitude*omega-2.*Amplitude*omega*C)*cos(omega*Elem_xGP(2,i,j,k,iElem)-a*t)
-
-      Ut_src(MOM3,i,j,k) = 0.0
-
-      Ut_src(ENER,i,j,k) = mu0*kappa*Amplitude*sin(omega*Elem_xGP(2,i,j,k,iElem)-a*t)*omega**2/Pr+&
-                           (-Amplitude**2*a+Amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(2,i,j,k,iElem)-2.*a*t)+&
-                           1./2.*(-4.*Amplitude*a*C+4.*Amplitude*omega*kappa*C-Amplitude*omega*kappa+&
-                                Amplitude*omega)*cos(omega*Elem_xGP(2,i,j,k,iElem)-a*t)
-#else
-      Ut_src(DENS,i,j,k) = (-amplitude*a+amplitude*omega)*cos(omega*Elem_xGP(2,i,j,k,iElem)-a*t)
-      Ut_src(MOM1,i,j,k) = 0.0
-      Ut_src(MOM2,i,j,k) = (-amplitude**2*omega+amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(2,i,j,k,iElem)-2.*a*t)+ &
-                           (-amplitude*a+2.*amplitude*omega*kappa*C-1./2.*omega*kappa*amplitude+ &
-                           3./2.*amplitude*omega-2.*amplitude*omega*C)*cos(omega*Elem_xGP(2,i,j,k,iElem)-a*t)
-
-      Ut_src(MOM3,i,j,k) = 0.0
-      Ut_src(ENER,i,j,k) = (-amplitude**2*a+amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(2,i,j,k,iElem)-2.*a*t)+&
-                           (-2.*amplitude*a*C+2.*amplitude*omega*kappa*C-1./2.*omega*kappa*amplitude+&
-                           1./2.*amplitude*omega)*cos(omega*Elem_xGP(2,i,j,k,iElem)-a*t)
-
-#endif
-    END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
-      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
-      END DO; END DO; END DO ! i,j,k
-    ELSE
-#endif
-      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
-      END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    END IF
-#endif
-  END DO
-
-#if PP_dim==3
-CASE(43) ! Sinus in z
-  Frequency=IniFrequency
-  Amplitude=IniAmplitude
-  Omega=PP_Pi*Frequency
-  a=AdvVel(3)*2.*PP_Pi
-  C = 2.0
-
-  DO iElem=1,nElems
-    DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
-#if PARABOLIC
-      Ut_src(DENS,i,j,k) = (-Amplitude*a+Amplitude*omega)*cos(omega*Elem_xGP(3,i,j,k,iElem)-a*t)
-      Ut_src(MOM1:MOM2,i,j,k) = 0.0
-      Ut_src(MOM3,i,j,k) = (-Amplitude**2*omega+Amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(3,i,j,k,iElem)-2.*a*t)+&
-                           (-Amplitude*a+2.*Amplitude*omega*kappa*C-1./2.*Amplitude*omega*kappa+&
-                           3./2.*Amplitude*omega-2.*Amplitude*omega*C)*cos(omega*Elem_xGP(3,i,j,k,iElem)-a*t)
-
-
-      Ut_src(ENER,i,j,k) = mu0*kappa*Amplitude*sin(omega*Elem_xGP(3,i,j,k,iElem)-a*t)*omega**2/Pr+&
-                           (-Amplitude**2*a+Amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(3,i,j,k,iElem)-2.*a*t)+&
-                           1./2.*(-4.*Amplitude*a*C+4.*Amplitude*omega*kappa*C-Amplitude*omega*kappa+&
-                                Amplitude*omega)*cos(omega*Elem_xGP(3,i,j,k,iElem)-a*t)
-#else
-      Ut_src(DENS,i,j,k) = (-amplitude*a+amplitude*omega)*cos(omega*Elem_xGP(3,i,j,k,iElem)-a*t)
-      Ut_src(MOM1:MOM2,i,j,k) = 0.0
-      Ut_src(MOM3,i,j,k) = (-amplitude**2*omega+amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(3,i,j,k,iElem)-2.*a*t)+ &
-                           (-amplitude*a+2.*amplitude*omega*kappa*C-1./2.*omega*kappa*amplitude+ &
-                           3./2.*amplitude*omega-2.*amplitude*omega*C)*cos(omega*Elem_xGP(3,i,j,k,iElem)-a*t)
-
-      Ut_src(ENER,i,j,k) = (-amplitude**2*a+amplitude**2*omega*kappa)*sin(2.*omega*Elem_xGP(3,i,j,k,iElem)-2.*a*t)+&
-                           (-2.*amplitude*a*C+2.*amplitude*omega*kappa*C-1./2.*omega*kappa*amplitude+&
-                           1./2.*amplitude*omega)*cos(omega*Elem_xGP(3,i,j,k,iElem)-a*t)
-
-#endif
-    END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
-      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
-      DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
-      END DO; END DO; END DO ! i,j,k
-    ELSE
-#endif
-      DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
-        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
-      END DO; END DO; END DO ! i,j,k
-#if FV_ENABLED
-    END IF
-#endif
-  END DO
-#endif
-CASE DEFAULT
-  ! No source -> do nothing and set marker to not run again
-  doCalcSource=.FALSE.
-END SELECT ! ExactFunction
 END SUBROUTINE CalcSource
 
 END MODULE MOD_Exactfunc

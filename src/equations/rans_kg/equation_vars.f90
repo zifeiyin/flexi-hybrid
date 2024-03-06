@@ -40,6 +40,15 @@ INTEGER,ALLOCATABLE  :: BCSideID(:,:)  !< array storing side IDs of sides with d
 REAL                 :: s43            !< precomputed 4./3.
 REAL                 :: s23            !< precomputed 2./3.
 
+! k-g specific variables and parameters
+REAL, PARAMETER   :: sigmaK  = 0.5     !< diffusivity coefficient for k equation
+REAL, PARAMETER   :: sigmaG  = 0.5     !< diffusivity coefficient for g equation
+REAL, PARAMETER   :: Comega1 = 5./9.   !< alpha in k-g model 
+REAL, PARAMETER   :: Comega2 = 0.075   !< beta in k-g model 
+REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k-g model
+REAL, PARAMETER   :: epsTKE  = 1.e-16  !< lower bound of k to ensure its positivity
+REAL, PARAMETER   :: epsOMG  = 1.e-16  !< lower bound of g to ensure its positivity
+
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
   (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','RhoK','RhoG'/) !< conservative variable names
 CHARACTER(LEN=255),DIMENSION(9),PARAMETER :: StrVarNamesPrim=&
