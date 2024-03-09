@@ -65,7 +65,7 @@ PUBLIC::EvalDiffFlux3D
 CONTAINS
 
 !==================================================================================================================================
-!> Compute advection part of the Navier-Stokes fluxes in all space dimensions using the conservative and primitive variables
+!> Compute advection part of the NS-kg fluxes in all space dimensions using the conservative and primitive variables
 !==================================================================================================================================
 PPURE SUBROUTINE EvalFlux3D_Point(U,UPrim,f,g,h)
 ! MODULES
@@ -89,18 +89,27 @@ f(MOM1) = U(MOM1) * UPrim(VEL1) + UPrim(PRES) ! rho*u²+p
 f(MOM2) = U(MOM1) * UPrim(VEL2)               ! rho*u*v
 f(MOM3) = U(MOM1) * UPrim(VEL3)               ! rho*u*w
 f(ENER) = Ep * UPrim(VEL1)                    ! (rho*e+p)*u
+! TODO(Shimushu): implement this
+f(RHOK) = U(MOM1) * UPrim(TKE)                ! rho*u*k
+f(RHOG) = U(MOM1) * UPrim(OMG)                ! rho*u*g
 ! Euler fluxes y-direction
 g(DENS) = U(MOM2)                             ! rho*v
 g(MOM1) = f(MOM2)                             ! rho*u*v
 g(MOM2) = U(MOM2) * UPrim(VEL2) + UPrim(PRES) ! rho*v²+p
 g(MOM3) = U(MOM2) * UPrim(VEL3)               ! rho*v*w
 g(ENER) = Ep * UPrim(VEL2)                    ! (rho*e+p)*v
+! TODO(Shimushu): implement this
+g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*v*k
+g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*v*g
 ! Euler fluxes z-direction
 h(DENS) = U(MOM3)                             ! rho*v
 h(MOM1) = f(MOM3)                             ! rho*u*w
 h(MOM2) = g(MOM3)                             ! rho*v*w
 h(MOM3) = U(MOM3) * UPrim(VEL3) + UPrim(PRES) ! rho*v²+p
 h(ENER) = Ep * UPrim(VEL3)                    ! (rho*e+p)*w
+! TODO(Shimushu): implement this
+h(RHOK) = U(MOM3) * UPrim(TKE)                ! rho*w*k
+h(RHOG) = U(MOM3) * UPrim(OMG)                ! rho*w*g
 #else
 
 ! Euler part
@@ -110,19 +119,25 @@ f(MOM1) = U(MOM1)*UPrim(VEL1)+UPrim(PRES)     ! rho*u²+p
 f(MOM2) = U(MOM1)*UPrim(VEL2)                 ! rho*u*v
 f(MOM3) = 0.
 f(ENER) = Ep*UPrim(VEL1)                      ! (rho*e+p)*u
+! TODO(Shimushu): implement this
+f(RHOK) = U(MOM1) * UPrim(TKE)                ! rho*u*k
+f(RHOG) = U(MOM1) * UPrim(OMG)                ! rho*u*g
 ! Euler fluxes y-direction
 g(DENS)= U(MOM2)                              ! rho*v
 g(MOM1)= f(MOM2)                              ! rho*u*v
 g(MOM2)= U(MOM2)*UPrim(VEL2)+UPrim(PRES)      ! rho*v²+p
 g(MOM3)= 0.
 g(ENER)= Ep*UPrim(VEL2)                       ! (rho*e+p)*v
+! TODO(Shimushu): implement this
+g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*v*k
+g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*v*g
 ! Euler fluxes z-direction
 h   = 0.
 #endif
 END SUBROUTINE EvalFlux3D_Point
 
 !==================================================================================================================================
-!> Wrapper routine to compute the advection part of the Navier-Stokes fluxes for a single volume cell
+!> Wrapper routine to compute the advection part of the NS-kg fluxes for a single volume cell
 !==================================================================================================================================
 PPURE SUBROUTINE EvalFlux3D_Volume(Nloc,U,UPrim,f,g,h)
 ! MODULES
@@ -144,7 +159,7 @@ END SUBROUTINE EvalFlux3D_Volume
 
 #if PARABOLIC
 !==================================================================================================================================
-!> Compute Navier-Stokes diffusive flux using the primitive variables and derivatives.
+!> Compute NS-kg diffusive flux using the primitive variables and derivatives.
 !==================================================================================================================================
 PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
 #if EDDYVISCOSITY
@@ -152,7 +167,7 @@ PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
 #endif
 )
 ! MODULES
-USE MOD_Equation_Vars,ONLY: s23,s43
+USE MOD_Equation_Vars,ONLY: s23,s43,epsTKE,epsOMG,Cmu,invSigmaK,invSigmaG
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
 #if EDDYVISCOSITY
@@ -169,7 +184,7 @@ REAL                          ,INTENT(IN)  :: muSGS                 !< SGS visco
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL                :: muS,lambda
+REAL                :: muS,lambda,kPos,gPos,muTOrig,diffK,diffG
 REAL                :: tau_xx,tau_yy,tau_xy
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
@@ -178,14 +193,21 @@ REAL                :: tau_zz,tau_xz,tau_yz
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
+kPos   = MAX(UPrim(TKE), epsTKE)
+gPos   = MAX(UPrim(OMG), epsOMG)
+muTOrig= Cmu * UPrim(DENS) * kPos * gPos**2
+diffK  = muS + invSigmaK * muTOrig
+diffG  = muS + invSigmaG * muTOrig
 !Add turbulent sub grid scale viscosity to mu
-#if EDDYVISCOSITY
+#if DECOUPLE==0
 muS    = muS    + muSGS
 lambda = lambda + muSGS*cp/PrSGS
 #endif
 
 ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => UPrim(VEL3), &
-           gradT1 => GradUx(LIFT_TEMP), gradT2 => GradUy(LIFT_TEMP), gradT3 => GradUz(LIFT_TEMP) )
+           gradT1 => GradUx(LIFT_TEMP), gradT2 => GradUy(LIFT_TEMP), gradT3 => GradUz(LIFT_TEMP), &
+           gradK1 => GradUx(LIFT_TKE),  gradK2 => GradUy(LIFT_TKE),  gradK3 => GradUz(LIFT_TKE), &
+           gradG1 => GradUx(LIFT_OMG),  gradG2 => GradUy(LIFT_OMG),  gradG3 => GradUz(LIFT_OMG))
 #if PP_dim==3
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
@@ -202,18 +224,27 @@ f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1  ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
+! TODO(Shimushu): implement this
+f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
+f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
 g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2  ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
+! TODO(Shimushu): implement this
+g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
+g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
 h(DENS) = 0.
 h(MOM1) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 h(MOM2) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 h(MOM3) = -tau_zz                                       ! F_euler-4/3*mu*w_z+2/3*mu*(u_x+v_y)
 h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3  ! F_euler-(tau_zx*u+tau_zy*v+tau_zz*w-q_z) q_z=-lambda*T_z
+! TODO(Shimushu): implement this
+h(RHOK) = -diffK*gradK3                                 ! F_euler-(mu+muTOrig/sigmaK)*k_z
+h(RHOG) = -diffG*gradG3                                 ! F_euler-(mu+muTOrig/sigmaG)*g_z
 #else
 ! gradients of primitive variables are directly available gradU = (/ drho, dv1, dv2, dv3, dT /)
 
@@ -227,12 +258,18 @@ f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = 0.
 f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1            ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
+! TODO(Shimushu): implement this
+f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
+f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
 g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = 0.
 g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2            ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
+! TODO(Shimushu): implement this
+g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
+g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
 h    = 0.
 #endif
@@ -240,7 +277,7 @@ END ASSOCIATE
 END SUBROUTINE EvalDiffFlux3D_Point
 
 !==================================================================================================================================
-!> Wrapper routine to compute the diffusive part of the Navier-Stokes fluxes for a single volume cell
+!> Wrapper routine to compute the diffusive part of the NS-kg fluxes for a single volume cell
 !==================================================================================================================================
 SUBROUTINE EvalDiffFlux3D_Volume(UPrim,gradUx,gradUy,gradUz,f,g,h,iElem)
 ! MODULES
@@ -270,7 +307,7 @@ END DO; END DO; END DO ! i,j,k
 END SUBROUTINE EvalDiffFlux3D_Volume
 
 !==================================================================================================================================
-!> Wrapper routine to compute the diffusive part of the Navier-Stokes fluxes for a single side
+!> Wrapper routine to compute the diffusive part of the NS-kg fluxes for a single side
 !==================================================================================================================================
 PPURE SUBROUTINE EvalDiffFlux3D_Surface(Nloc,UPrim,gradUx,gradUy,gradUz,f,g,h &
 #if EDDYVISCOSITY
@@ -324,6 +361,8 @@ UE(EXT_CONS)=U
 UE(EXT_SRHO)=1./UE(EXT_DENS)
 UE(EXT_VELV)=VELOCITY_HE(UE)
 UE(EXT_PRES)=PRESSURE_HE(UE)
+UE(EXT_TKE )=U(RHOK)*UE(EXT_SRHO)
+UE(EXT_OMG )=U(RHOG)*UE(EXT_SRHO)
 ! Euler fluxes x-direction
 F(DENS)= U(MOM1)                             ! rho*u
 F(MOM1)= U(MOM1)*UE(EXT_VEL1)+UE(EXT_PRES)   ! rho*u²+p
@@ -334,6 +373,8 @@ F(MOM3)=U(MOM1)*UE(EXT_VEL3)                 ! rho*u*w
 F(MOM3)=0.
 #endif
 F(ENER)=(U(ENER)+UE(EXT_PRES))*UE(EXT_VEL1)  ! (rho*e+p)*u
+F(RHOK)= U(MOM1)*UE(EXT_TKE)                 ! rho*u*k
+F(RHOG)= U(MOM1)*UE(EXT_OMG)                 ! rho*u*g
 END SUBROUTINE EvalEulerFlux1D
 
 !==================================================================================================================================
@@ -359,6 +400,8 @@ F(MOM3)= U(EXT_MOM1)*U(EXT_VEL3)             ! rho*u*w
 F(MOM3)= 0.
 #endif
 F(ENER)=(U(EXT_ENER)+U(EXT_PRES))*U(EXT_VEL1)! (rho*e+p)*u
+F(RHOK)= U(EXT_MOM1)*U(EXT_TKE)              ! rho*u*k
+F(RHOG)= U(EXT_MOM1)*U(EXT_OMG)              ! rho*u*g
 END SUBROUTINE EvalEulerFlux1D_fast
 
 END MODULE MOD_Flux

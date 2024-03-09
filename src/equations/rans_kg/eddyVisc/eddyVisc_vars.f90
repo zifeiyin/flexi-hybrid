@@ -62,4 +62,10 @@ LOGICAL           :: DynSmagorinskyInitIsDone=.FALSE. !< Logical indicating if S
 LOGICAL           :: VremanInitIsDone=.FALSE.         !< Logical indicating if Vreman model has been initialized
 LOGICAL           :: SigmaModelInitIsDone=.FALSE.     !< Logical indicating if sigma model has been initialized
 
+REAL,ALLOCATABLE  :: prodK (:,:,:,:,:)                 !< production K
+REAL,ALLOCATABLE  :: dissK (:,:,:,:,:)                 !< dissipation K
+REAL,ALLOCATABLE  :: prodG (:,:,:,:,:)                 !< production G
+REAL,ALLOCATABLE  :: dissG (:,:,:,:,:)                 !< dissipation G
+REAL,ALLOCATABLE  :: crossG(:,:,:,:,:)                 !< cross G
+
 END MODULE MOD_EddyVisc_Vars

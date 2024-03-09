@@ -12,6 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
+#include "eos.h"
 
 !==================================================================================================================================
 !> Subroutines needed by the eddy viscosity model. This is the default  model, which means no eddy viscosity.
@@ -23,20 +24,86 @@ MODULE MOD_DefaultEddyVisc
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC::DefaultEddyVisc, FinalizeDefaultEddyViscosity
+PUBLIC::InitDefaultEddyVisc, DefaultEddyVisc_Volume, FinalizeDefaultEddyViscosity
 !===================================================================================================================================
 
 CONTAINS
 
 !===================================================================================================================================
-!> Dummy for default eddy viscosity (meaning no eddy viscosity), do nothing since the muSGS arrays will be passed here and they
-!> are zero all the time.
+!> Initialize k-g model
 !===================================================================================================================================
-SUBROUTINE DefaultEddyVisc()
+SUBROUTINE InitDefaultEddyVisc()
 ! MODULES
 IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
 !===================================================================================================================================
-END SUBROUTINE DefaultEddyVisc
+END SUBROUTINE InitDefaultEddyVisc
+
+!===================================================================================================================================
+!> Compute k-g Eddy-Visosity
+!===================================================================================================================================
+PPURE SUBROUTINE DefaultEddyVisc_Point(gradUx,gradUy,gradUz,U,muSGS)
+! MODULES
+USE MOD_Equation_Vars ,ONLY: epsTKE,epsOMG,Cmu,sqrt6
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx, gradUy, gradUz   !> Gradients in x,y,z directions
+REAL,DIMENSION(PP_nVar)       ,INTENT(IN)  :: U       !> pointwise conservative vairables
+REAL                          ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                                    :: magS
+REAL                                    :: kPos,gPos,muTOrig
+!===================================================================================================================================
+! Already take the square root of 2 into account here
+#if PP_dim==2
+magS = SQRT( &
+    2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) + &
+    (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2)
+#else
+magS = SQRT( &
+    2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) + &
+    (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2 + &
+    (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))**2 + &
+    (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))**2)
+#endif
+
+kPos    = MAX(U(RHOK) / U(DENS), epsTKE)              
+gPos    = MAX(U(RHOG) / U(DENS), epsOMG)              
+muTOrig = Cmu * U(DENS) * kPos * gPos**2
+
+! muSGS = MIN(muTOrig, U(DENS) * kPos / (sqrt6 * magS))
+muSGS = MIN(muTOrig, ABS(U(RHOK)) / MAX(sqrt6 * magS, 1.e-16))
+END SUBROUTINE DefaultEddyVisc_Point
+
+!===================================================================================================================================
+!> Compute k-g Eddy-Visosity for the volume
+!===================================================================================================================================
+SUBROUTINE DefaultEddyVisc_Volume()
+! MODULES
+USE MOD_PreProc
+USE MOD_Mesh_Vars,         ONLY: nElems
+USE MOD_EddyVisc_Vars,     ONLY: muSGS
+USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
+USE MOD_DG_Vars,           ONLY: U
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER             :: i,j,k,iElem
+!===================================================================================================================================
+DO iElem=1,nElems
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    CALL DefaultEddyVisc_Point(gradUx(:,i,j,k,iElem), gradUy(:,i,j,k,iElem), gradUz(:,i,j,k,iElem), &
+                               U(:,i,j,k,iElem),      muSGS(1,i,j,k,iElem))
+  END DO; END DO; END DO ! i,j,k
+END DO
+END SUBROUTINE DefaultEddyVisc_Volume
 
 !===============================================================================================================================
 !> Deallocate arrays and finalize variables used by the default eddy viscosity

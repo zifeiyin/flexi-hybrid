@@ -93,7 +93,7 @@ END SUBROUTINE
 
 
 !==================================================================================================================================
-!> Compute the time step for the current update of U for the Navier-Stokes-Equations
+!> Compute the time step for the current update of U for the NS-kg Equations
 !==================================================================================================================================
 FUNCTION CALCTIMESTEP(errType)
 ! MODULES
@@ -162,6 +162,8 @@ DO iElem=1,nElems
     UE(EXT_VELV)=VELOCITY_HE(UE)
     UE(EXT_PRES)=PRESSURE_HE(UE)
     UE(EXT_TEMP)=TEMPERATURE_HE(UE)
+    UE(EXT_TKE )=U(RHOK,i,j,k,iElem)*UE(EXT_SRHO)
+    UE(EXT_OMG )=U(RHOG,i,j,k,iElem)*UE(EXT_SRHO)
     ! Convective Eigenvalues
     IF(IEEE_IS_NAN(UE(EXT_DENS)))THEN
       ERRWRITE(*,'(A,3ES16.7)')'Density NaN, Position= ',Elem_xGP(:,i,j,k,iElem)
@@ -181,7 +183,7 @@ DO iElem=1,nElems
     ! Viscous Eigenvalues
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
-#if EDDYVISCOSITY
+#if DECOUPLE==0
     mu = mu+muSGSMax
 #endif
     Max_Lambda_v=MAX(Max_Lambda_v,mu*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))

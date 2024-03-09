@@ -102,13 +102,19 @@ ALLOCATE(muSGS_slave (1,0:PP_N,0:PP_NZ,nSides))
 muSGS_master=0.
 muSGS_slave =0.
 
+ALLOCATE(prodK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(dissK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(prodG (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(dissG (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(crossG(1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+
 ! Turbulent Prandtl number
 PrSGS  = GETREAL('PrSGS')
 
 SELECT CASE(eddyViscType)
-  CASE(EDDYVISCTYPE_NONE) ! No eddy viscosity model, set function pointers to dummy subroutines which do nothing
-    ! Nothing to init
-    ComputeEddyViscosity  => DefaultEddyVisc
+  CASE(EDDYVISCTYPE_NONE) ! k-g model with sqrt(6) limiter
+    CALL InitDefaultEddyVisc()
+    ComputeEddyViscosity  => DefaultEddyVisc_Volume
     FinalizeEddyViscosity => FinalizeDefaultEddyViscosity
   CASE(EDDYVISCTYPE_SMAGO)  ! Smagorinsky Model with optional Van Driest damping for channel flow
     CALL InitSmagorinsky()
@@ -150,6 +156,11 @@ SDEALLOCATE(CSdeltaS2)
 SDEALLOCATE(muSGS)
 SDEALLOCATE(muSGS_master)
 SDEALLOCATE(muSGS_slave)
+SDEALLOCATE(prodK)
+SDEALLOCATE(dissK)
+SDEALLOCATE(prodG)
+SDEALLOCATE(dissG)
+SDEALLOCATE(crossG)
 IF (ASSOCIATED(FinalizeEddyViscosity)) CALL FinalizeEddyViscosity()
 END SUBROUTINE
 

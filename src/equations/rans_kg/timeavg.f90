@@ -82,7 +82,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=15
+nMaxVarAvg=15+3+5
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -99,6 +99,14 @@ VarNamesAvgList(12) ='Mach'
 VarNamesAvgList(13) ='Temperature'
 VarNamesAvgList(14) ='TotalTemperature'
 VarNamesAvgList(15) ='TotalPressure'
+VarNamesAvgList(16) ='DensityK'
+VarNamesAvgList(17) ='DensityG'
+VarNamesAvgList(18) ='muSGS'
+VarNamesAvgList(19) ='ProdK'
+VarNamesAvgList(20) ='DissK'
+VarNamesAvgList(21) ='ProdG'
+VarNamesAvgList(22) ='DissG'
+VarNamesAvgList(23) ='CrossG'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -327,6 +335,7 @@ USE MOD_EOS          ,ONLY: ConsToPrim
 USE MOD_EOS_Vars     ,ONLY: Kappa
 USE MOD_Analyze_Vars ,ONLY: WriteData_dt
 USE MOD_AnalyzeEquation_Vars
+USE MOD_EddyVisc_Vars,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG
 #if FV_ENABLED
 USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm
 USE MOD_ChangeBasisByDim,ONLY:ChangeBasisVolume
@@ -458,6 +467,38 @@ DO iElem=1,nElems
       Mach=SQRT(SUM(prim(VELV,i,j,k)**2))/SPEEDOFSOUND_HE(UE)
       tmpVars(iAvg(15),i,j,k)=TOTAL_PRESSURE_H(UE(EXT_PRES),Mach)
     END DO; END DO; END DO
+  END IF
+
+  IF(CalcAvg(16))THEN ! 'DensityK'
+    tmpVars(iAvg(16),:,:,:)=Uloc(RHOK,:,:,:)
+  END IF
+
+  IF(CalcAvg(17))THEN ! 'DensityG'
+    tmpVars(iAvg(17),:,:,:)=Uloc(RHOG,:,:,:)
+  END IF
+
+  IF(CalcAvg(18))THEN ! 'muSGS'
+    tmpVars(iAvg(18),:,:,:)=muSGS(1,:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(19))THEN ! 'prodK'
+    tmpVars(iAvg(19),:,:,:)=prodK(1,:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(20))THEN ! 'dissK'
+    tmpVars(iAvg(20),:,:,:)=dissK(1,:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(21))THEN ! 'prodG'
+    tmpVars(iAvg(21),:,:,:)=prodG(1,:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(22))THEN ! 'dissG'
+    tmpVars(iAvg(22),:,:,:)=dissG(1,:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(23))THEN ! 'crossG'
+    tmpVars(iAvg(23),:,:,:)=crossG(1,:,:,:,iElem)
   END IF
 
   UAvg(:,:,:,:,iElem)= UAvg (:,:,:,:,iElem) + tmpVars(1:nVarAvg,:,:,:)*dtStep

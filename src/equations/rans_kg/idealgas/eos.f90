@@ -207,10 +207,17 @@ prim(VEL3)=cons(MOM3)*sRho
 #else
 prim(VEL3)=0.
 #endif
+! TODO(Shimushu): fix this
 ! pressure
+#if DECOUPLE==0
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-MAX(cons(RHOK),0.))
+#else
 prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)))
+#endif
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
+prim(TKE)  = cons(RHOK)*sRho
+prim(OMG)  = cons(RHOG)*sRho
 END SUBROUTINE ConsToPrim
 
 !==================================================================================================================================
@@ -299,8 +306,15 @@ cons(MOM3)=prim(VEL3)*prim(DENS)
 #else
 cons(MOM3)=0.
 #endif
+! TODO(Shimushu): fix this
 ! energy
+cons(RHOK)=prim(TKE)*prim(DENS)
+cons(RHOG)=prim(OMG)*prim(DENS)
+#if DECOUPLE==0
+cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+MAX(cons(RHOK),0.)
+#else
 cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))
+#endif
 END SUBROUTINE PrimToCons
 
 !==================================================================================================================================

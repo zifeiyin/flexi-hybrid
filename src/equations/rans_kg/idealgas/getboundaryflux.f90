@@ -320,6 +320,8 @@ CASE(3,4,9,91,23,24,25,27)
     UPrim_boundary(VEL3,p,q)     = DOT_PRODUCT(UPrim_master(VELV,p,q),TangVec2(:,p,q))
     UPrim_boundary(PRES,p,q)     = UPrim_master(PRES,p,q)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
+    UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
+    UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q)
   END DO; END DO !p,q
 
   SELECT CASE(BCType)
@@ -332,6 +334,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q)                  ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
+      UPrim_boundary(TKE ,p,q) = 0.
+      UPrim_boundary(OMG ,p,q) = 0.
     END DO; END DO ! q,p
 
   CASE(4) ! Isothermal wall
@@ -344,6 +348,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState)              ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
+      UPrim_boundary(TKE ,p,q) = 0.
+      UPrim_boundary(OMG ,p,q) = 0.
     END DO; END DO ! q,p
 
   CASE(9,91) ! Euler (slip) wall
@@ -504,7 +510,7 @@ CASE(1) !Periodic already filled!
       "GetBoundaryState called for periodic side!")
 CASE DEFAULT ! unknown BCType
   CALL Abort(__STAMP__,&
-       'no BC defined in navierstokes/getboundaryflux.f90!')
+       'no BC defined in rans_kg/getboundaryflux.f90!')
 END SELECT ! BCType
 
 END SUBROUTINE GetBoundaryState
@@ -621,6 +627,8 @@ ELSE
       Flux(DENS,p,q) = 0.
       Flux(MOMV,p,q) = UPrim_boundary(PRES,p,q)*NormVec(:,p,q)
       Flux(ENER,p,q) = 0.
+      Flux(RHOK,p,q) = 0.
+      Flux(RHOG,p,q) = 0.
     END DO; END DO !p,q
     ! Diffusion
 #if PARABOLIC
@@ -706,15 +714,18 @@ ELSE
         BCGradMat(2,1) = BCGradMat(1,2)
         BCGradMat(3,1) = BCGradMat(1,3)
         BCGradMat(2,3) = BCGradMat(3,2)
-        gradUx_Face_loc(LIFT_TEMP,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(1,3) * gradUz_master(LIFT_TEMP,p,q)
-        gradUy_Face_loc(LIFT_TEMP,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(2,3) * gradUz_master(LIFT_TEMP,p,q)
-        gradUz_Face_loc(LIFT_TEMP,p,q) = BCGradMat(3,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,2) * gradUy_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(3,3) * gradUz_master(LIFT_TEMP,p,q)
+        gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = &
+            BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(1,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = &
+            BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(2,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = &
+            BCGradMat(3,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(3,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(3,3) * gradUz_master(LIFT_TEMP:LIFT_OMG,p,q)
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)+nv(3 )*gradUx_master(LIFT_VEL3,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)+tv1(3)*gradUx_master(LIFT_VEL3,p,q)
@@ -760,11 +771,13 @@ ELSE
         BCGradMat(2,2) = 1. - nv(2)*nv(2)
         BCGradMat(1,2) = -nv(1)*nv(2)
         BCGradMat(2,1) = BCGradMat(1,2)
-        gradUx_Face_loc(LIFT_TEMP,p,q) = BCGradMat(1,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(1,2) * gradUy_master(LIFT_TEMP,p,q)
-        gradUy_Face_loc(LIFT_TEMP,p,q) = BCGradMat(2,1) * gradUx_master(LIFT_TEMP,p,q) &
-                                       + BCGradMat(2,2) * gradUy_master(LIFT_TEMP,p,q)
-        gradUz_Face_loc(LIFT_TEMP,p,q) = 0.
+        gradUx_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = &
+            BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) + &
+            BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = &
+            BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+            BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
+        gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = 0.
         ! First: Transform to gradients of wall-aligned velocities
         gradUx_vNormal = nv(1 )*gradUx_master(LIFT_VEL1,p,q)+nv(2 )*gradUx_master(LIFT_VEL2,p,q)
         gradUx_vTang1  = tv1(1)*gradUx_master(LIFT_VEL1,p,q)+tv1(2)*gradUx_master(LIFT_VEL2,p,q)
@@ -814,7 +827,7 @@ ELSE
   CASE(1) !Periodic already filled!
   CASE DEFAULT ! unknown BCType
     CALL Abort(__STAMP__,&
-        'no BC defined in navierstokes/getboundaryflux.f90!')
+        'no BC defined in rans_kg/getboundaryflux.f90!')
   END SELECT
 END IF ! BCType < 0
 END SUBROUTINE GetBoundaryFlux
@@ -864,7 +877,7 @@ ELSE
   CASE(1) !Periodic already filled!
   CASE DEFAULT ! unknown BCType
     CALL Abort(__STAMP__,&
-         'no BC defined in navierstokes/getboundaryflux.f90!')
+         'no BC defined in rans_kg/getboundaryflux.f90!')
   END SELECT
 END IF ! BCType < 0
 
@@ -919,9 +932,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_Boundary(DENS,p,q)
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE ,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_Boundary(OMG ,p,q)
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE ,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_Boundary(OMG ,p,q)
 #endif
     END DO; END DO !p,q
   CASE(9,91)
@@ -933,15 +950,19 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_master(  DENS,p,q)
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(   TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_master(   OMG,p,q)
 #else
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(   TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_master(   OMG,p,q)
 #endif
     END DO; END DO !p,q
   CASE(1) !Periodic already filled!
   CASE DEFAULT ! unknown BCType
     CALL Abort(__STAMP__,&
-         'no BC defined in navierstokes/getboundaryflux.f90!')
+         'no BC defined in rans_kg/getboundaryflux.f90!')
   END SELECT
 
   ! in case lifting is done in strong form
