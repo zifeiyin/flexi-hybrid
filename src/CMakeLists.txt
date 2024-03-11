@@ -159,7 +159,11 @@ CMAKE_DEPENDENT_OPTION(FLEXI_EDDYVISCOSITY "Enable eddy viscosity modells" OFF
 IF (FLEXI_EDDYVISCOSITY)
   ADD_DEFINITIONS(-DEDDYVISCOSITY=1)
   IF (NOT FLEXI_EQNSYSNAME STREQUAL "rans_kg" AND FLEXI_2D)
-    MESSAGE(SEND_ERROR "FLEXI_EDDYVISCOSITY is enabled, please disable FLEXI_2D")
+    IF (FLEXI_EQNSYSNAME STREQUAL "navierstokes")
+      MESSAGE(WARNING "FLEXI_EDDYVISCOSITY is enabled, only defaultEddyViscosity should be run.")
+    ELSE()
+      MESSAGE(SEND_ERROR "FLEXI_EDDYVISCOSITY is enabled, please disable FLEXI_2D")
+    ENDIF()
   ENDIF()
 ELSE()
   ADD_DEFINITIONS(-DEDDYVISCOSITY=0)
@@ -352,12 +356,7 @@ ENDIF()
 
 # >> append F90 files of the eddy viscosity to 'eqnsysF90'-list
 IF (FLEXI_EDDYVISCOSITY)
-  FILE(GLOB eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/default/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/smagorinsky/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/dynSmagorinsky/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/vreman/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/sigmaModel/*.f90)
+  FILE(GLOB_RECURSE eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/**.f90)
   LIST(APPEND eqnsysF90 ${eddyviscF90})
 ENDIF()
 

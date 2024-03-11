@@ -42,9 +42,11 @@ INTEGER,ALLOCATABLE  :: averageType(:)                !< type of averaging for d
 
 LOGICAL,ALLOCATABLE  :: doFilterDir(:,:)              !< specifies in which directions the test filter should be applied in each element
 
+REAL,ALLOCATABLE  :: yWall(:,:,:,:,:)                 !< wall distance
 REAL,ALLOCATABLE  :: damp(:,:,:,:,:)                  !< damping factor
 REAL,ALLOCATABLE  :: IntElem(:,:,:,:)                 !< integration weights for dynamic Smagorinsky model
                                                       !< for dynamic Smagorinsky model
+
 REAL,ALLOCATABLE  :: DeltaS(:)                        !< filter width
 REAL,ALLOCATABLE  :: CSdeltaS2(:)                     !< precomputed (model constant*filter width)**2 => Vreman,Sigma model
 REAL,ALLOCATABLE  :: muSGS(:,:,:,:,:)                 !< Sub-grid eddy viscosity
@@ -54,6 +56,7 @@ REAL,ALLOCATABLE  :: muSGSmax(:)                      !< maximum eddy viscosity 
 REAL,ALLOCATABLE  :: FilterMat_TestFilter(:,:)        !< filter matrix for test filter for dynamic Smagorinsky model
 REAL              :: muSGS_limits(2)                  !< allowed range of eddy viscosity as multiple of physical viscosit
 REAL              :: CS                               !< Model coefficient for eddy viscosity models
+REAL              :: CDes                             !< Model coefficient for DDES
 REAL              :: PrSGS                            !< turbulent Prandtl number for the sub-grid scales
 
 LOGICAL           :: VanDriest=.FALSE.                !< Logical indicating if Van Driest damping is activated (only use for channel flow)
@@ -62,10 +65,11 @@ LOGICAL           :: DynSmagorinskyInitIsDone=.FALSE. !< Logical indicating if S
 LOGICAL           :: VremanInitIsDone=.FALSE.         !< Logical indicating if Vreman model has been initialized
 LOGICAL           :: SigmaModelInitIsDone=.FALSE.     !< Logical indicating if sigma model has been initialized
 
-REAL,ALLOCATABLE  :: prodK (:,:,:,:,:)                 !< production K
-REAL,ALLOCATABLE  :: dissK (:,:,:,:,:)                 !< dissipation K
-REAL,ALLOCATABLE  :: prodG (:,:,:,:,:)                 !< production G
-REAL,ALLOCATABLE  :: dissG (:,:,:,:,:)                 !< dissipation G
-REAL,ALLOCATABLE  :: crossG(:,:,:,:,:)                 !< cross G
+REAL,ALLOCATABLE  :: prodK (:,:,:,:,:)                !< production K
+REAL,ALLOCATABLE  :: dissK (:,:,:,:,:)                !< dissipation K
+REAL,ALLOCATABLE  :: prodG (:,:,:,:,:)                !< production G
+REAL,ALLOCATABLE  :: dissG (:,:,:,:,:)                !< dissipation G
+REAL,ALLOCATABLE  :: crossG(:,:,:,:,:)                !< cross G
+REAL,ALLOCATABLE  :: fd(:,:,:,:)                      !< fd in DDES
 
 END MODULE MOD_EddyVisc_Vars
