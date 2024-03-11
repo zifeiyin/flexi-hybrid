@@ -775,7 +775,7 @@ ELSE
             BCGradMat(1,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) + &
             BCGradMat(1,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUy_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = &
-            BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) &
+            BCGradMat(2,1) * gradUx_master(LIFT_TEMP:LIFT_OMG,p,q) + &
             BCGradMat(2,2) * gradUy_master(LIFT_TEMP:LIFT_OMG,p,q)
         gradUz_Face_loc(LIFT_TEMP:LIFT_OMG,p,q) = 0.
         ! First: Transform to gradients of wall-aligned velocities
