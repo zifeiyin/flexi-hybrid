@@ -104,10 +104,19 @@ CALL prms%CreateRealOption(         'U_Parameter',  "Couette-Poiseuille flow CAS
 CALL prms%CreateRealOption(         'AmplitudeFactor',         "Harmonic Gauss Pulse CASE(14)", '0.1')
 CALL prms%CreateRealOption(         'HarmonicFrequency',       "Harmonic Gauss Pulse CASE(14)", '400')
 CALL prms%CreateRealOption(         'SigmaSqr',                "Harmonic Gauss Pulse CASE(14)", '0.1')
+CALL prms%CreateRealOption(         'Re_tau',                  "Re_tau CASE(517)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
 #endif
+
+! Extra source term
+CALL prms%SetSection("SourceTerm")
+CALL prms%CreateIntFromStringOption('IniSourceTerm', "Source term function to be used for computing source term.", "None")
+CALL addStrListEntry('IniSourceTerm','None'             ,0)
+CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
+
+CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -120,7 +129,7 @@ USE MOD_PreProc
 USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
-USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState
+USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -135,39 +144,41 @@ IniExactFunc = GETINTFROMSTR('IniExactFunc')
 IniRefState  = GETINT('IniRefState', "-1")
 ! Read in boundary parameters
 SELECT CASE (IniExactFunc)
-  CASE(2,21) ! sinus
-    AdvVel          = GETREALARRAY('AdvVel',3)
-    IniFrequency    = GETREAL('IniFrequency','0.5')
-    IniAmplitude    = GETREAL('IniAmplitude','0.3')
-  CASE(3) ! synthetic test cases
-    AdvVel          = GETREALARRAY('AdvVel',3)
-  CASE(4,41,42,43) ! synthetic test cases
-    AdvVel          = GETREALARRAY('AdvVel',3)
-    IniFrequency    = GETREAL('IniFrequency','1.0')
-    IniAmplitude    = GETREAL('IniAmplitude','0.1')
-  CASE(7) ! Shu Vortex
-    IniCenter       = GETREALARRAY('IniCenter',3,'(/0.,0.,0./)')
-    IniAxis         = GETREALARRAY('IniAxis',3,'(/0.,0.,1./)')
-    IniAmplitude    = GETREAL('IniAmplitude','0.2')
-    IniHalfwidth    = GETREAL('IniHalfwidth','0.2')
-  CASE(8) ! couette-poiseuille flow
-    P_Parameter     = GETREAL('P_Parameter')
-    U_Parameter     = GETREAL('U_Parameter')
-  CASE(10) ! shock
-    MachShock       = GETREAL('MachShock')
-    PreShockDens    = GETREAL('PreShockDens')
+CASE(2,21) ! sinus
+  AdvVel            = GETREALARRAY('AdvVel',3)
+  IniFrequency      = GETREAL('IniFrequency','0.5')
+  IniAmplitude      = GETREAL('IniAmplitude','0.3')
+CASE(3) ! synthetic test cases
+  AdvVel            = GETREALARRAY('AdvVel',3)
+CASE(4,41,42,43) ! synthetic test cases
+  AdvVel            = GETREALARRAY('AdvVel',3)
+  IniFrequency      = GETREAL('IniFrequency','1.0')
+  IniAmplitude      = GETREAL('IniAmplitude','0.1')
+CASE(7) ! Shu Vortex
+  IniCenter         = GETREALARRAY('IniCenter',3,'(/0.,0.,0./)')
+  IniAxis           = GETREALARRAY('IniAxis',3,'(/0.,0.,1./)')
+  IniAmplitude      = GETREAL('IniAmplitude','0.2')
+  IniHalfwidth      = GETREAL('IniHalfwidth','0.2')
+CASE(8) ! couette-poiseuille flow
+  P_Parameter       = GETREAL('P_Parameter')
+  U_Parameter       = GETREAL('U_Parameter')
+CASE(10) ! shock
+  MachShock         = GETREAL('MachShock')
+  PreShockDens      = GETREAL('PreShockDens')
 CASE(14)
   HarmonicFrequency = GETREAL('HarmonicFrequency')
   AmplitudeFactor   = GETREAL('AmplitudeFactor')
   SiqmaSqr          = GETREAL('SigmaSqr')
+CASE(517) ! turbulent channel
+  Re_tau            = GETREAL('Re_tau')
 #if PARABOLIC
-  CASE(1338) ! Blasius boundary layer solution
-    delta99_in      = GETREAL('delta99_in')
-    x_in            = GETREALARRAY('x_in',2,'(/0.,0./)')
-    BlasiusInitDone = .TRUE. ! Mark Blasius init as done so we don't read the parameters again in BC init
+CASE(1338) ! Blasius boundary layer solution
+  delta99_in      = GETREAL('delta99_in')
+  x_in            = GETREALARRAY('x_in',2,'(/0.,0./)')
+  BlasiusInitDone = .TRUE. ! Mark Blasius init as done so we don't read the parameters again in BC init
 #endif
-  CASE DEFAULT
-    ! Everything defined, do nothing
+CASE DEFAULT
+  ! Everything defined, do nothing
 END SELECT ! IniExactFunc
 
 #if PP_dim==2
@@ -180,6 +191,20 @@ CASE(2,3,4,41,42) ! synthetic test cases
   END IF
 END SELECT
 #endif
+
+IniSourceTerm = GETINTFROMSTR('IniSourceTerm')
+SELECT CASE (IniSourceTerm)
+CASE(0) ! None
+CASE(1) ! ConstantBodyForce
+  ConstantBodyForce = GETREALARRAY('ConstantBodyForce', 3)
+#if PP_dim==2
+  IF(ConstantBodyForce(3).NE.0.) THEN
+    CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set ConstantBodyForce(3) = 0!')
+  END IF
+#endif
+CASE DEFAULT
+  CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
+END SELECT
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
@@ -201,6 +226,7 @@ USE MOD_Exactfunc_Vars ,ONLY: IniCenter,IniHalfwidth,IniAmplitude,IniFrequency,I
 USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
 USE MOD_Exactfunc_Vars ,ONLY: JetRadius,JetEnd
+USE MOD_Exactfunc_Vars ,ONLY: Re_tau
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
@@ -233,6 +259,7 @@ REAL                            :: random
 REAL                            :: du, dTemp, RT, r2       ! aux var for SHU VORTEX,isentropic vortex case 12
 REAL                            :: pi_loc,phi,radius       ! needed for cylinder potential flow
 REAL                            :: h,sRT,pexit,pentry   ! needed for Couette-Poiseuille
+REAL                            :: y_plus
 #if PARABOLIC
 ! needed for blasius BL
 INTEGER                         :: nSteps,i
@@ -594,6 +621,38 @@ CASE(13) ! DoubleMachReflection (see e.g. http://www.astro.princeton.edu/~jstone
   CALL PrimToCons(prim,resu)
 CASE(14) ! harmonic gauss pulse
   Resu = RefStateCons(:,RefState)
+CASE(517) ! turbulent channel
+  IF (x(2).LT.0.) THEN
+    y_plus = Re_tau * (x(2) + 1.)
+  ELSE
+    y_plus = Re_tau * (1. - x(2))
+  END IF
+  Prim = RefStatePrim(:,RefState)
+  Prim(VELV) = 0.
+  Prim(VEL1) = 1. / 0.41 * LOG(1. + 0.41 * y_plus) + 7.8 * (1. - EXP(-y_plus / 11.) - y_plus / 11. * EXP(-y_plus / 3.))
+  Prim(VEL1) = Prim(VEL1) * RefStatePrim(VEL1, RefState)
+
+  ! copied from src/testcase/channel/testcase.f90
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
+
+  CALL PrimToCons(Prim, Resu)
 #if PARABOLIC
 CASE(1338) ! blasius
   prim=RefStatePrim(:,RefState)
@@ -675,10 +734,11 @@ SUBROUTINE CalcSource(Ut,t)
 USE MOD_Globals
 USE MOD_PreProc
 USE MOD_EOS_Vars         ,ONLY: Kappa,KappaM1
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc,doCalcSource
+USE MOD_Equation_Vars    ,ONLY: IniExactFunc,doCalcSource,IniSourceTerm,ConstantBodyForce
 USE MOD_Exactfunc_Vars   ,ONLY: AdvVel,IniAmplitude,IniFrequency
 USE MOD_Exactfunc_Vars   ,ONLY: HarmonicFrequency,AmplitudeFactor,SiqmaSqr
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
+USE MOD_DG_Vars          ,ONLY: U
 #if PARABOLIC
 USE MOD_EOS_Vars         ,ONLY: mu0,Pr
 #endif
@@ -924,8 +984,38 @@ CASE(43) ! Sinus in z
 #endif
 CASE DEFAULT
   ! No source -> do nothing and set marker to not run again
-  doCalcSource=.FALSE.
+  ! doCalcSource=.FALSE.
 END SELECT ! ExactFunction
+
+SELECT CASE (IniSourceTerm)
+CASE(1) ! ConstantBodyForce
+  DO iElem=1,nElems
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut_src(:,i,j,k) = 0.
+      Ut_src(MOMV,i,j,k) = ConstantBodyForce
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), ConstantBodyForce) / U(DENS,i,j,k,iElem)
+    END DO; END DO; END DO ! i,j,k
+
+#if FV_ENABLED
+    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
+      END DO; END DO; END DO ! i,j,k
+    ELSE
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+      END DO; END DO; END DO ! i,j,k
+    END IF
+#else
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+    END DO; END DO; END DO ! i,j,k
+#endif
+
+  END DO
+END SELECT
+
 END SUBROUTINE CalcSource
 
 END MODULE MOD_Exactfunc
