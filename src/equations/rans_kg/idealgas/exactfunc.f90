@@ -822,12 +822,14 @@ DO iElem=1,nElems
     END ASSOCIATE
 #endif
 
-    dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
-    prodK (1,i,j,k,iElem) = MIN(2. * muT * SijGradU, 20. * ABS(dissK(1,i,j,k,iElem)))
+    ! dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS)) ** 2 * UPrim(TKE) * ABS(UPrim(TKE)) * invR
+    ! prodK (1,i,j,k,iElem) = MIN(2. * muT * SijGradU, 20. * ABS(dissK(1,i,j,k,iElem)))
+    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
+    dissK (1,i,j,k,iElem) = MIN(Cmu * (UPrim(DENS)) ** 2 * UPrim(TKE) * ABS(UPrim(TKE)) * invR, prodK(1,i,j,k,iElem))
 
-    ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2. * Cmu * MAX(gPos, 1.e-6))
-    prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * (0.5 * invR)
-    ! dissG (1,i,j,k,iElem) = -Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
+    prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2. * Cmu * MAX(gPos, 1.e-6))
+    ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * (0.5 * invR) ! g would stay negative
+    ! dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU ! unstable
     dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 / (2. * MAX(muT, 0.01 * muS)) * prodK(1,i,j,k,iElem)
     crossG(1,i,j,k,iElem) = (muS + invSigmaG * muTOrig) * 3. * (Cmu * UPrim(DENS) * kPos * gPos) * invR * dGdG
 
