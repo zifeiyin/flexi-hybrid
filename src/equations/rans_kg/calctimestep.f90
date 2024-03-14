@@ -103,6 +103,7 @@ USE MOD_DG_Vars      ,ONLY:U
 USE MOD_EOS_Vars
 USE MOD_Mesh_Vars    ,ONLY:sJ,Metrics_fTilde,Metrics_gTilde,Elem_xGP,nElems
 USE MOD_TimeDisc_Vars,ONLY:CFLScale,ViscousTimeStep,dtElem
+USE MOD_Equation_Vars,ONLY:Cmu,epsTKE,epsOMG,invSigmaK
 #ifndef GNU
 USE, INTRINSIC :: IEEE_ARITHMETIC,ONLY:IEEE_IS_NAN
 #endif
@@ -141,6 +142,7 @@ REAL                         :: muSGSmax
 REAL                         :: Max_Lambda_v(3),mu,prim(PP_nVarPrim)
 #endif /*PARABOLIC*/
 INTEGER                      :: FVE
+REAL                         :: muTOrig
 !==================================================================================================================================
 errType=0
 
@@ -183,8 +185,9 @@ DO iElem=1,nElems
     ! Viscous Eigenvalues
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
+    muTOrig = Cmu * UE(EXT_DENS) * MAX(UE(EXT_TKE), epsTKE) * MAX(UE(EXT_OMG), epsOMG) ** 2
 #if DECOUPLE==0
-    mu = mu+muSGSMax
+    mu = mu + MAX(muSGSMax, invSigmaK * muTOrig)
 #endif
     Max_Lambda_v=MAX(Max_Lambda_v,mu*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))
 #endif /* PARABOLIC*/

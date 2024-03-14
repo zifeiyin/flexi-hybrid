@@ -608,9 +608,9 @@ kgnut( 4) = -MINVAL(U(RHOG,:,:,:,:))
 kgnut( 5) =  MAXVAL(muSGS(1,:,:,:,:))
 kgnut( 6) = -MINVAL(muSGS(1,:,:,:,:))
 
-kgnut(7)  =  MAXVAL(prodK(1,:,:,:,:))
-kgnut(8)  = -MINVAL(prodK(1,:,:,:,:))
-kgnut(9)  =  MAXVAL(dissK(1,:,:,:,:))
+kgnut( 7) =  MAXVAL(prodK(1,:,:,:,:))
+kgnut( 8) = -MINVAL(prodK(1,:,:,:,:))
+kgnut( 9) =  MAXVAL(dissK(1,:,:,:,:))
 kgnut(10) = -MINVAL(dissK(1,:,:,:,:))
 
 kgnut(11) =  MAXVAL(prodG(1,:,:,:,:))
