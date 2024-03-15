@@ -822,36 +822,32 @@ DO iElem=1,nElems
     END ASSOCIATE
 #endif
 
-    ! dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS)) ** 2 * UPrim(TKE) * ABS(UPrim(TKE)) * invR
-    ! prodK (1,i,j,k,iElem) = MIN(2. * muT * SijGradU, 20. * ABS(dissK(1,i,j,k,iElem)))
-    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
-    dissK (1,i,j,k,iElem) = MIN(Cmu * (UPrim(DENS)) ** 2 * UPrim(TKE) * ABS(UPrim(TKE)) * invR, prodK(1,i,j,k,iElem))
+    !dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS)) ** 2 * UPrim(TKE) * ABS(UPrim(TKE)) * invR
+    dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS)*kPos) ** 2 * invR 
+    prodK (1,i,j,k,iElem) = MIN( 2. * muT * SijGradU, 20.0 * ABS(dissK (1,i,j,k,iElem)) ) 
 
     prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2. * Cmu * MAX(gPos, 1.e-6))
-    ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * (0.5 * invR) ! g would stay negative
-    ! dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU ! unstable
-    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 / (2. * MAX(muT, 0.01 * muS)) * prodK(1,i,j,k,iElem)
+    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU * MIN(1.0, 100.0 * muT / muS) 
     crossG(1,i,j,k,iElem) = (muS + invSigmaG * muTOrig) * 3. * (Cmu * UPrim(DENS) * kPos * gPos) * invR * dGdG
 
-    Ut_src(:,i,j,k) = 0.
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
   END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
   IF (FV_Elems(iElem).GT.0) THEN ! FV elem
-    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+    CALL ChangeBasisVolume(2,PP_N,PP_N,FV_Vdm,Ut_src(RHOK:RHOG,:,:,:),Ut_src2(RHOK:RHOG,:,:,:))
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
+      Ut(RHOK:RHOG,i,j,k,iElem) = Ut(RHOK:RHOG,i,j,k,iElem)+Ut_src2(RHOK:RHOG,i,j,k)/sJ(i,j,k,iElem,1)
     END DO; END DO; END DO ! i,j,k
   ELSE
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+      Ut(RHOK:RHOG,i,j,k,iElem) = Ut(RHOK:RHOG,i,j,k,iElem)+Ut_src(RHOK:RHOG,i,j,k)/sJ(i,j,k,iElem,0)
     END DO; END DO; END DO ! i,j,k
   END IF
 #else
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+    Ut(RHOK:RHOG,i,j,k,iElem) = Ut(RHOK:RHOG,i,j,k,iElem)+Ut_src(RHOK:RHOG,i,j,k)/sJ(i,j,k,iElem,0)
   END DO; END DO; END DO ! i,j,k
 #endif
 
