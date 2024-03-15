@@ -648,6 +648,9 @@ ELSE
         Gd_Face_loc(ENER,:,:)=0.
         Hd_Face_loc(ENER,:,:)=0.
       END IF
+      Fd_Face_loc(RHOK,:,:)=0.
+      Gd_Face_loc(RHOK,:,:)=0.
+      Hd_Face_loc(RHOK,:,:)=0.
     CASE(9)
       ! Euler/(full-)slip wall
       ! Version 1: set the normal derivatives to zero
