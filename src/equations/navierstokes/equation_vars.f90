@@ -33,6 +33,10 @@ CHARACTER(LEN=255):: BCStateFile       !< file containing the reference solution
 
 INTEGER           :: IniSourceTerm     !< number identifying the used source term
 REAL              :: ConstantBodyForce(3) !< Constant body force to be added, IniSourceTerm==1
+REAL              :: MassFlowRate      ! mass flow rate, IniSourceTerm==2
+REAL              :: MassFlowRate_fx   ! lass body force acted on the flow field
+REAL              :: MassFlowRate_last ! mass flow rate in the last time step
+REAL              :: MassFlowRate_area ! reference area
 
 ! Boundary condition arrays
 REAL,ALLOCATABLE     :: BCData(:,:,:,:) !< array with precomputed BC values (conservative)

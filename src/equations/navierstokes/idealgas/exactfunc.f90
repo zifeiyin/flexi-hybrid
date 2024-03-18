@@ -115,8 +115,11 @@ CALL prms%SetSection("SourceTerm")
 CALL prms%CreateIntFromStringOption('IniSourceTerm', "Source term function to be used for computing source term.", "None")
 CALL addStrListEntry('IniSourceTerm','None'             ,0)
 CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
+CALL addStrListEntry('IniSourceTerm','MassFlowRate'     ,2)
 
 CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
+CALL prms%CreateRealArrayOption('MassFlowRate'     , "Mass flow rate in the x direction to be maintained, IniSourceTerm==MassFlowRate")
+CALL prms%CreateRealArrayOption('MassFlowRate_area', "reference area, IniSourceTerm==MassFlowRate")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -130,6 +133,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
+USE MOD_Equation_Vars      ,ONLY: MassFlowRate,MassFlowRate_area,MassFlowRate_fx,MassFlowRate_last
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -202,6 +206,11 @@ CASE(1) ! ConstantBodyForce
     CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set ConstantBodyForce(3) = 0!')
   END IF
 #endif
+CASE(2) ! MassFlowRate
+  MassFlowRate = GETREAL('MassFlowRate')
+  MassFlowRate_area = GETREAL('MassFlowRate_area')
+  MassFlowRate_fx = 0.
+  MassFlowRate_last = 0.
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
 END SELECT
@@ -231,6 +240,7 @@ USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
 USE MOD_EOS            ,ONLY: PrimToCons,ConsToPrim
+USE MOD_AnalyzeEquation,ONLY: CalcBulkState
 #if PARABOLIC
 USE MOD_Eos_Vars       ,ONLY: mu0
 USE MOD_Exactfunc_Vars ,ONLY: delta99_in,x_in
@@ -734,11 +744,13 @@ SUBROUTINE CalcSource(Ut,t)
 USE MOD_Globals
 USE MOD_PreProc
 USE MOD_EOS_Vars         ,ONLY: Kappa,KappaM1
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc,doCalcSource,IniSourceTerm,ConstantBodyForce
+USE MOD_Equation_Vars    ,ONLY: IniExactFunc,doCalcSource,IniSourceTerm,ConstantBodyForce,MassFlowRate,MassFlowRate_fx,MassFlowRate_last,MassFlowRate_area
 USE MOD_Exactfunc_Vars   ,ONLY: AdvVel,IniAmplitude,IniFrequency
 USE MOD_Exactfunc_Vars   ,ONLY: HarmonicFrequency,AmplitudeFactor,SiqmaSqr
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 USE MOD_DG_Vars          ,ONLY: U
+USE MOD_AnalyzeEquation  ,ONLY: CalcBulkState
+USE MOD_CalcBodyForces   ,ONLY: CalcBodyForces
 #if PARABOLIC
 USE MOD_EOS_Vars         ,ONLY: mu0,Pr
 #endif
@@ -759,6 +771,11 @@ REAL                :: Frequency,Amplitude,Omega,a
 REAL                :: sinXGP,sinXGP2,cosXGP,at
 REAL                :: tmp(6)
 REAL                :: C
+REAL                :: BulkPrim(PP_nVarPrim),BulkCons(PP_nVar)
+! REAL                :: Fp(3,nBCs)              !< integrated pressure force per wall BC
+! REAL                :: Fv(3,nBCs)              !< integrated friction force per wall BC
+! REAL                :: BodyForce(3,nBCs)       !< Sum of pressure/friction force
+REAL                :: Qnext                   !< estimated next timestep mass flow rate
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
@@ -999,6 +1016,36 @@ CASE(1) ! ConstantBodyForce
 #if FV_ENABLED
     IF (FV_Elems(iElem).GT.0) THEN ! FV elem
     CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
+      END DO; END DO; END DO ! i,j,k
+    ELSE
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+      END DO; END DO; END DO ! i,j,k
+    END IF
+#else
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+    END DO; END DO; END DO ! i,j,k
+#endif
+
+  END DO
+CASE(2) ! MassFlowRate
+  CALL CalcBulkState(BulkPrim,BulkCons)
+  ! CALL CalcBodyForces(BodyForce,Fp,Fv)
+  MassFlowRate_fx = MassFlowRate_fx + 2 * ((MassFlowRate_last - MassFlowRate) + 0.2 * (MassFlowRate - BulkCons(MOM1))) / MassFlowRate_area
+  MassFlowRate_last = BulkCons(MOM1)
+  DO iElem=1,nElems
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut_src(:,i,j,k) = 0.
+      Ut_src(MOM1,i,j,k) = MassFlowRate_fx
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), Ut_src(MOMV,i,j,k)) / U(DENS,i,j,k,iElem)
+    END DO; END DO; END DO ! i,j,k
+
+#if FV_ENABLED
+    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
       DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
         Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
       END DO; END DO; END DO ! i,j,k

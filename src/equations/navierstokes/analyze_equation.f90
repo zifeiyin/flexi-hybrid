@@ -37,7 +37,7 @@ INTERFACE FinalizeAnalyzeEquation
 END INTERFACE
 
 
-PUBLIC:: AnalyzeEquation, InitAnalyzeEquation, FinalizeAnalyzeEquation
+PUBLIC:: AnalyzeEquation, InitAnalyzeEquation, FinalizeAnalyzeEquation, CalcBulkState
 !==================================================================================================================================
 
 PUBLIC::DefineParametersAnalyzeEquation
