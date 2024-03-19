@@ -46,8 +46,8 @@ REAL                 :: s23            !< precomputed 2./3.
 REAL                 :: sqrt6          !< precomputed sqrt(6)
 
 REAL,PARAMETER       :: Cmu = 0.09      !< aka beta*
-REAL,PARAMETER       :: COmega1 = 0.55 !< aka alpha
-REAL,PARAMETER       :: COmega2 = 0.83 !< aka beta
+REAL,PARAMETER       :: COmega1 = 5./9. !< aka alpha
+REAL,PARAMETER       :: COmega2 = 0.075 !< aka beta
 REAL,PARAMETER       :: invSigmaK = 0.5 !< inverse of sigmaK = 2
 REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
 
