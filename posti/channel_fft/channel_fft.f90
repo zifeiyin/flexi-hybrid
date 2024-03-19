@@ -40,7 +40,7 @@ USE MOD_HDF5_Input,              ONLY: OpenDataFile,CloseDataFile,GetDataProps,R
 USE MOD_Interpolation_Vars,      ONLY: NodeType
 USE MOD_DG_Vars,                 ONLY: U
 USE MOD_FFT,                     ONLY: InitFFT,PerformFFT,FFTOutput,FinalizeFFT,PrimStateAtFFTCoords
-USE MOD_FFT_Vars,                ONLY: ProjectName,Time
+USE MOD_FFT_Vars,                ONLY: ProjectName,Time, ReadMean
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -63,9 +63,11 @@ CALL DefineParametersIO_HDF5()
 CALL DefineParametersMesh()
 
 CALL prms%SetSection("channelFFT")
-CALL prms%CreateIntOption( "OutputFormat",  "Choose the main format for output. 0: Tecplot, 2: HDF5")
-CALL prms%CreateIntOption( "NCalc",  "Polynomial degree to perform DFFT on.")
-CALL prms%CreateRealOption("Re_tau", "Reynolds number based on friction velocity and channel half height.")
+CALL prms%CreateIntOption(    "OutputFormat", "Choose the main format for output. 0: Tecplot, 2: HDF5")
+CALL prms%CreateIntOption(    "NCalc",        "Polynomial degree to perform DFFT on.")
+CALL prms%CreateRealOption(   "Re_tau",       "Reynolds number based on friction velocity and channel half height.")
+CALL prms%CreateLogicalOption("ReadMean",     "Read TimeAvg file instead of State.")
+CALL prms%CreateStringOption("OutputNodeType","Interpolation node type, Gauss, Gauss-Lobatto, etc.")
 
 ! check for command line argument --help or --markdown
 IF (doPrintHelp.GT.0) THEN
@@ -128,7 +130,11 @@ DO iArg=2,nArgs
 
   ! Get Solution
   CALL OpenDataFile(Args(iArg),create=.FALSE.,single=.FALSE.,readOnly=.TRUE.)
-  CALL ReadArray('DG_Solution',5,(/PP_nVar,PP_N+1,PP_N+1,PP_N+1,nElems/),OffsetElem,5,RealArray=U)
+  IF (ReadMean) THEN
+    CALL ReadArray('Mean',5,(/PP_nVar,PP_N+1,PP_N+1,PP_N+1,nElems/),OffsetElem,5,RealArray=U)
+  ELSE
+    CALL ReadArray('DG_Solution',5,(/PP_nVar,PP_N+1,PP_N+1,PP_N+1,nElems/),OffsetElem,5,RealArray=U)
+  END IF
   CALL CloseDataFile()
 
   ! Interpolate solution to FFT grid

@@ -85,6 +85,7 @@ CALL addStrListEntry('IniExactFunc','shock'             ,10)
 CALL addStrListEntry('IniExactFunc','sod'               ,11)
 CALL addStrListEntry('IniExactFunc','dmr'               ,13)
 CALL addStrListEntry('IniExactFunc','harmonicgausspulse',14)
+CALL addStrListEntry('IniExactFunc','turbulentchannel'  ,517)
 #if PARABOLIC
 CALL addStrListEntry('IniExactFunc','blasius'  ,1338)
 #endif
@@ -104,10 +105,19 @@ CALL prms%CreateRealOption(         'U_Parameter',  "Couette-Poiseuille flow CAS
 CALL prms%CreateRealOption(         'AmplitudeFactor',         "Harmonic Gauss Pulse CASE(14)", '0.1')
 CALL prms%CreateRealOption(         'HarmonicFrequency',       "Harmonic Gauss Pulse CASE(14)", '400')
 CALL prms%CreateRealOption(         'SigmaSqr',                "Harmonic Gauss Pulse CASE(14)", '0.1')
+CALL prms%CreateRealOption(         'Re_tau',                  "Re_tau CASE(517)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
 #endif
+
+! Extra source term
+CALL prms%SetSection("SourceTerm")
+CALL prms%CreateIntFromStringOption('IniSourceTerm', "Source term function to be used for computing source term.", "None")
+CALL addStrListEntry('IniSourceTerm','None'             ,0)
+CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
+
+CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -120,7 +130,7 @@ USE MOD_PreProc
 USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
-USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState
+USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -136,30 +146,32 @@ IniRefState  = GETINT('IniRefState', "-1")
 ! Read in boundary parameters
 SELECT CASE (IniExactFunc)
   CASE(2,21) ! sinus
-    AdvVel          = GETREALARRAY('AdvVel',3)
-    IniFrequency    = GETREAL('IniFrequency','0.5')
-    IniAmplitude    = GETREAL('IniAmplitude','0.3')
+    AdvVel            = GETREALARRAY('AdvVel',3)
+    IniFrequency      = GETREAL('IniFrequency','0.5')
+    IniAmplitude      = GETREAL('IniAmplitude','0.3')
   CASE(3) ! synthetic test cases
-    AdvVel          = GETREALARRAY('AdvVel',3)
+    AdvVel            = GETREALARRAY('AdvVel',3)
   CASE(4,41,42,43) ! synthetic test cases
-    AdvVel          = GETREALARRAY('AdvVel',3)
-    IniFrequency    = GETREAL('IniFrequency','1.0')
-    IniAmplitude    = GETREAL('IniAmplitude','0.1')
+    AdvVel            = GETREALARRAY('AdvVel',3)
+    IniFrequency      = GETREAL('IniFrequency','1.0')
+    IniAmplitude      = GETREAL('IniAmplitude','0.1')
   CASE(7) ! Shu Vortex
-    IniCenter       = GETREALARRAY('IniCenter',3,'(/0.,0.,0./)')
-    IniAxis         = GETREALARRAY('IniAxis',3,'(/0.,0.,1./)')
-    IniAmplitude    = GETREAL('IniAmplitude','0.2')
-    IniHalfwidth    = GETREAL('IniHalfwidth','0.2')
+    IniCenter         = GETREALARRAY('IniCenter',3,'(/0.,0.,0./)')
+    IniAxis           = GETREALARRAY('IniAxis',3,'(/0.,0.,1./)')
+    IniAmplitude      = GETREAL('IniAmplitude','0.2')
+    IniHalfwidth      = GETREAL('IniHalfwidth','0.2')
   CASE(8) ! couette-poiseuille flow
-    P_Parameter     = GETREAL('P_Parameter')
-    U_Parameter     = GETREAL('U_Parameter')
+    P_Parameter       = GETREAL('P_Parameter')
+    U_Parameter       = GETREAL('U_Parameter')
   CASE(10) ! shock
-    MachShock       = GETREAL('MachShock')
-    PreShockDens    = GETREAL('PreShockDens')
-CASE(14)
-  HarmonicFrequency = GETREAL('HarmonicFrequency')
-  AmplitudeFactor   = GETREAL('AmplitudeFactor')
-  SiqmaSqr          = GETREAL('SigmaSqr')
+    MachShock         = GETREAL('MachShock')
+    PreShockDens      = GETREAL('PreShockDens')
+  CASE(14)
+    HarmonicFrequency = GETREAL('HarmonicFrequency')
+    AmplitudeFactor   = GETREAL('AmplitudeFactor')
+    SiqmaSqr          = GETREAL('SigmaSqr')
+  CASE(517) ! turbulent channel
+    Re_tau            = GETREAL('Re_tau')
 #if PARABOLIC
   CASE(1338) ! Blasius boundary layer solution
     delta99_in      = GETREAL('delta99_in')
@@ -181,6 +193,20 @@ CASE(2,3,4,41,42) ! synthetic test cases
 END SELECT
 #endif
 
+IniSourceTerm = GETINTFROMSTR('IniSourceTerm')
+SELECT CASE (IniSourceTerm)
+CASE(0) ! None
+CASE(1) ! ConstantBodyForce
+  ConstantBodyForce = GETREALARRAY('ConstantBodyForce', 3)
+#if PP_dim==2
+  IF(ConstantBodyForce(3).NE.0.) THEN
+    CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set ConstantBodyForce(3) = 0!')
+  END IF
+#endif
+CASE DEFAULT
+  CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
+END SELECT
+
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
 END SUBROUTINE InitExactFunc
@@ -201,6 +227,7 @@ USE MOD_Exactfunc_Vars ,ONLY: IniCenter,IniHalfwidth,IniAmplitude,IniFrequency,I
 USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
 USE MOD_Exactfunc_Vars ,ONLY: JetRadius,JetEnd
+USE MOD_Exactfunc_Vars ,ONLY: Re_tau
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
@@ -233,6 +260,7 @@ REAL                            :: random
 REAL                            :: du, dTemp, RT, r2       ! aux var for SHU VORTEX,isentropic vortex case 12
 REAL                            :: pi_loc,phi,radius       ! needed for cylinder potential flow
 REAL                            :: h,sRT,pexit,pentry   ! needed for Couette-Poiseuille
+REAL                            :: y_plus
 #if PARABOLIC
 ! needed for blasius BL
 INTEGER                         :: nSteps,i
@@ -594,6 +622,38 @@ CASE(13) ! DoubleMachReflection (see e.g. http://www.astro.princeton.edu/~jstone
   CALL PrimToCons(prim,resu)
 CASE(14) ! harmonic gauss pulse
   Resu = RefStateCons(:,RefState)
+CASE(517) ! turbulent channel
+  IF (x(2).LT.0.) THEN
+    y_plus = Re_tau * (x(2) + 1.)
+  ELSE
+    y_plus = Re_tau * (1. - x(2))
+  END IF
+  Prim = RefStatePrim(:,RefState)
+  Prim(VELV) = 0.
+  Prim(VEL1) = 1. / 0.41 * LOG(1. + 0.41 * y_plus) + 7.8 * (1. - EXP(-y_plus / 11.) - y_plus / 11. * EXP(-y_plus / 3.))
+  Prim(VEL1) = Prim(VEL1) * RefStatePrim(VEL1, RefState)
+
+  ! copied from src/testcase/channel/testcase.f90
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
+
+  CALL PrimToCons(Prim, Resu)
 #if PARABOLIC
 CASE(1338) ! blasius
   prim=RefStatePrim(:,RefState)
@@ -674,21 +734,14 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_EOS_Vars         ,ONLY: Kappa,KappaM1
-USE MOD_EOS              ,ONLY: ConsToPrim
-USE MOD_Equation_Vars    ,ONLY: Cmu,Comega1,Comega2,epsTKE,epsOMG,sigmaG,s23,s43
-USE MOD_Exactfunc_Vars   ,ONLY: AdvVel,IniAmplitude,IniFrequency
-USE MOD_Exactfunc_Vars   ,ONLY: HarmonicFrequency,AmplitudeFactor,SiqmaSqr
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
-USE MOD_DG_Vars          ,ONLY: U
-USE MOD_EddyVisc_Vars    ,ONLY: muSGS
-#if PARABOLIC
-USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy
-#if PP_dim == 3
-USE MOD_Lifting_Vars     ,ONLY: gradUz
-#endif
 USE MOD_EOS_Vars         ,ONLY: mu0,Pr
-#endif
+USE MOD_Equation_Vars    ,ONLY: s43,s23,Cmu,Comega1,Comega2,invSigmaG,invSigmaK
+USE MOD_Equation_Vars    ,ONLY: sqrt6
+USE MOD_DG_Vars          ,ONLY: U
+USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
+USE MOD_EOS              ,ONLY: ConsToPrim
+USE MOD_Equation_Vars    ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -696,6 +749,8 @@ USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #if PP_VISC == 1
 USE MOD_Viscosity        ,ONLY: muSuth
 #endif
+USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,crossK,prodG,dissG,crossG
+! USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -706,106 +761,135 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 REAL                :: UPrim(PP_nVarPrim)
-REAL                :: muS, mut, muu, kPos, gPos, invR
-REAL                :: ProdK, DissK, ProdG, DissG, CrossG, dGdG
+REAL                :: muS,muT,kLog,gLog,muTOrig
+REAL                :: expNegK, expNegG
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
-REAL                :: Sxx, Sxy, Syy, SijGradU
+REAL                :: Sxx,Sxy,Syy,SijGradU
 #if PP_dim == 3
 REAL                :: Sxz, Syz, Szz
 #endif
-REAL                :: FV_Elem
+REAL                :: dGdG, dKdK, dKdG 
 !==================================================================================================================================
-
-#if PARABOLIC
-
 DO iElem=1,nElems
-#if FV_ENABLED
-  FV_Elem = FV_Elems(iElem)
-#else
-  FV_Elem = 0
-#endif
-
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
 
-    kPos = MAX(UPrim(TKE), epsTKE)
-    gPos = MAX(UPrim(OMG), epsOMG)
+    muS = VISCOSITY_PRIM(UPrim)
+    muT = muSGS(1,i,j,k,iElem)
+    kLog    = MIN( UPrim(TKE), 23.0258509299 ) 
+    gLog    = MIN( UPrim(OMG), 23.0258509299 ) 
+    expNegK = EXP(MIN(-kLog,20.7232658369))
+    expNegG = EXP(MIN(-gLog,20.7232658369))
 
-    muS  = VISCOSITY_PRIM(prim)
-    mut  = muSGS(1,i,j,k,iElem)
-    muu  = UPrim(DENS) * Cmu * kPos * gPos**2
+    muTOrig = MIN( Cmu * UPrim(DENS) * EXP( kLog - gLog ), 10000.0 * muS )
+    !muTOrig = Cmu * UPrim(DENS) * EXP( kLog + gLog )
 
-    invR = 1. / MAX(muu, 0.01 * muS)
+#if PP_dim==2
+    ASSOCIATE( &
+        ux => gradUx(LIFT_VEL1,i,j,k,iElem), uy => gradUy(LIFT_VEL1,i,j,k,iElem), &
+        vx => gradUx(LIFT_VEL2,i,j,k,iElem), vy => gradUy(LIFT_VEL2,i,j,k,iElem), &
+        kx => gradUx(LIFT_TKE ,i,j,k,iElem), ky => gradUy(LIFT_TKE ,i,j,k,iElem), &
+        gx => gradUx(LIFT_OMG ,i,j,k,iElem), gy => gradUy(LIFT_OMG ,i,j,k,iElem))
 
-#if PP_dim == 2
-    Sxx      = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) )
-    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) )
-    Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
-    SijGradU = Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
-             + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) + Syy * gradUy(LIFT_VEL2,i,j,k,iElem)
+    Sxx = 0.5 * (s43 * ux - s23 * vy)
+    Syy = 0.5 * (s43 * vy - s23 * ux)
+    Sxy = 0.5 * (uy + vx)
+
+    SijGradU = Sxx * ux + Sxy * uy + Sxy * vx + Syy * vy
+
+    dKdK = kx * kx + ky * ky
+    dGdG = gx * gx + gy * gy
+    dKdG = kx * gx + ky * gy
+
+    END ASSOCIATE
 #else
-    Sxx      = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
-    Syy      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
-    Szz      = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) + s43 * gradUz(LIFT_VEL3,i,j,k,iElem))
-    Sxy      = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
-    Sxz      = 0.5 * (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))
-    Syz      = 0.5 * (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))
-    SijGradU = ( Sxx * gradUx(LIFT_VEL1,i,j,k,iElem) &
-               + Sxy * gradUy(LIFT_VEL1,i,j,k,iElem) &
-               + Sxz * gradUz(LIFT_VEL1,i,j,k,iElem) &
-               + Sxy * gradUx(LIFT_VEL2,i,j,k,iElem) &
-               + Syy * gradUy(LIFT_VEL2,i,j,k,iElem) &
-               + Syz * gradUz(LIFT_VEL2,i,j,k,iElem) &
-               + Sxz * gradUx(LIFT_VEL3,i,j,k,iElem) &
-               + Syz * gradUy(LIFT_VEL3,i,j,k,iElem) &
-               + Szz * gradUz(LIFT_VEL3,i,j,k,iElem) )
+    ASSOCIATE( &
+        ux => gradUx(LIFT_VEL1,i,j,k,iElem), uy => gradUy(LIFT_VEL1,i,j,k,iElem), uz => gradUz(LIFT_VEL1,i,j,k,iElem), &
+        vx => gradUx(LIFT_VEL2,i,j,k,iElem), vy => gradUy(LIFT_VEL2,i,j,k,iElem), vz => gradUz(LIFT_VEL2,i,j,k,iElem), &
+        wx => gradUx(LIFT_VEL3,i,j,k,iElem), wy => gradUy(LIFT_VEL3,i,j,k,iElem), wz => gradUz(LIFT_VEL3,i,j,k,iElem), &
+        kx => gradUx(LIFT_TKE ,i,j,k,iElem), ky => gradUy(LIFT_TKE ,i,j,k,iElem), kz => gradUz(LIFT_TKE ,i,j,k,iElem), &
+        gx => gradUx(LIFT_OMG ,i,j,k,iElem), gy => gradUy(LIFT_OMG ,i,j,k,iElem), gz => gradUz(LIFT_OMG ,i,j,k,iElem))
+
+    Sxx = 0.5 * (s43 * ux - s23 * (vy + wz))
+    Syy = 0.5 * (s43 * vy - s23 * (ux + wz))
+    Szz = 0.5 * (s43 * wz - s23 * (ux + vy))
+    Sxy = 0.5 * (uy + vx)
+    Sxz = 0.5 * (uz + wx)
+    Syz = 0.5 * (vz + wy)
+
+    SijGradU = &
+        Sxx * ux + Sxy * uy + Sxz * uz + &
+        Sxy * vx + Syy * vy + Syz * vz + &
+        Sxz * wx + Syz * wy + Szz * wz
+
+    dKdK = kx * kx + ky * ky + kz * kz
+    dGdG = gx * gx + gy * gy + gz * gz
+    dKdG = kx * gx + ky * gy + kz * gz
+
+    END ASSOCIATE
 #endif
 
-#if PP_dim == 2
-    dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
-         + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)
-#else
-    dGdG = gradUx(LIFT_OMG,i,j,k,iElem) * gradUx(LIFT_OMG,i,j,k,iElem)&
-         + gradUy(LIFT_OMG,i,j,k,iElem) * gradUy(LIFT_OMG,i,j,k,iElem)&
-         + gradUz(LIFT_OMG,i,j,k,iElem) * gradUz(LIFT_OMG,i,j,k,iElem)
-#endif
+    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU * expNegK 
+    dissK (1,i,j,k,iElem) = Cmu * UPrim(DENS) * EXP(gLog)
+    crossK(1,i,j,k,iElem) = MIN( (muS + invSigmaK * muTOrig) * dKdK, 1.e9)
 
-    ProdK = 2.0 * mut * SijGradU
-    DissK = -Cmu * (UPrim(DENS) * kPos)**2 * invR
+    prodG (1,i,j,k,iElem) = MIN( 2. * Comega1 * UPrim(DENS) * expNegG * SijGradU, 1.e8 )
+    dissG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) * EXP(gLog)
+    crossG(1,i,j,k,iElem) = MIN( (muS + invSigmaK * muTOrig) * dGdG, 1.e9)
 
-    ProdG = (Comega2 * UPrim(DENS)) / (2. * Cmu * MIN(gPos, 1.e6))
-    DissG = -Comega1 * (Cmu * UPrim(DENS) * gPos**3) * SijGradU
-    CrossG = -(muS + sigmaG * muu) * 3. * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
-    
-    Ut_src(RHOK,i,j,k) = ProdK + DissK
-    Ut_src(RHOG,i,j,k) = ProdG + DissG + CrossG
-  END DO; END DO; END DO
+    Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem) + crossK(1,i,j,k,iElem)
+    Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) + crossG(1,i,j,k,iElem)
+  END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
   IF (FV_Elems(iElem).GT.0) THEN ! FV elem
-    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+    CALL ChangeBasisVolume(2,PP_N,PP_N,FV_Vdm,Ut_src(RHOK:RHOG,:,:,:),Ut_src2(RHOK:RHOG,:,:,:))
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem) + Ut_src2(RHOK,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
-      Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem) + Ut_src2(RHOG,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+      Ut(RHOK:RHOG,i,j,k,iElem) = Ut(RHOK:RHOG,i,j,k,iElem)+Ut_src2(RHOK:RHOG,i,j,k)/sJ(i,j,k,iElem,1)
     END DO; END DO; END DO ! i,j,k
   ELSE
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem) + Ut_src(RHOK,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
-      Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem) + Ut_src(RHOG,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+      Ut(RHOK:RHOG,i,j,k,iElem) = Ut(RHOK:RHOG,i,j,k,iElem)+Ut_src(RHOK:RHOG,i,j,k)/sJ(i,j,k,iElem,0)
     END DO; END DO; END DO ! i,j,k
   END IF
 #else
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    Ut(RHOK,i,j,k,iElem) = Ut(RHOK,i,j,k,iElem) + Ut_src(RHOK,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
-    Ut(RHOG,i,j,k,iElem) = Ut(RHOG,i,j,k,iElem) + Ut_src(RHOG,i,j,k) / sJ(i,j,k,iElem,FV_Elem)
+    Ut(RHOK:RHOG,i,j,k,iElem) = Ut(RHOK:RHOG,i,j,k,iElem)+Ut_src(RHOK:RHOG,i,j,k)/sJ(i,j,k,iElem,0)
   END DO; END DO; END DO ! i,j,k
 #endif
 
 END DO
 
+SELECT CASE (IniSourceTerm)
+CASE(1) ! ConstantBodyForce
+  DO iElem=1,nElems
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut_src(:,i,j,k) = 0.
+      Ut_src(MOMV,i,j,k) = ConstantBodyForce
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), ConstantBodyForce) / U(DENS,i,j,k,iElem)
+    END DO; END DO; END DO ! i,j,k
+
+#if FV_ENABLED
+    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
+      END DO; END DO; END DO ! i,j,k
+    ELSE
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+      END DO; END DO; END DO ! i,j,k
+    END IF
+#else
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+    END DO; END DO; END DO ! i,j,k
 #endif
+
+  END DO
+END SELECT
 
 END SUBROUTINE CalcSource
 

@@ -24,72 +24,86 @@ MODULE MOD_DefaultEddyVisc
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC::DefaultEddyVisc, FinalizeDefaultEddyViscosity
+PUBLIC::InitDefaultEddyVisc, DefaultEddyVisc_Volume, FinalizeDefaultEddyViscosity
 !===================================================================================================================================
 
 CONTAINS
 
 !===================================================================================================================================
-!> Dummy for default eddy viscosity (meaning no eddy viscosity), do nothing since the muSGS arrays will be passed here and they
-!> are zero all the time.
+!> Initialize k-g model
 !===================================================================================================================================
-SUBROUTINE DefaultEddyVisc()
+SUBROUTINE InitDefaultEddyVisc()
+! MODULES
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!===================================================================================================================================
+END SUBROUTINE InitDefaultEddyVisc
+
+!===================================================================================================================================
+!> Compute k-g Eddy-Visosity
+!===================================================================================================================================
+PPURE SUBROUTINE DefaultEddyVisc_Point(gradUx,gradUy,gradUz,U,muSGS)
+! MODULES
+USE MOD_Equation_Vars ,ONLY: Cmu,sqrt6
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,DIMENSION(PP_nVarLifting),INTENT(IN)  :: gradUx, gradUy, gradUz   !> Gradients in x,y,z directions
+REAL,DIMENSION(PP_nVar)       ,INTENT(IN)  :: U       !> pointwise conservative vairables
+REAL                          ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                                    :: magS
+REAL                                    :: kLog,gLog,muTOrig
+!===================================================================================================================================
+! Already take the square root of 2 into account here
+#if PP_dim==2
+magS = SQRT( &
+    2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) + &
+    (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2)
+#else
+magS = SQRT( &
+    2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) + &
+    (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2 + &
+    (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))**2 + &
+    (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))**2)
+#endif
+
+kLog    = MAX( U(RHOK) / U(DENS), -23.0258509299 )
+gLog    = MAX( U(RHOG) / U(DENS), -23.0258509299 )
+muTOrig = U(DENS) * EXP( kLog - gLog )
+
+! muSGS = MIN(muTOrig, U(DENS) * kPos / (sqrt6 * magS))
+muSGS = MIN(muTOrig,  U(DENS) * EXP(kLog) / MAX(sqrt6 * magS, 1.e-16))
+END SUBROUTINE DefaultEddyVisc_Point
+
+!===================================================================================================================================
+!> Compute k-g Eddy-Visosity for the volume
+!===================================================================================================================================
+SUBROUTINE DefaultEddyVisc_Volume()
 ! MODULES
 USE MOD_PreProc
 USE MOD_Mesh_Vars,         ONLY: nElems
 USE MOD_EddyVisc_Vars,     ONLY: muSGS
 USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
 USE MOD_DG_Vars,           ONLY: U
-USE MOD_EOS_Vars,          ONLY: mu0
-USE MOD_Equation_Vars,     ONLY: s43,s23,epsTKE,epsOMG,Cmu
 IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER :: i,j,k,iElem
-REAL    :: magS
-! REAL    :: Sxx, Sxy, Syy
-! #if PP_dim == 3
-! REAL    :: Sxz, Syz, Szz
-! #endif
-REAL    :: rho, kPos, gPos, muu
+INTEGER             :: i,j,k,iElem
 !===================================================================================================================================
-
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-
-! #if PP_dim == 2
-!     Sxx = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) )
-!     Syy = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) )
-!     Sxy = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
-! #else
-!     Sxx = 0.5 * ( s43 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
-!     Syy = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) + s43 * gradUy(LIFT_VEL2,i,j,k,iElem) - s23 * gradUz(LIFT_VEL3,i,j,k,iElem))
-!     Szz = 0.5 * (-s23 * gradUx(LIFT_VEL1,i,j,k,iElem) - s23 * gradUy(LIFT_VEL2,i,j,k,iElem) + s43 * gradUz(LIFT_VEL3,i,j,k,iElem))
-!     Sxy = 0.5 * (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))
-!     Sxz = 0.5 * (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))
-!     Syz = 0.5 * (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))
-! #endif
-
-#if PP_dim==3
-    magS = SQRT( &
-        2. * (gradUx(LIFT_VEL1,i,j,k,iElem)**2 + gradUy(LIFT_VEL2,i,j,k,iElem)**2 + gradUz(LIFT_VEL3,i,j,k,iElem)**2) + &
-        (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))**2 + &
-        (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))**2 + &
-        (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))**2)
-#else
-    magS = SQRT( &
-        2. * (gradUx(LIFT_VEL1,i,j,k,iElem)**2 + gradUy(LIFT_VEL2,i,j,k,iElem)**2) + &
-        (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))**2)
-#endif
-
-    rho = U(DENS,i,j,k,iElem)
-    kPos = MAX(U(RHOK,i,j,k,iElem) / rho, epsTKE)
-    gPos = MAX(U(RHOG,i,j,k,iElem) / rho, epsOMG)
-    muu = Cmu * rho * kPos * gPos**2
-    muSGS(1,i,j,k,iElem) = MIN(muu, rho * kPos / MAX(SQRT(6.) * magS, epsOMG))
-  END DO; END DO; END DO
+    CALL DefaultEddyVisc_Point(gradUx(:,i,j,k,iElem), gradUy(:,i,j,k,iElem), gradUz(:,i,j,k,iElem), &
+                               U(:,i,j,k,iElem),      muSGS(1,i,j,k,iElem))
+  END DO; END DO; END DO ! i,j,k
 END DO
-
-END SUBROUTINE DefaultEddyVisc
+END SUBROUTINE DefaultEddyVisc_Volume
 
 !===============================================================================================================================
 !> Deallocate arrays and finalize variables used by the default eddy viscosity

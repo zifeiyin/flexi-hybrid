@@ -180,8 +180,8 @@ fTilde(MOM3) = (URef(MOM1)*UPrimRef(VEL3) + U(MOM1)*UPrim(VEL3))                
 fTilde(MOM3) = 0.
 #endif
 fTilde(ENER) = (rhoEpRef*UPrimRef(VEL1) + rhoEp*UPrim(VEL1))                                ! {(rho*E+p)*u}
-fTilde(RHOK) = (URef(MOM1)*UPrimRef(TKE)  + U(MOM1)*UPrim(TKE))                             ! {rho*u*k}
-fTilde(RHOG) = (URef(MOM1)*UPrimRef(OMG)  + U(MOM1)*UPrim(OMG))                             ! {rho*u*g}
+fTilde(RHOK) = (URef(RHOK)*UPrimRef(VEL1) + U(RHOK)*UPrim(VEL1))                            ! {rho*u*k}
+fTilde(RHOG) = (URef(RHOG)*UPrimRef(VEL1) + U(RHOG)*UPrim(VEL1))                            ! {rho*u*g}
 ! local Euler fluxes y-direction
 gTilde(DENS) = (URef(MOM2) + U(MOM2))                                                       ! {rho*v}
 gTilde(MOM1) = (URef(MOM1)*UPrimRef(VEL2) + U(MOM1)*UPrim(VEL2))                            ! {rho*u*v}
@@ -303,8 +303,8 @@ hTilde(MOM1) = 0.5*(URef(MOM1)+U(MOM1))*(UPrimRef(VEL3)+UPrim(VEL3))            
 hTilde(MOM2) = 0.5*(URef(MOM2)+U(MOM2))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*v}*{w}
 hTilde(MOM3) = 0.5*(URef(MOM3)+U(MOM3))*(UPrimRef(VEL3)+UPrim(VEL3)) + (UPrimRef(PRES)+UPrim(PRES)) ! {rho*w}*{w}+{p}
 hTilde(ENER) = 0.5*(URef(ENER)+U(ENER)+UPrimRef(PRES)+UPrim(PRES))*(UPrimRef(VEL3)+UPrim(VEL3))     ! ({rho*E}+{p})*{w}
-gTilde(RHOK) = 0.5*(URef(RHOK)+U(RHOK))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*k}*{w}
-gTilde(RHOG) = 0.5*(URef(RHOG)+U(RHOG))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*g}*{w}
+hTilde(RHOK) = 0.5*(URef(RHOK)+U(RHOK))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*k}*{w}
+hTilde(RHOG) = 0.5*(URef(RHOG)+U(RHOG))*(UPrimRef(VEL3)+UPrim(VEL3))                                ! {rho*k}*{w}
 #endif
 
 ! transform into reference space
@@ -340,7 +340,7 @@ F(MOM3)= 0.25*(U_LL(EXT_MOM3)+U_RR(EXT_MOM3))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))   
 F(MOM3)= 0.
 #endif
 F(ENER)= 0.25*(U_LL(EXT_ENER)+U_RR(EXT_ENER)+U_LL(EXT_PRES)+U_RR(EXT_PRES))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))         ! ({rho*E}+{p})*{u}
-F(RHOK)= 0.25*(U_LL(EXT_RHOK)+U_RR(EXT_RHOK))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*k}*{u}
+F(RHOK)= 0.25*(U_LL(EXT_RHOK)+U_RR(EXT_RHOK))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*k}*{u} 
 F(RHOG)= 0.25*(U_LL(EXT_RHOG)+U_RR(EXT_RHOG))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*g}*{u}
 
 END SUBROUTINE SplitSurfaceFluxDU
@@ -735,7 +735,7 @@ REAL,DIMENSION(CONS),INTENT(OUT) :: Flux     !< flux in reverence space
 REAL                                    :: beta,betaRef            ! auxiliary variables for the inverse Temperature
 REAL                                    :: pHatMean,HMean          ! auxiliary variable for the mean pressure and specific enthalpy
 REAL                                    :: uMean,vMean,wMean       ! auxiliary variable for the average velocities
-REAL                                    :: kMean,gMean             ! auxiliary variable for the average turbulence quantities
+REAL                                    :: kMean,gMean             ! auxiliary variable for the average turbulence variables
 REAL                                    :: rhoLogMean,betaLogMean  ! auxiliary variable for the logarithmic means
 REAL,DIMENSION(PP_nVar)                 :: fTilde,gTilde           ! flux in physical space
 #if PP_dim == 3
@@ -828,15 +828,15 @@ REAL,DIMENSION(CONS   ),INTENT(OUT) :: F    !< resulting flux
 REAL                                :: beta_LL,beta_RR        ! auxiliary variables for the inverse Temperature
 REAL                                :: pHatMean,HMean         ! auxiliary variable for the mean pressure and specific enthalpy
 REAL                                :: uMean,vMean,wMean      ! auxiliary variable for the average velocities
-REAL                                :: kMean,gMean            ! auxiliary variable for the average turbulence quantities
+REAL                                :: kMean,gMean             ! auxiliary variable for the average turbulence variables
 REAL                                :: rhoLogMean,betaLogMean ! auxiliary variable for the logarithmic mean
 !==================================================================================================================================
 ! average velocities
 uMean = 0.5*(U_LL(EXT_VEL1) + U_RR(EXT_VEL1))
 vMean = 0.5*(U_LL(EXT_VEL2) + U_RR(EXT_VEL2))
 wMean = 0.5*(U_LL(EXT_VEL3) + U_RR(EXT_VEL3))
-kMean = 0.5*(UPrimRef(TKE)  + UPrim(TKE) )
-gMean = 0.5*(UPrimRef(OMG)  + UPrim(OMG) )
+kMean = 0.5*(U_LL(EXT_TKE)  + U_RR(EXT_TKE) )
+gMean = 0.5*(U_LL(EXT_OMG)  + U_RR(EXT_OMG) )
 
 ! inverse temperature
 beta_LL = 0.5*U_LL(EXT_DENS)/U_LL(EXT_PRES)

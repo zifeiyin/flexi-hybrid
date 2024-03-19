@@ -15,7 +15,7 @@
 #include "eos.h"
 
 !==================================================================================================================================
-!> Soubroutines necessary for calculating Navier-Stokes equations
+!> Soubroutines necessary for calculating NS-kg equations
 !==================================================================================================================================
 MODULE MOD_Equation
 ! MODULES
@@ -93,6 +93,7 @@ USE MOD_TestCase          ,ONLY: InitTestcase
 USE MOD_Riemann           ,ONLY: InitRiemann
 USE MOD_GetBoundaryFlux,   ONLY: InitBC
 USE MOD_CalcTimeStep      ,ONLY: InitCalctimestep
+USE MOD_Equation_Vars     ,ONLY: Cmu
 #if EDDYVISCOSITY
 USE MOD_EddyVisc          ,ONLY: InitEddyVisc
 #endif
@@ -113,10 +114,11 @@ IF(EquationInitIsDone)THEN
     "InitEquation not ready to be called or already called.")
 END IF
 SWRITE(UNIT_stdOut,'(132("-"))')
-SWRITE(UNIT_stdOut,'(A)') ' INIT NAVIER-STOKES...'
+SWRITE(UNIT_stdOut,'(A)') ' INIT rans_kg...'
 
 s43=4./3.
 s23=2./3.
+sqrt6=SQRT(6.)
 
 ! Always set docalcsource true, set false by calcsource itself on first run if not needed
 doCalcSource=.TRUE.
@@ -139,8 +141,9 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
     RefStatePrim(1:7,i) = GETREALARRAY('RefState',7)
-    RefStatePrim(7:8,i) = RefStatePrim(6:7,i)
-    RefStatePrim(6,i)   = 0.
+    RefStatePrim(OMG,i) = LOG( RefStatePrim(7,i) ) 
+    RefStatePrim(TKE,i) = LOG( RefStatePrim(6,i) )
+    RefStatePrim(6  ,i) = 0.
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN
       SWRITE(UNIT_stdOut,'(A)')' You are computing in 2D! RefStatePrim(4) will be set to zero!'
@@ -176,7 +179,7 @@ CALL InitSplitDG()
 CALL InitBC()
 
 EquationInitIsDone=.TRUE.
-SWRITE(UNIT_stdOut,'(A)')' INIT NAVIER-STOKES DONE!'
+SWRITE(UNIT_stdOut,'(A)')' INIT rans_kg DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
 
 ! Initialize current testcase

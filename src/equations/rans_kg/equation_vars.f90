@@ -13,7 +13,7 @@
 !=================================================================================================================================
 
 !==================================================================================================================================
-!> Contains the (physical) parameters needed for the Navier Stokes calculation
+!> Contains the (physical) parameters needed for the NS-kg calculation
 !==================================================================================================================================
 MODULE MOD_Equation_Vars
 ! MODULES
@@ -31,6 +31,9 @@ REAL,ALLOCATABLE  :: RefStatePrim(:,:) !< refstates in primitive variables (as r
 REAL,ALLOCATABLE  :: RefStateCons(:,:) !< refstates in conservative variables
 CHARACTER(LEN=255):: BCStateFile       !< file containing the reference solution on the boundary to be used as BC
 
+INTEGER           :: IniSourceTerm     !< number identifying the used source term
+REAL              :: ConstantBodyForce(3) !< Constant body force to be added, IniSourceTerm==1
+
 ! Boundary condition arrays
 REAL,ALLOCATABLE     :: BCData(:,:,:,:) !< array with precomputed BC values (conservative)
 REAL,ALLOCATABLE     :: BCDataPrim(:,:,:,:) !< array with precomputed BC values (primitive)
@@ -40,19 +43,19 @@ INTEGER,ALLOCATABLE  :: BCSideID(:,:)  !< array storing side IDs of sides with d
 REAL                 :: s43            !< precomputed 4./3.
 REAL                 :: s23            !< precomputed 2./3.
 
-! k-g specific variables and parameters
-REAL, PARAMETER   :: sigmaK  = 0.5     !< diffusivity coefficient for k equation
-REAL, PARAMETER   :: sigmaG  = 0.5     !< diffusivity coefficient for g equation
-REAL, PARAMETER   :: Comega1 = 5./9.   !< alpha in k-g model 
-REAL, PARAMETER   :: Comega2 = 0.075   !< beta in k-g model 
-REAL, PARAMETER   :: Cmu     = 0.09    !< Cmu in k-g model
-REAL, PARAMETER   :: epsTKE  = 1.e-16  !< lower bound of k to ensure its positivity
-REAL, PARAMETER   :: epsOMG  = 1.e-16  !< lower bound of g to ensure its positivity
+REAL                 :: sqrt6          !< precomputed sqrt(6)
+
+REAL,PARAMETER       :: Cmu = 0.09      !< aka beta*
+REAL,PARAMETER       :: COmega1 = 0.55 !< aka alpha
+REAL,PARAMETER       :: COmega2 = 0.83 !< aka beta
+REAL,PARAMETER       :: invSigmaK = 0.5 !< inverse of sigmaK = 2
+REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
+
 
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
-  (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','RhoK','RhoG'/) !< conservative variable names
-CHARACTER(LEN=255),DIMENSION(9),PARAMETER :: StrVarNamesPrim=&
-  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','TurbK','TurbG','TurbMut'/) !< primitive variable names
+  (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','DensityK','DensityG'/) !< conservative variable names
+CHARACTER(LEN=255),DIMENSION(8),PARAMETER :: StrVarNamesPrim=&
+  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','TKE','OMG'/) !< primitive variable names
 
 LOGICAL           :: EquationInitIsDone=.FALSE.
 !==================================================================================================================================

@@ -19,9 +19,15 @@ function(add_unit_test target)
     # Add this test to the global list of tests
     SET(UNIT_TEST_TARGETS ${UNIT_TEST_TARGETS} ${target} PARENT_SCOPE)
     # Add the test
-    ADD_TEST(NAME ${target}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/unitTests
-    COMMAND  ${CMAKE_BINARY_DIR}/unitTests/bin/${target})
+    IF(LIBS_USE_MPI)
+      ADD_TEST(NAME ${target}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/unitTests
+      COMMAND mpirun -n 1 ${CMAKE_BINARY_DIR}/unitTests/bin/${target})
+    ELSE()
+      ADD_TEST(NAME ${target}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/unitTests
+      COMMAND  ${CMAKE_BINARY_DIR}/unitTests/bin/${target})
+    ENDIF()
 endfunction()
 
 # CMake can always request position independent code

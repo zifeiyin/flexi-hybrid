@@ -34,7 +34,7 @@ ENDIF()
 # Equation system
 # =========================================================================
 SET(FLEXI_EQNSYSNAME "navierstokes" CACHE STRING
-                     "Used equation system (navierstokes/linearscalaradvection/rans_sa)")
+                     "Used equation system (navierstokes/linearscalaradvection/rans_sa/rans_kg)")
 SET_PROPERTY(CACHE FLEXI_EQNSYSNAME  PROPERTY STRINGS ${EQNSYSTEMS})
 IF(    FLEXI_EQNSYSNAME STREQUAL "navierstokes")
   ADD_DEFINITIONS(-DPP_nVar=5 -DPP_nVarPrim=6 -DEQNSYSNR=2)
@@ -67,8 +67,8 @@ IF(FLEXI_SPLIT_DG)
   IF(FLEXI_NODETYPE STREQUAL "GAUSS")
     MESSAGE(SEND_ERROR "FLEXI_SPLIT_DG only works on FLEXI_NODETYPE==GAUSS-LOBATTO points.")
   ENDIF()
-  IF(NOT FLEXI_EQNSYSNAME STREQUAL "navierstokes")
-    MESSAGE(SEND_ERROR "FLEXI_SPLIT_DG only works for FLEXI_EQNSYSNAME==navierstokes.")
+  IF(NOT ((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_kg")))
+    MESSAGE(SEND_ERROR "FLEXI_SPLIT_DG only works for FLEXI_EQNSYSNAME==navierstokes or rans_kg.")
   ENDIF()
 ENDIF()
 
@@ -81,8 +81,8 @@ IF(FLEXI_PP_LIMITER)
   IF(FLEXI_NODETYPE STREQUAL "GAUSS")
     MESSAGE(WARNING "Positivity Preserving Limiter only works on volume interpolation points. Positivity on faces is not guaranteed with FLEXI_NODETYPE==GAUSS." )
   ENDIF()
-  IF(NOT FLEXI_EQNSYSNAME STREQUAL "navierstokes")
-    MESSAGE(SEND_ERROR "FLEXI_PP_LIMITER only works for FLEXI_EQNSYSNAME==navierstokes.")
+  IF(NOT ((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_kg")))
+    MESSAGE(SEND_ERROR "FLEXI_PP_LIMITER only works for FLEXI_EQNSYSNAME==navierstokes or rans_kg.")
   ENDIF()
 ENDIF()
 
@@ -126,7 +126,7 @@ IF (FLEXI_PARABOLIC)
   ENDIF()
 
   # Set the law for viscosity
-  IF((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_sa"))
+  IF((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_sa") OR (FLEXI_EQNSYSNAME STREQUAL "rans_kg"))
     SET(FLEXI_VISCOSITY "constant" CACHE STRING "Method to calculate viscosity (constant/sutherland/powerlaw)")
     SET_PROPERTY(CACHE FLEXI_VISCOSITY PROPERTY STRINGS constant sutherland powerlaw)
     IF(    FLEXI_VISCOSITY STREQUAL "constant")
@@ -138,14 +138,17 @@ IF (FLEXI_PARABOLIC)
     ELSE()
       MESSAGE(SEND_ERROR "No such VISCOSITY known.")
     ENDIF()
-    IF (FLEXI_EDDYVISCOSITY)
-      IF(FLEXI_2D)
-        MESSAGE(SEND_ERROR " FLEXI_EDDYVISCOSITY is enabled, please disable FLEXI_2D")
-      ENDIF()
-    ENDIF()
+    # IF (FLEXI_EDDYVISCOSITY)
+    #   IF(FLEXI_2D)
+    #     MESSAGE(SEND_ERROR " FLEXI_EDDYVISCOSITY is enabled, please disable FLEXI_2D")
+    #   ENDIF()
+    # ENDIF()
   ENDIF()
 ELSE()
   ADD_DEFINITIONS(-DPARABOLIC=0)
+  IF (FLEXI_EQNSYSNAME STREQUAL "rans_kg")
+    MESSAGE(SEND_ERROR "rans_kg cannot work with FLEXI_PARABOLIC=OFF.")
+  ENDIF()
 ENDIF()
 
 # =========================================================================
@@ -155,8 +158,18 @@ CMAKE_DEPENDENT_OPTION(FLEXI_EDDYVISCOSITY "Enable eddy viscosity modells" OFF
                                            "FLEXI_PARABOLIC"               OFF)
 IF (FLEXI_EDDYVISCOSITY)
   ADD_DEFINITIONS(-DEDDYVISCOSITY=1)
+  IF (NOT FLEXI_EQNSYSNAME STREQUAL "rans_kg" AND FLEXI_2D)
+    IF (FLEXI_EQNSYSNAME STREQUAL "navierstokes")
+      MESSAGE(WARNING "FLEXI_EDDYVISCOSITY is enabled, only defaultEddyViscosity should be run.")
+    ELSE()
+      MESSAGE(SEND_ERROR "FLEXI_EDDYVISCOSITY is enabled, please disable FLEXI_2D")
+    ENDIF()
+  ENDIF()
 ELSE()
   ADD_DEFINITIONS(-DEDDYVISCOSITY=0)
+  IF (FLEXI_EQNSYSNAME STREQUAL "rans_kg")
+    MESSAGE(SEND_ERROR "rans_kg cannot work with FLEXI_EDDYVISCOSITY=OFF.")
+  ENDIF()
 ENDIF()
 
 # =========================================================================
@@ -182,8 +195,8 @@ IF(NOT (FLEXI_FV STREQUAL "OFF"))
   IF(    FLEXI_FV STREQUAL "SWITCH")
     ADD_DEFINITIONS(-DFV_ENABLED=1)
   ELSEIF(FLEXI_FV STREQUAL "BLEND")
-    IF(NOT FLEXI_EQNSYSNAME STREQUAL "navierstokes")
-      MESSAGE(SEND_ERROR "FLEXI_FV=BLEND only works for FLEXI_EQNSYSNAME==navierstokes.")
+    IF(NOT ((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_kg")))
+      MESSAGE(SEND_ERROR "FLEXI_FV=BLEND only works for FLEXI_EQNSYSNAME==navierstokes or rans_kg.")
     ELSEIF(FLEXI_NODETYPE STREQUAL "GAUSS")
       MESSAGE(SEND_ERROR "FLEXI_FV=BLEND only works on FLEXI_NODETYPE==GAUSS-LOBATTO points.")
     ENDIF()
@@ -214,6 +227,22 @@ IF(FLEXI_PERFORMANCE_OPTLIFT)
   ADD_DEFINITIONS(-DPP_OPTLIFT=1)
 ELSE()
   ADD_DEFINITIONS(-DPP_OPTLIFT=0)
+ENDIF()
+
+# =========================================================================
+# Decoupled system
+# =========================================================================
+IF(BUILD_TYPE_LC STREQUAL "validate")
+  SET(FLEXI_HYBRID_IS_VALIDATE ON)
+ELSE()
+  SET(FLEXI_HYBRID_IS_VALIDATE OFF)
+ENDIF()
+CMAKE_DEPENDENT_OPTION(FLEXI_HYBRID_DECOUPLE "Decouple the turbulence model and the N-S equation" OFF
+                                             "NOT FLEXI_HYBRID_IS_VALIDATE" ON)
+IF(FLEXI_HYBRID_DECOUPLE)
+  ADD_DEFINITIONS(-DDECOUPLE=1)
+ELSE()
+  ADD_DEFINITIONS(-DDECOUPLE=0)
 ENDIF()
 
 # =========================================================================
@@ -331,12 +360,7 @@ ENDIF()
 
 # >> append F90 files of the eddy viscosity to 'eqnsysF90'-list
 IF (FLEXI_EDDYVISCOSITY)
-  FILE(GLOB eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/default/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/smagorinsky/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/dynSmagorinsky/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/vreman/*.f90
-            eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/sigmaModel/*.f90)
+  FILE(GLOB_RECURSE eddyviscF90 ./src/equations/${FLEXI_EQNSYSNAME}/eddyVisc/**.f90)
   LIST(APPEND eqnsysF90 ${eddyviscF90})
 ENDIF()
 

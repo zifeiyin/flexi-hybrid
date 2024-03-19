@@ -69,10 +69,15 @@ INTERFACE SurfMetricsFromJa
   MODULE PROCEDURE SurfMetricsFromJa
 END INTERFACE
 
+INTERFACE CalcHMax
+  MODULE PROCEDURE CalcHMax
+END INTERFACE
+
 PUBLIC::BuildCoords
 PUBLIC::CalcMetrics
 PUBLIC::CalcSurfMetrics
 PUBLIC::SurfMetricsFromJa
+PUBLIC::CalcHMax
 !==================================================================================================================================
 
 CONTAINS
@@ -789,5 +794,34 @@ DO q=0,ZDIM(Nloc); DO p=0,Nloc
 #endif
 END DO; END DO ! p,q
 END SUBROUTINE SurfMetricsFromJa
+
+!==================================================================================================================================
+!> Computes Hmax := max(dx, dy, dz) for models like DDES, works only for Gauss-Lobatto.
+!==================================================================================================================================
+SUBROUTINE CalcHMax()
+  USE MOD_Mesh_Vars, ONLY: nElems, Elem_xGP, Elem_hmx
+  USE MOD_PreProc,   ONLY: PP_N ! PP_NZ is a macro instead of a variable
+  IMPLICIT NONE
+  INTEGER :: iElem, i, j, k
+  REAL    :: dx, dy, dz
+
+  dx = 0.
+  dy = 0.
+  dz = 0.
+  DO iElem = 1, nElems
+    DO k = 0, PP_NZ; DO j = 0, PP_N
+      dx = MAX(dx, ABS(Elem_xGP(1, PP_N, j, k, iElem) - Elem_xGP(1, 0, j, k, iElem)))
+    END DO; END DO
+    DO k = 0, PP_NZ; DO i = 0, PP_N
+      dy = MAX(dy, ABS(Elem_xGP(2, i, PP_N, k, iElem) - Elem_xGP(2, i, 0, k, iElem)))
+    END DO; END DO
+#if (PP_dim == 3)
+    DO j = 0, PP_NZ; DO i = 0, PP_N
+      dz = MAX(dz, ABS(Elem_xGP(3, i, j, PP_NZ, iElem) - Elem_xGP(3, i, j, 0, iElem)))
+    END DO; END DO
+#endif
+    Elem_hmx(iElem) = MAX(dx, dy, dz) / (REAL(PP_N) + 1.)
+  END DO
+END SUBROUTINE CalcHMax
 
 END MODULE MOD_Metrics

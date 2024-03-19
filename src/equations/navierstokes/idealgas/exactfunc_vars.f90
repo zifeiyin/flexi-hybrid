@@ -40,6 +40,7 @@ REAL              :: SiqmaSqr          !< Sigma squared of the gaussian distribu
 REAL              :: JetRadius         !< parameter for Roundjet
 REAL              :: JetEnd            !< parameter for Roundjet
 LOGICAL           :: RoundJetInitDone=.FALSE.
+REAL              :: Re_tau            !< parameter for turbulent channel
 #if PARABOLIC
 REAL              :: delta99_in        !< boundary layer thickness for Blasius solution
 REAL              :: x_in(2)           !< inflow position for Blasius solution

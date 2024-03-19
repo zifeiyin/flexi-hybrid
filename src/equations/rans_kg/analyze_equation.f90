@@ -15,7 +15,7 @@
 #include "eos.h"
 
 !==================================================================================================================================
-!> Contains analyze routines specific to the Navierstokes equations
+!> Contains analyze routines specific to the NS-kg equations
 !==================================================================================================================================
 MODULE MOD_AnalyzeEquation
 ! MODULES
@@ -64,6 +64,7 @@ CALL prms%CreateLogicalOption('CalcMeanFlux'     , "Set true to compute mean flu
 CALL prms%CreateLogicalOption('CalcWallVelocity' , "Set true to compute velocities at wall boundaries", '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTotalStates'  , "Set true to compute total states (e.g. Tt,pt)"    , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTimeAverage'  , "Set true to compute time averages"                , '.FALSE.')
+CALL prms%CreateLogicalOption('CalcTurbulence'   , "Set true to compute upper and lower turbulence"   , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBodyForces'  , "Set true to write bodyforces to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBulkState'   , "Set true to write bulk state to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteMeanFlux'    , "Set true to write mean flux to file"              , '.TRUE.')
@@ -77,7 +78,7 @@ END SUBROUTINE DefineParametersAnalyzeEquation
 
 
 !==================================================================================================================================
-!> Initializes variables necessary for NavierStokes specific analyze subroutines
+!> Initializes variables necessary for NS-kg specific analyze subroutines
 !==================================================================================================================================
 SUBROUTINE InitAnalyzeEquation()
 ! MODULES
@@ -103,6 +104,7 @@ doCalcBulkState     = GETLOGICAL('CalcBulkState')
 doCalcMeanFlux      = GETLOGICAL('CalcMeanFlux')
 doCalcWallVelocity  = GETLOGICAL('CalcWallVelocity')
 doCalcTotalStates   = GETLOGICAL('CalcTotalStates')
+doCalcTurbulence    = GETLOGICAL('CalcTurbulence')
 doWriteBodyForces   = GETLOGICAL('WriteBodyForces')
 doWriteBulkState    = GETLOGICAL('WriteBulkState')
 doWriteMeanFlux     = GETLOGICAL('WriteMeanFlux')
@@ -201,6 +203,7 @@ REAL,DIMENSION(PP_nVar,nBCs)    :: MeanFlux
 REAL,DIMENSION(4,nBCs)          :: meanTotals
 REAL,DIMENSION(nBCs)            :: meanV,maxV,minV
 REAL                            :: BulkPrim(PP_nVarPrim),BulkCons(PP_nVar)
+REAL                            :: kgnut(18)
 INTEGER                         :: i
 !==================================================================================================================================
 ! Calculate derived quantities
@@ -209,6 +212,7 @@ IF(doCalcWallVelocity) CALL CalcWallVelocity(maxV,minV,meanV)
 IF(doCalcMeanFlux)     CALL CalcMeanFlux(MeanFlux)
 IF(doCalcBulkState)    CALL CalcBulkState(bulkPrim,bulkCons)
 IF(doCalcTotalStates)  CALL CalcKessel(meanTotals)
+IF(doCalcTurbulence)   CALL CalcTurbulence(kgnut)
 
 IF(MPIRoot)THEN
   IF(doCalcBodyforces)THEN
@@ -264,6 +268,17 @@ IF(MPIRoot)THEN
     END DO
   END IF
 END IF ! MPIRoot
+
+IF(MPIRoot.AND.doCalcTurbulence)THEN
+  WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Max k,o,mut: ', EXP(kgnut(1)), EXP(kgnut(3)), kgnut(5)
+  WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Min k,o,mut: ', EXP(kgnut(2)), EXP(kgnut(4)), kgnut(6)
+  WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(7:17:2)
+  WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(8:18:2)
+END IF
 
 END SUBROUTINE AnalyzeEquation
 
@@ -371,6 +386,8 @@ DO SideID=1,nBCSides
     UE(EXT_SRHO)=1./UE(EXT_DENS)
     UE(EXT_VELV)=VELOCITY_HE(UE)
     UE(EXT_PRES)=PRESSURE_HE(UE)
+    UE(EXT_TKE )=U_master(RHOK,i,j,SideID)*UE(EXT_SRHO)
+    UE(EXT_OMG )=U_master(RHOG,i,j,SideID)*UE(EXT_SRHO)
 
     PrimVar(1:3)=UE(EXT_VELV)
 
@@ -391,7 +408,7 @@ DO SideID=1,nBCSides
     ! Entropy
     PrimVar(11)= ENTROPY_H(UE,PrimVar(8))
     ! Potential Temperature
-!    PrimVar(12)=PrimVar(8)/(PrimVar(5)/P0)**(1.-sKappa)
+    ! PrimVar(12)=PrimVar(8)/(PrimVar(5)/P0)**(1.-sKappa)
     c=PrimVar(6)
     Mach=PrimVar(7)
     ! Total Temperature
@@ -399,9 +416,9 @@ DO SideID=1,nBCSides
     ! Total Pressure
     PrimVar(14)=TOTAL_PRESSURE_H(PrimVar(5),Mach)
     ! Calculate velocity magnitude
- !   locV=SQRT(Vel(1)*Vel(1)+Vel(2)*Vel(2)+Vel(3)*Vel(3))
-!    maxV(iBC)=MAX(maxV(iBC),locV)
- !   minV(iBC)=MIN(minV(iBC),locV)
+    ! locV=SQRT(Vel(1)*Vel(1)+Vel(2)*Vel(2)+Vel(3)*Vel(3))
+    ! maxV(iBC)=MAX(maxV(iBC),locV)
+    ! minV(iBC)=MIN(minV(iBC),locV)
 #if FV_ENABLED
     IF (FV_Elems_master(SideID).EQ.1) THEN ! FV element
       dA=FV_w(i)*FV_w(j)*SurfElem(i,j,1,SideID)
@@ -564,6 +581,60 @@ DO i=1,nBCs
 END DO
 
 END SUBROUTINE CalcMeanFlux
+
+!==================================================================================================================================
+!> Calculates residuals over whole domain
+!==================================================================================================================================
+SUBROUTINE CalcTurbulence(kgnut)
+! MODULES
+USE MOD_Globals
+USE MOD_PreProc
+USE MOD_DG_Vars,            ONLY: U
+USE MOD_EddyVisc_Vars,      ONLY: muSGS,prodK,dissK,crossK,prodG,dissG,crossG
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(OUT)                :: kgnut(18)                   !> Conservative residuals
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER :: i
+!==================================================================================================================================
+
+kgnut( 1) =  MAXVAL(U(RHOK,:,:,:,:)/U(DENS,:,:,:,:))
+kgnut( 2) = -MINVAL(U(RHOK,:,:,:,:)/U(DENS,:,:,:,:))
+kgnut( 3) =  MAXVAL(U(RHOG,:,:,:,:)/U(DENS,:,:,:,:))
+kgnut( 4) = -MINVAL(U(RHOG,:,:,:,:)/U(DENS,:,:,:,:))
+
+kgnut( 5) =  MAXVAL(muSGS(1,:,:,:,:))
+kgnut( 6) = -MINVAL(muSGS(1,:,:,:,:))
+
+kgnut( 7) =  MAXVAL(prodK(1,:,:,:,:))
+kgnut( 8) = -MINVAL(prodK(1,:,:,:,:))
+kgnut( 9) =  MAXVAL(dissK(1,:,:,:,:))
+kgnut(10) = -MINVAL(dissK(1,:,:,:,:))
+kgnut(11) =  MAXVAL(crossK(1,:,:,:,:))
+kgnut(12) = -MINVAL(crossK(1,:,:,:,:))
+
+kgnut(13) =  MAXVAL(prodG(1,:,:,:,:))
+kgnut(14) = -MINVAL(prodG(1,:,:,:,:))
+kgnut(15) =  MAXVAL(dissG(1,:,:,:,:))
+kgnut(16) = -MINVAL(dissG(1,:,:,:,:))
+kgnut(17) =  MAXVAL(crossG(1,:,:,:,:))
+kgnut(18) = -MINVAL(crossG(1,:,:,:,:))
+
+#if USE_MPI
+IF(MPIRoot)THEN
+  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(1:18),18,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+ELSE
+  CALL MPI_REDUCE(kgnut(1:18) ,0          ,18,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+END IF
+#endif
+
+DO i=1,9
+  kgnut(2*i) = -kgnut(2*i)
+END DO
+
+END SUBROUTINE CalcTurbulence
 
 
 !==================================================================================================================================

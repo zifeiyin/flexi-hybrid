@@ -4,6 +4,14 @@
 SET(TOOL_NAME "channel_fft")
 SET(TOOL_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/posti/channel_fft)
 
+IF(   FLEXI_EQNSYSNAME STREQUAL "navierstokes")
+  ADD_DEFINITIONS(-DPP_nVar=5 -DPP_nVarPrim=6 -DEQNSYSNR=2)
+ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_kg")
+  ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=8 -DEQNSYSNR=4)
+ELSE()
+  MESSAGE(SEND_ERROR "Unsupported equation system.")
+ENDIF()
+
 MESSAGE(STATUS "Posti: using channel fft tool.")
 INCLUDE_DIRECTORIES( ${TOOL_DIR})
 

@@ -93,7 +93,7 @@ END SUBROUTINE
 
 
 !==================================================================================================================================
-!> Compute the time step for the current update of U for the Navier-Stokes-Equations
+!> Compute the time step for the current update of U for the NS-kg Equations
 !==================================================================================================================================
 FUNCTION CALCTIMESTEP(errType)
 ! MODULES
@@ -103,6 +103,7 @@ USE MOD_DG_Vars      ,ONLY:U
 USE MOD_EOS_Vars
 USE MOD_Mesh_Vars    ,ONLY:sJ,Metrics_fTilde,Metrics_gTilde,Elem_xGP,nElems
 USE MOD_TimeDisc_Vars,ONLY:CFLScale,ViscousTimeStep,dtElem
+USE MOD_Equation_Vars,ONLY:Cmu,invSigmaK
 #ifndef GNU
 USE, INTRINSIC :: IEEE_ARITHMETIC,ONLY:IEEE_IS_NAN
 #endif
@@ -120,7 +121,7 @@ USE MOD_FV_Vars      ,ONLY: FV_alpha,FV_alpha_min
 #endif
 #endif
 #if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars, ONLY: muSGS
+USE MOD_EddyVisc_Vars, ONLY: muSGS, PrSGS
 #endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -141,6 +142,7 @@ REAL                         :: muSGSmax
 REAL                         :: Max_Lambda_v(3),mu,prim(PP_nVarPrim)
 #endif /*PARABOLIC*/
 INTEGER                      :: FVE
+REAL                         :: muTOrig
 !==================================================================================================================================
 errType=0
 
@@ -162,6 +164,8 @@ DO iElem=1,nElems
     UE(EXT_VELV)=VELOCITY_HE(UE)
     UE(EXT_PRES)=PRESSURE_HE(UE)
     UE(EXT_TEMP)=TEMPERATURE_HE(UE)
+    UE(EXT_TKE )=U(RHOK,i,j,k,iElem)*UE(EXT_SRHO)
+    UE(EXT_OMG )=U(RHOG,i,j,k,iElem)*UE(EXT_SRHO)
     ! Convective Eigenvalues
     IF(IEEE_IS_NAN(UE(EXT_DENS)))THEN
       ERRWRITE(*,'(A,3ES16.7)')'Density NaN, Position= ',Elem_xGP(:,i,j,k,iElem)
@@ -181,8 +185,9 @@ DO iElem=1,nElems
     ! Viscous Eigenvalues
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
-#if EDDYVISCOSITY
-    mu = mu+muSGSMax
+    muTOrig = MIN( UE(EXT_DENS) * EXP( UE(EXT_TKE) - UE(EXT_OMG) ), 10000. * mu) 
+#if DECOUPLE==0
+    mu = mu + MAX( MAX(muSGSMax, invSigmaK * muTOrig), muSGSMax/PrSGS)
 #endif
     Max_Lambda_v=MAX(Max_Lambda_v,mu*UE(EXT_SRHO)*MetricsVisc(:,i,j,k,iElem,FVE))
 #endif /* PARABOLIC*/

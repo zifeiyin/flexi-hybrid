@@ -40,12 +40,6 @@ PROCEDURE(RiemannInt),POINTER :: RiemannBC_pointer  !< pointer defining the stan
 INTEGER,PARAMETER      :: PRM_RIEMANN_SAME          = -1
 INTEGER,PARAMETER      :: PRM_RIEMANN_LF            = 1
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLLC          = 2
-INTEGER,PARAMETER      :: PRM_RIEMANN_ROE           = 3
-INTEGER,PARAMETER      :: PRM_RIEMANN_ROEL2         = 32
-INTEGER,PARAMETER      :: PRM_RIEMANN_ROEENTROPYFIX = 33
-INTEGER,PARAMETER      :: PRM_RIEMANN_HLL           = 4
-INTEGER,PARAMETER      :: PRM_RIEMANN_HLLE          = 5
-INTEGER,PARAMETER      :: PRM_RIEMANN_HLLEM         = 6
 #ifdef SPLIT_DG
 INTEGER,PARAMETER      :: PRM_RIEMANN_CH            = 7
 INTEGER,PARAMETER      :: PRM_RIEMANN_Average       = 0
@@ -228,11 +222,12 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_LL(EXT_SRHO)=1./U_LL(EXT_DENS)
   U_LL(EXT_ENER)=U_L(ENER,i,j)
   U_LL(EXT_PRES)=UPrim_L(PRES,i,j)
-  U_LL(EXT_RHOK)=U_L(RHOK,i,j)
-  U_LL(EXT_RHOG)=U_L(RHOG,i,j)
-  U_LL(EXT_TKE) =UPrim_L(TKE,i,j)
-  U_LL(EXT_OMG) =UPrim_L(OMG,i,j)
-  ! rotate momentum in normal and tangential direction
+  U_LL(EXT_RHOK)=U_L(RHOK,i,j) 
+  U_LL(EXT_RHOG)=U_L(RHOG,i,j) 
+  U_LL(EXT_TKE )=UPrim_L(TKE,i,j)
+  U_LL(EXT_OMG )=UPrim_L(OMG,i,j)
+
+  ! rotate velocity in normal and tangential direction
   U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV,i,j),nv(:,i,j))
   U_LL(EXT_VEL2)=DOT_PRODUCT(UPrim_L(VELV,i,j),t1(:,i,j))
   U_LL(EXT_MOM1)=U_LL(EXT_DENS)*U_LL(EXT_VEL1)
@@ -249,10 +244,10 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_RR(EXT_SRHO)=1./U_RR(EXT_DENS)
   U_RR(EXT_ENER)=U_R(ENER,i,j)
   U_RR(EXT_PRES)=UPrim_R(PRES,i,j)
-  U_RR(EXT_RHOK)=U_R(RHOK,i,j)
-  U_RR(EXT_RHOG)=U_R(RHOG,i,j)
-  U_RR(EXT_TKE) =UPrim_R(TKE,i,j)
-  U_RR(EXT_OMG) =UPrim_R(OMG,i,j)
+  U_RR(EXT_RHOK)=U_R(RHOK,i,j) 
+  U_RR(EXT_RHOG)=U_R(RHOG,i,j)  
+  U_RR(EXT_TKE )=UPrim_R(TKE,i,j)
+  U_RR(EXT_OMG )=UPrim_R(OMG,i,j)
   ! rotate momentum in normal and tangential direction
   U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV,i,j),nv(:,i,j))
   U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV,i,j),t1(:,i,j))
@@ -328,9 +323,10 @@ U_LL(EXT_ENER)=U_L(ENER)
 U_LL(EXT_PRES)=UPrim_L(PRES)
 U_LL(EXT_RHOK)=U_L(RHOK)
 U_LL(EXT_RHOG)=U_L(RHOG)
-U_LL(EXT_TKE) =UPrim_L(TKE)
-U_LL(EXT_OMG) =UPrim_L(OMG)
-! rotate momentum in normal and tangential direction
+U_LL(EXT_TKE )=UPrim_L(TKE)
+U_LL(EXT_OMG )=UPrim_L(OMG)
+
+! rotate velocity in normal and tangential direction
 U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV),nv(:))
 U_LL(EXT_VEL2)=DOT_PRODUCT(UPrim_L(VELV),t1(:))
 U_LL(EXT_MOM1)=U_LL(EXT_DENS)*U_LL(EXT_VEL1)
@@ -349,8 +345,8 @@ U_RR(EXT_ENER)=U_R(ENER)
 U_RR(EXT_PRES)=UPrim_R(PRES)
 U_RR(EXT_RHOK)=U_R(RHOK)
 U_RR(EXT_RHOG)=U_R(RHOG)
-U_RR(EXT_TKE) =UPrim_R(TKE)
-U_RR(EXT_OMG) =UPrim_R(OMG)
+U_RR(EXT_TKE )=UPrim_R(TKE)
+U_RR(EXT_OMG )=UPrim_R(OMG)
 ! rotate momentum in normal and tangential direction
 U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV),nv(:))
 U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV),t1(:))
@@ -548,10 +544,13 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT):: F    !< resulting Riemann flux
 ! LOCAL VARIABLES
 REAL    :: H_L,H_R
 REAL    :: SqrtRho_L,SqrtRho_R,sSqrtRho
-REAL    :: RoeVel(3),RoeH,Roec,RoeK,absVel
+REAL    :: RoeVel(3),RoeH,Roec,absVel
 REAL    :: Ssl,Ssr,SStar
 REAL    :: U_Star(PP_nVar),EStar
 REAL    :: sMu_L,sMu_R
+#if DECOUPLE==0
+REAL    :: RoeK
+#endif
 !REAL    :: c_L,c_R
 !=================================================================================================================================
 ! HLLC flux
@@ -575,11 +574,17 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 ! Roe mean values
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L       )     * sSqrtRho
-RoeK      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE) ) * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
+#if DECOUPLE==0
+RoeK      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE) ) * sSqrtRho
 Roec      = SQRT(KappaM1*(RoeH-0.5*absVel-RoeK))
+#else
+Roec      = SQRT(KappaM1*(RoeH-0.5*absVel))
+#endif
 Ssl       = RoeVel(1) - Roec
 Ssr       = RoeVel(1) + Roec
+
+! TODO(Shimushu): Fix HLLC, considering k into account.
 
 ! positive supersonic speed
 IF(Ssl .GE. 0.)THEN
@@ -594,11 +599,11 @@ ELSE
   SStar = (U_RR(EXT_PRES) - U_LL(EXT_PRES) + U_LL(EXT_MOM1)*sMu_L - U_RR(EXT_MOM1)*sMu_R) / (U_LL(EXT_DENS)*sMu_L - U_RR(EXT_DENS)*sMu_R)
   IF ((Ssl .LE. 0.).AND.(SStar .GE. 0.)) THEN
     EStar  = TOTALENERGY_HE(U_LL) + (SStar-U_LL(EXT_VEL1))*(SStar + U_LL(EXT_PRES)*U_LL(EXT_SRHO)/sMu_L)
-    U_Star = U_LL(EXT_DENS) * sMu_L/(Ssl-SStar) * (/ 1., SStar, U_LL(EXT_VEL2:EXT_VEL3), EStar, U_LL(EXT_TKE), U_LL(EXT_OMG) /)
+    U_Star = U_LL(EXT_DENS) * sMu_L/(Ssl-SStar) * (/ 1., SStar, U_LL(EXT_VEL2:EXT_VEL3), EStar, U_LL(EXT_TKE:EXT_OMG) /)
     F=F_L+Ssl*(U_Star-U_LL(CONS))
   ELSE
     EStar  = TOTALENERGY_HE(U_RR) + (SStar-U_RR(EXT_VEL1))*(SStar + U_RR(EXT_PRES)*U_RR(EXT_SRHO)/sMu_R)
-    U_Star = U_RR(EXT_DENS) * sMu_R/(Ssr-SStar) * (/ 1., SStar, U_RR(EXT_VEL2:EXT_VEL3), EStar, U_RR(EXT_TKE), U_RR(EXT_OMG) /)
+    U_Star = U_RR(EXT_DENS) * sMu_R/(Ssr-SStar) * (/ 1., SStar, U_RR(EXT_VEL2:EXT_VEL3), EStar, U_RR(EXT_TKE:EXT_OMG) /)
     F=F_R+Ssr*(U_Star-U_RR(CONS))
   END IF
 END IF ! subsonic case

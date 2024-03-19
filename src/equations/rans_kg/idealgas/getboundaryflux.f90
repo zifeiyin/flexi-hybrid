@@ -334,8 +334,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q)                  ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
-      UPrim_boundary(TKE ,p,q) = 0.
-      UPrim_boundary(OMG ,p,q) = 0.
+      UPrim_boundary(TKE ,p,q) = UPrim_master(TKE ,p,q)
+      UPrim_boundary(OMG ,p,q) = 23.0258509299
     END DO; END DO ! q,p
 
   CASE(4) ! Isothermal wall
@@ -348,8 +348,8 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState)              ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
-      UPrim_boundary(TKE ,p,q) = 0.
-      UPrim_boundary(OMG ,p,q) = 0.
+      UPrim_boundary(TKE ,p,q) = UPrim_master(TKE ,p,q)
+      UPrim_boundary(OMG ,p,q) = 23.0258509299
     END DO; END DO ! q,p
 
   CASE(9,91) ! Euler (slip) wall
@@ -495,8 +495,6 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(VEL3,p,q) = U*DOT_PRODUCT(nv(:),Tangvec2(:,p,q)) ! correctly into global coordinates below
       UPrim_boundary(PRES,p,q) = pb
       UPrim_boundary(TEMP,p,q) = Tb
-      UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
-      UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
     END DO; END DO !p,q
   END SELECT
 
@@ -512,7 +510,7 @@ CASE(1) !Periodic already filled!
       "GetBoundaryState called for periodic side!")
 CASE DEFAULT ! unknown BCType
   CALL Abort(__STAMP__,&
-       'no BC defined in navierstokes/getboundaryflux.f90!')
+       'no BC defined in rans_kg/getboundaryflux.f90!')
 END SELECT ! BCType
 
 END SUBROUTINE GetBoundaryState
@@ -650,6 +648,9 @@ ELSE
         Gd_Face_loc(ENER,:,:)=0.
         Hd_Face_loc(ENER,:,:)=0.
       END IF
+      Fd_Face_loc(RHOK,:,:)=0.
+      Gd_Face_loc(RHOK,:,:)=0.
+      Hd_Face_loc(RHOK,:,:)=0.
     CASE(9)
       ! Euler/(full-)slip wall
       ! Version 1: set the normal derivatives to zero
@@ -824,7 +825,7 @@ ELSE
   CASE(1) !Periodic already filled!
   CASE DEFAULT ! unknown BCType
     CALL Abort(__STAMP__,&
-        'no BC defined in navierstokes/getboundaryflux.f90!')
+        'no BC defined in rans_kg/getboundaryflux.f90!')
   END SELECT
 END IF ! BCType < 0
 END SUBROUTINE GetBoundaryFlux
@@ -874,7 +875,7 @@ ELSE
   CASE(1) !Periodic already filled!
   CASE DEFAULT ! unknown BCType
     CALL Abort(__STAMP__,&
-         'no BC defined in navierstokes/getboundaryflux.f90!')
+         'no BC defined in rans_kg/getboundaryflux.f90!')
   END SELECT
 END IF ! BCType < 0
 
@@ -929,13 +930,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_Boundary(DENS,p,q)
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
-      Flux(LIFT_TKE ,p,q) = 0.
-      Flux(LIFT_OMG ,p,q) = 0.
+      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE ,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_Boundary(OMG ,p,q)
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
-      Flux(LIFT_TKE ,p,q) = 0.
-      Flux(LIFT_OMG ,p,q) = 0.
+      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE ,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_Boundary(OMG ,p,q)
 #endif
     END DO; END DO !p,q
   CASE(9,91)
@@ -947,19 +948,19 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_master(  DENS,p,q)
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
-      Flux(LIFT_TKE ,p,q) = UPrim_master(TKE,p,q)
-      Flux(LIFT_OMG ,p,q) = UPrim_master(OMG,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(   TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_master(   OMG,p,q)
 #else
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
-      Flux(LIFT_TKE ,p,q) = UPrim_master(TKE,p,q)
-      Flux(LIFT_OMG ,p,q) = UPrim_master(OMG,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_master(   TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = UPrim_master(   OMG,p,q)
 #endif
     END DO; END DO !p,q
   CASE(1) !Periodic already filled!
   CASE DEFAULT ! unknown BCType
     CALL Abort(__STAMP__,&
-         'no BC defined in navierstokes/getboundaryflux.f90!')
+         'no BC defined in rans_kg/getboundaryflux.f90!')
   END SELECT
 
   ! in case lifting is done in strong form
