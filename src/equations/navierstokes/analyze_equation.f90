@@ -188,6 +188,7 @@ USE MOD_AnalyzeEquation_Vars
 USE MOD_CalcBodyForces,     ONLY: CalcBodyForces
 USE MOD_Mesh_Vars,          ONLY: BoundaryName,nBCs,BoundaryType
 USE MOD_Output,             ONLY: OutputToFile
+USE MOD_Equation_Vars,      ONLY: MassFlowRate_fx
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -263,6 +264,10 @@ IF(MPIRoot)THEN
       WRITE(UNIT_stdOut,formatStr) ' '//TRIM(BoundaryName(i)),MeanTotals(:,i)
     END DO
   END IF
+
+  WRITE(formatStr,'(A,I2,A)')'(A14,',1,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' fx         : ',MassFlowRate_fx
+  ! WRITE(UNIT_stdOut,formatStr)' Bulk Cons  : ',bulkCons
 END IF ! MPIRoot
 
 END SUBROUTINE AnalyzeEquation
@@ -271,7 +276,7 @@ END SUBROUTINE AnalyzeEquation
 !==================================================================================================================================
 !> Calculates bulk quantities over whole domain
 !==================================================================================================================================
-SUBROUTINE CalcBulkState(BulkPrim,BulkCons)
+SUBROUTINE CalcBulkState(BulkPrim,BulkCons,reduceToAll)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
@@ -287,12 +292,14 @@ IMPLICIT NONE
 ! INPUT/OUTPUT VARIABLES
 REAL,INTENT(OUT)                :: BulkPrim(PP_nVarPrim)                   !< Primitive bulk quantities
 REAL,INTENT(OUT)                :: BulkCons(PP_nVar)                       !< Conservative bulk quantities
+LOGICAL,INTENT(IN),OPTIONAL     :: reduceToAll
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                            :: IntegrationWeight
 INTEGER                         :: iElem,i,j,k
 #if USE_MPI
 REAL                            :: box(PP_nVar+PP_nVarPrim)
+REAL                            :: box_recv(PP_nVar+PP_nVarPrim)
 #endif
 !==================================================================================================================================
 BulkPrim=0.
@@ -319,11 +326,16 @@ END DO ! iElem
 
 #if USE_MPI
 Box(1:PP_nVarPrim)=BulkPrim; Box(PP_nVarPrim+1:PP_nVarPrim+PP_nVar)=BulkCons
-IF(MPIRoot)THEN
-  CALL MPI_REDUCE(MPI_IN_PLACE,box,PP_nVar+PP_nVarPrim,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
-  BulkPrim=Box(1:PP_nVarPrim); BulkCons=Box(PP_nVarPrim+1:PP_nVarPrim+PP_nVar)
+IF (PRESENT(reduceToAll).AND.reduceToAll) THEN
+  CALL MPI_ALLREDUCE(box,box_recv,PP_nVar+PP_nVarPrim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_FLEXI,iError)
+  BulkPrim=box_recv(1:PP_nVarPrim); BulkCons=box_recv(PP_nVarPrim+1:PP_nVarPrim+PP_nVar)
 ELSE
-  CALL MPI_REDUCE(Box         ,0  ,PP_nVar+PP_nVarPrim,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
+  IF(MPIRoot)THEN
+    CALL MPI_REDUCE(MPI_IN_PLACE,box,PP_nVar+PP_nVarPrim,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
+    BulkPrim=Box(1:PP_nVarPrim); BulkCons=Box(PP_nVarPrim+1:PP_nVarPrim+PP_nVar)
+  ELSE
+    CALL MPI_REDUCE(Box         ,0  ,PP_nVar+PP_nVarPrim,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_FLEXI,iError)
+  END IF
 END IF
 #endif
 

@@ -85,6 +85,8 @@ CALL addStrListEntry('IniExactFunc','shock'             ,10)
 CALL addStrListEntry('IniExactFunc','sod'               ,11)
 CALL addStrListEntry('IniExactFunc','dmr'               ,13)
 CALL addStrListEntry('IniExactFunc','harmonicgausspulse',14)
+CALL addStrListEntry('IniExactFunc','turbulentchannel'  ,517)
+CALL addStrListEntry('IniExactFunc','turbulentprofile'  ,518)
 #if PARABOLIC
 CALL addStrListEntry('IniExactFunc','blasius'  ,1338)
 #endif
@@ -118,8 +120,8 @@ CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
 CALL addStrListEntry('IniSourceTerm','MassFlowRate'     ,2)
 
 CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
-CALL prms%CreateRealArrayOption('MassFlowRate'     , "Mass flow rate in the x direction to be maintained, IniSourceTerm==MassFlowRate")
-CALL prms%CreateRealArrayOption('MassFlowRate_area', "reference area, IniSourceTerm==MassFlowRate")
+CALL prms%CreateRealOption(     'MassFlowRate'     , "Mass flow rate in the x direction to be maintained, IniSourceTerm==MassFlowRate")
+! CALL prms%CreateRealOption(     'MassFlowRate_area', "reference area, IniSourceTerm==MassFlowRate")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -208,7 +210,7 @@ CASE(1) ! ConstantBodyForce
 #endif
 CASE(2) ! MassFlowRate
   MassFlowRate = GETREAL('MassFlowRate')
-  MassFlowRate_area = GETREAL('MassFlowRate_area')
+  ! MassFlowRate_area = GETREAL('MassFlowRate_area')
   MassFlowRate_fx = 0.
   MassFlowRate_last = 0.
 CASE DEFAULT
@@ -663,6 +665,30 @@ CASE(517) ! turbulent channel
   Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
 
   CALL PrimToCons(Prim, Resu)
+CASE(518) ! turbulent channel, with only sin waves
+  Prim = RefStatePrim(:,RefState)
+
+  ! copied from src/testcase/channel/testcase.f90
+  Prim(VEL1)=Prim(VEL1)+0.05*Prim(VEL1)*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.05*Prim(VEL1)*SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.05*Prim(VEL1)*SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.05*Prim(VEL1)*SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.05*Prim(VEL1)*SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.05*Prim(VEL1)*SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+
+  Prim(VEL2)=Prim(VEL2)+0.05*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.05*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.05*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.05*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.05*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  
+  Prim(VEL3)=Prim(VEL3)+0.05*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.05*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.05*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.05*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.05*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
+
+  CALL PrimToCons(Prim, Resu)
 #if PARABOLIC
 CASE(1338) ! blasius
   prim=RefStatePrim(:,RefState)
@@ -750,7 +776,7 @@ USE MOD_Exactfunc_Vars   ,ONLY: HarmonicFrequency,AmplitudeFactor,SiqmaSqr
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_AnalyzeEquation  ,ONLY: CalcBulkState
-USE MOD_CalcBodyForces   ,ONLY: CalcBodyForces
+! USE MOD_CalcBodyForces   ,ONLY: CalcBodyForces
 #if PARABOLIC
 USE MOD_EOS_Vars         ,ONLY: mu0,Pr
 #endif
@@ -1032,15 +1058,19 @@ CASE(1) ! ConstantBodyForce
 
   END DO
 CASE(2) ! MassFlowRate
-  CALL CalcBulkState(BulkPrim,BulkCons)
-  ! CALL CalcBodyForces(BodyForce,Fp,Fv)
-  MassFlowRate_fx = MassFlowRate_fx + 2 * ((MassFlowRate_last - MassFlowRate) + 0.2 * (MassFlowRate - BulkCons(MOM1))) / MassFlowRate_area
+  CALL CalcBulkState(BulkPrim,BulkCons,.TRUE.)
+  MassFlowRate_fx = MassFlowRate_fx - (2. * (2. * BulkCons(MOM1) - MassFlowRate_last - MassFlowRate) - 0.2 * (BulkCons(MOM1) - MassFlowRate))
+  IF (MassFlowRate_fx.LT.0.) THEN
+    MassFlowRate_fx = 0.
+  END IF
+  ! MassFlowRate_fx = MassFlowRate_fx - 0.01 * (BulkCons(MOM1) - MassFlowRate)
+  ! print *, "fx, m, ml, md = ", MassFlowRate_fx, BulkCons(MOM1), MassFlowRate_last, MassFlowRate
   MassFlowRate_last = BulkCons(MOM1)
   DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       Ut_src(:,i,j,k) = 0.
       Ut_src(MOM1,i,j,k) = MassFlowRate_fx
-      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), Ut_src(MOMV,i,j,k)) / U(DENS,i,j,k,iElem)
+      Ut_src(ENER,i,j,k) = BulkCons(MOM1) / BulkCons(DENS) * MassFlowRate_fx
     END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
