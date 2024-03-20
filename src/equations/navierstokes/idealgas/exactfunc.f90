@@ -1070,7 +1070,7 @@ CASE(2) ! MassFlowRate
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       Ut_src(:,i,j,k) = 0.
       Ut_src(MOM1,i,j,k) = MassFlowRate_fx
-      Ut_src(ENER,i,j,k) = BulkCons(MOM1) / BulkCons(DENS) * MassFlowRate_fx
+      Ut_src(ENER,i,j,k) = U(MOM1,i,j,k,iElem) / U(DENS,i,j,k,iElem) * MassFlowRate_fx
     END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
