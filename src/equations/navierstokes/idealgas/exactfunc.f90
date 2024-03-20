@@ -263,6 +263,7 @@ REAL                            :: du, dTemp, RT, r2       ! aux var for SHU VOR
 REAL                            :: pi_loc,phi,radius       ! needed for cylinder potential flow
 REAL                            :: h,sRT,pexit,pentry   ! needed for Couette-Poiseuille
 REAL                            :: y_plus
+REAL                            :: scaledX(3)
 #if PARABOLIC
 ! needed for blasius BL
 INTEGER                         :: nSteps,i
@@ -625,11 +626,11 @@ CASE(13) ! DoubleMachReflection (see e.g. http://www.astro.princeton.edu/~jstone
 CASE(14) ! harmonic gauss pulse
   Resu = RefStateCons(:,RefState)
 CASE(517) ! turbulent channel
-  x = x / ChannelHalfHeight
-  IF (x(2).LT.0.) THEN
-    y_plus = Re_tau * (x(2) + 1.)
+  scaledX = x / ChannelHalfHeight
+  IF (scaledX(2).LT.0.) THEN
+    y_plus = Re_tau * (scaledX(2) + 1.)
   ELSE
-    y_plus = Re_tau * (1. - x(2))
+    y_plus = Re_tau * (1. - scaledX(2))
   END IF
   Prim = RefStatePrim(:,RefState)
   Prim(VELV) = 0.
@@ -637,24 +638,24 @@ CASE(517) ! turbulent channel
   Prim(VEL1) = Prim(VEL1) * RefStatePrim(VEL1, RefState)
 
   ! copied from src/testcase/channel/testcase.f90
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(20.0*PP_PI*(scaledX(2)/(2.0)))*SIN(20.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(scaledX(2)/(2.0)))*SIN(30.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(scaledX(2)/(2.0)))*SIN(35.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(scaledX(2)/(2.0)))*SIN(40.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(scaledX(2)/(2.0)))*SIN(45.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(scaledX(2)/(2.0)))*SIN(50.0*PP_PI*(scaledX(3)/(2*PP_PI)))
 
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(scaledX(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(scaledX(3)/(2*PP_PI)))
   
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(scaledX(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(scaledX(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(scaledX(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(scaledX(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(scaledX(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(scaledX(2)/(2.0)))
 
   CALL PrimToCons(Prim, Resu)
 #if PARABOLIC
