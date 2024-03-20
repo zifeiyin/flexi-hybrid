@@ -41,6 +41,7 @@ REAL              :: JetRadius         !< parameter for Roundjet
 REAL              :: JetEnd            !< parameter for Roundjet
 LOGICAL           :: RoundJetInitDone=.FALSE.
 REAL              :: Re_tau            !< parameter for turbulent channel
+REAL              :: ChannelHalfHeight !< ChannelHalfHeight
 #if PARABOLIC
 REAL              :: delta99_in        !< boundary layer thickness for Blasius solution
 REAL              :: x_in(2)           !< inflow position for Blasius solution

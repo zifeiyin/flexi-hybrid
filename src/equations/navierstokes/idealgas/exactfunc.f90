@@ -85,6 +85,7 @@ CALL addStrListEntry('IniExactFunc','shock'             ,10)
 CALL addStrListEntry('IniExactFunc','sod'               ,11)
 CALL addStrListEntry('IniExactFunc','dmr'               ,13)
 CALL addStrListEntry('IniExactFunc','harmonicgausspulse',14)
+CALL addStrListEntry('IniExactFunc','turbulentchannel'  ,517)
 #if PARABOLIC
 CALL addStrListEntry('IniExactFunc','blasius'  ,1338)
 #endif
@@ -105,6 +106,7 @@ CALL prms%CreateRealOption(         'AmplitudeFactor',         "Harmonic Gauss P
 CALL prms%CreateRealOption(         'HarmonicFrequency',       "Harmonic Gauss Pulse CASE(14)", '400')
 CALL prms%CreateRealOption(         'SigmaSqr',                "Harmonic Gauss Pulse CASE(14)", '0.1')
 CALL prms%CreateRealOption(         'Re_tau',                  "Re_tau CASE(517)")
+CALL prms%CreateRealOption(         'ChannelHalfHeight',       "ChannelHalfHeight CASE(517)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
@@ -171,6 +173,7 @@ CASE(14)
   SiqmaSqr          = GETREAL('SigmaSqr')
 CASE(517) ! turbulent channel
   Re_tau            = GETREAL('Re_tau')
+  ChannelHalfHeight = GETREAL('ChannelHalfHeight')
 #if PARABOLIC
 CASE(1338) ! Blasius boundary layer solution
   delta99_in      = GETREAL('delta99_in')
@@ -226,7 +229,7 @@ USE MOD_Exactfunc_Vars ,ONLY: IniCenter,IniHalfwidth,IniAmplitude,IniFrequency,I
 USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
 USE MOD_Exactfunc_Vars ,ONLY: JetRadius,JetEnd
-USE MOD_Exactfunc_Vars ,ONLY: Re_tau
+USE MOD_Exactfunc_Vars ,ONLY: Re_tau,ChannelHalfHeight
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
@@ -622,6 +625,7 @@ CASE(13) ! DoubleMachReflection (see e.g. http://www.astro.princeton.edu/~jstone
 CASE(14) ! harmonic gauss pulse
   Resu = RefStateCons(:,RefState)
 CASE(517) ! turbulent channel
+  x = x / ChannelHalfHeight
   IF (x(2).LT.0.) THEN
     y_plus = Re_tau * (x(2) + 1.)
   ELSE
