@@ -56,7 +56,7 @@ REAL,ALLOCATABLE  :: muSGSmax(:)                      !< maximum eddy viscosity 
 REAL,ALLOCATABLE  :: FilterMat_TestFilter(:,:)        !< filter matrix for test filter for dynamic Smagorinsky model
 REAL              :: muSGS_limits(2)                  !< allowed range of eddy viscosity as multiple of physical viscosit
 REAL              :: CS                               !< Model coefficient for eddy viscosity models
-REAL              :: CDes                             !< Model coefficient for DDES
+REAL,PARAMETER    :: CDES0 = 0.12                     !< Model coefficient for DDES
 REAL              :: PrSGS                            !< turbulent Prandtl number for the sub-grid scales
 
 LOGICAL           :: VanDriest=.FALSE.                !< Logical indicating if Van Driest damping is activated (only use for channel flow)

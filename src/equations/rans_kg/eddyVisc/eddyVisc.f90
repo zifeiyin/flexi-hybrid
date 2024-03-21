@@ -61,7 +61,7 @@ CALL addStrListEntry(               'eddyViscType',  'vreman',        EDDYVISCTY
 CALL addStrListEntry(               'eddyViscType',  'sigma',         EDDYVISCTYPE_SIGMA   )
 CALL prms%CreateIntOption(          'N_testFilter',  'Polynomial degree of test filter (modal cutoff filter).','-1')
 CALL prms%CreateRealOption(         'CS',            'EddyViscParameters constant')
-CALL prms%CreateRealOption(         'PrSGS',         'Turbulent Prandtl number','0.7')
+CALL prms%CreateRealOption(         'PrSGS',         'Turbulent Prandtl number','0.9')
 CALL prms%CreateRealArrayOption(    'eddyViscLimits','Limits for the computed eddy viscosity as multiples of the physical &
                                                      &viscosity.','(/0.,100./)')
 CALL prms%CreateLogicalOption(      'VanDriest',     'Van Driest damping, only for channel flow!', '.FALSE.')

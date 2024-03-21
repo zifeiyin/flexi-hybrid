@@ -119,9 +119,6 @@ ELSE
   CALL CollectiveStop(__STAMP__,'Please use POSTI to compute wall distance first!')
 ENDIF
 
-! Set model coefficient
-CDES = 0.12
-
 ! Calculate the filter width deltaS: deltaS=( Cell volume )^(1/3) / ( PP_N+1 )
 DO iElem=1,nElems
   CellVol = 0.
@@ -143,8 +140,8 @@ END SUBROUTINE InitSmagorinsky
 !===================================================================================================================================
 PPURE SUBROUTINE Smagorinsky_Point(gradUx,gradUy,gradUz,UPrim,y,Delta,hmax,muSGS,fd)
 ! MODULES
-USE MOD_Equation_Vars,  ONLY: Cmu
-USE MOD_EddyVisc_Vars,  ONLY: CDES
+USE MOD_Equation_Vars,  ONLY: Cmu, sqrt6
+USE MOD_EddyVisc_Vars,  ONLY: CDES0
 USE MOD_VISCOSITY 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -159,47 +156,48 @@ REAL                          ,INTENT(OUT) :: fd      !> fd
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                    :: sRho
-REAL                                    :: magS, mutLim, muOrig
+REAL                                    :: magS 
+REAL                                    :: kLog, gLog, muTOrig, muTLim
 REAL                                    :: lLES, lRANS, lDDES, rd
-REAL                                    :: nuEff, dUdU
+REAL                                    :: dUdU
 REAL                                    :: muS
 REAL,PARAMETER                          :: kappa=0.41
 !===================================================================================================================================
 sRho  = 1.0 / UPrim(DENS)
-
-magS  = SQRT ( 2.*(gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) &
-             + ( gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2) )**2                    &
-             + ( gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3) )**2                    &
-             + ( gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3) )**2 )
-
-
-mutLim = UPrim(DENS) * ABS(UPrim(TKE)) / MAX( SQRT(6.0) * magS, 1.0e-16)
-
-muOrig = Cmu * UPrim(DENS) * UPrim(TKE) * UPrim(OMG)**2
-
-lRANS = SQRT(MIN(mutLim, muOrig) * sRho * Cmu * UPrim(OMG)**2)
-
 muS   = VISCOSITY_PRIM(UPrim)
-nuEff = MAX( 0., Cmu * UPrim(TKE) * UPrim(OMG)**2 ) + muS / UPrim(DENS)
 
-dUdU  = gradUx(LIFT_VEL1) * gradUx(LIFT_VEL1)&
-      + gradUx(LIFT_VEL2) * gradUx(LIFT_VEL2)&
-      + gradUx(LIFT_VEL3) * gradUx(LIFT_VEL3)&
-      + gradUy(LIFT_VEL1) * gradUy(LIFT_VEL1)&
-      + gradUy(LIFT_VEL2) * gradUy(LIFT_VEL2)&
-      + gradUy(LIFT_VEL3) * gradUy(LIFT_VEL3)&
-      + gradUz(LIFT_VEL1) * gradUz(LIFT_VEL1)&
-      + gradUz(LIFT_VEL2) * gradUz(LIFT_VEL2)&
-      + gradUz(LIFT_VEL3) * gradUz(LIFT_VEL3)
+#if PP_dim==2
+magS = SQRT( &
+    2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) + &
+    (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2)
+#else
+magS = SQRT( &
+    2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) + &
+    (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2 + &
+    (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))**2 + &
+    (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))**2)
+#endif
 
-rd    = nuEff / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+kLog    = MAX( UPrim(TKE), -23.0258509299 )
+gLog    = MAX( UPrim(OMG), -23.0258509299 )
+muTOrig = UPrim(DENS) * EXP( kLog - gLog )
+
+muTLim = MIN(muTOrig,  UPrim(DENS) * EXP(kLog) / MAX(sqrt6 * magS, 1.e-16))
+
+lRANS = SQRT(mutLim * sRho * EXP(MIN(-gLog,23.0258509299)) )
+
+dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 + gradUx(LIFT_VEL3)**2 &
+      + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUy(LIFT_VEL3)**2 &
+      + gradUz(LIFT_VEL1)**2 + gradUz(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2
+
+rd    = (EXP( kLog - gLog ) + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
-lLES = CDES * (fd * Delta + (1. - fd) * hmax)
+lLES = CDES0 * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-muSGS = UPrim(DENS) * lDDES**2 /( Cmu * (UPrim(OMG))**2) ! muSGS(1) = DDES muSGS
+muSGS = UPrim(DENS) * lDDES**2 * EXP(gLog) ! muSGS(1) = DDES muSGS
 
 END SUBROUTINE Smagorinsky_Point
 
