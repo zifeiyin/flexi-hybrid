@@ -762,7 +762,7 @@ INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 REAL                :: UPrim(PP_nVarPrim)
 REAL                :: muS,muT,kLog,gLog,muTOrig
-REAL                :: expNegK, expNegG
+REAL                :: expNegK, expNegG, muEffK, muEffG
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
@@ -831,13 +831,16 @@ DO iElem=1,nElems
     END ASSOCIATE
 #endif
 
+    muEffK = (muS + invSigmaK * muTOrig)
+    muEffG = (muS + invSigmaG * muTOrig)
+
     prodK (1,i,j,k,iElem) = 2. * muT * SijGradU * expNegK 
     dissK (1,i,j,k,iElem) = Cmu * UPrim(DENS) * EXP(gLog)
-    crossK(1,i,j,k,iElem) = MIN( (muS + invSigmaK * muTOrig) * dKdK, 1.e9)
+    crossK(1,i,j,k,iElem) = MIN( muEffK * dKdK, 1.e9)
 
     prodG (1,i,j,k,iElem) = MIN( 2. * Comega1 * UPrim(DENS) * expNegG * SijGradU, 1.e8 )
     dissG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) * EXP(gLog)
-    crossG(1,i,j,k,iElem) = MIN( (muS + invSigmaK * muTOrig) * dGdG, 1.e9)
+    crossG(1,i,j,k,iElem) = MAX( MIN( muEffG * dGdG + 2. * muEffG * dKdG , 1.e9), -1e9)
 
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem) + crossK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) + crossG(1,i,j,k,iElem)
