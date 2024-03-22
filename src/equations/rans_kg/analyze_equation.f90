@@ -316,16 +316,18 @@ DO iElem=1,nElems
 #if FV_ENABLED
   IF (FV_Elems(iElem).GT.0) THEN ! FV Element
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      IntegrationWeight=FV_w(i)*FV_w(j)*FV_w(k)/sJ(i,j,k,iElem,1)
-      BulkCons         =BulkCons+U(:,i,j,k,iElem)*IntegrationWeight
-      BulkPrim         =BulkPrim+UPrim(:,i,j,k,iElem)*IntegrationWeight
+      IntegrationWeight  =FV_w(i)*FV_w(j)*FV_w(k)/sJ(i,j,k,iElem,1)
+      BulkCons           =BulkCons+U(:,i,j,k,iElem)*IntegrationWeight
+      BulkPrim(DENS:TEMP)=BulkPrim(DENS:TEMP)+UPrim(DENS:TEMP,i,j,k,iElem)*IntegrationWeight
+      BulkPrim(TKE:OMG)  =BulkPrim(TKE:OMG)  +EXP(UPrim(TKE:OMG,i,j,k,iElem))*IntegrationWeight
     END DO; END DO; END DO !i,j,k
   ELSE ! DG element
 #endif
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      IntegrationWeight=wGPVol(i,j,k)/sJ(i,j,k,iElem,0)
-      BulkCons         =BulkCons+U(:,i,j,k,iElem)*IntegrationWeight
-      BulkPrim         =BulkPrim+UPrim(:,i,j,k,iElem)*IntegrationWeight
+      IntegrationWeight  =wGPVol(i,j,k)/sJ(i,j,k,iElem,0)
+      BulkCons           =BulkCons+U(:,i,j,k,iElem)*IntegrationWeight
+      BulkPrim(DENS:TEMP)=BulkPrim(DENS:TEMP)+UPrim(DENS:TEMP,i,j,k,iElem)*IntegrationWeight
+      BulkPrim(TKE:OMG)  =BulkPrim(TKE:OMG)  +EXP(UPrim(TKE:OMG,i,j,k,iElem))*IntegrationWeight
     END DO; END DO; END DO !i,j,k
 #if FV_ENABLED
   END IF
