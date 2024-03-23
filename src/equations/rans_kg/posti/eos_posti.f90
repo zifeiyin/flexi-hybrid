@@ -249,6 +249,7 @@ REAL,DIMENSION(1:3,PRODUCT(nVal)),INTENT(IN),OPTIONAL           :: NormVec,TangV
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER            :: i,iMom1,iMom2,iMom3,iDens,iPres,iVel1,iVel2,iVel3,iVelM,iVelS,iEner,iEnst,iTemp
+INTEGER            :: iTKE, iOMG, iRHOK, iRHOG, iMut
 CHARACTER(LEN=255) :: DepName_low
 REAL               :: UE(PP_2Var)
 INTEGER            :: nElems_loc,Nloc,nDOF,nDims
@@ -288,6 +289,12 @@ iVelM = KEYVALUE(DepNames,mapDepToCalc,"velocitymagnitude")
 iTemp = KEYVALUE(DepNames,mapDepToCalc,"temperature")
 iVelS = KEYVALUE(DepNames,mapDepToCalc,"velocitysound"    )
 iEnst = KEYVALUE(DepNames,mapDepToCalc,"energystagnation")
+! added for k-omega equations
+iRHOK = KEYVALUE(DepNames,mapDepToCalc,"DensityK")
+iRHOG = KEYVALUE(DepNames,mapDepToCalc,"DensityG")
+iTKE  = KEYVALUE(DepNames,mapDepToCalc,"turbK")
+iOMG  = KEYVALUE(DepNames,mapDepToCalc,"turbOmega")
+iMut  = KEYVALUE(DepNames,mapDepToCalc,"turbMut")
 #if PARABOLIC
 iVorM = KEYVALUE(DepNames,mapDepToCalc,"vorticitymagnitude")
 iWFriX = KEYVALUE(DepNames,mapDepToCalc,"wallfrictionx")
@@ -314,6 +321,10 @@ SELECT CASE(DepName_low)
     UCalc(:,iVarCalc) = UCalc(:,iMom2) / UCalc(:,iDens)
   CASE("velocityz")
     UCalc(:,iVarCalc) = UCalc(:,iMom3) / UCalc(:,iDens)
+  CASE("turbk")
+    UCalc(:,iVarCalc) = EXP(UCalc(:,iRHOK) / UCalc(:,iDens))
+  CASE("turbomega")
+    UCalc(:,iVarCalc) = EXP(UCalc(:,iRHOG) / UCalc(:,iDens))
   CASE("pressure")
     DO i=1,PRODUCT(nVal)
       UE(EXT_SRHO) = 1./UCalc(i,iDens)
