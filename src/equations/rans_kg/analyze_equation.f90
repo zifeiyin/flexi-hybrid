@@ -271,9 +271,9 @@ END IF ! MPIRoot
 
 IF(MPIRoot.AND.doCalcTurbulence)THEN
   WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Max k,o,mut: ', EXP(kgnut(1)), EXP(kgnut(3)), kgnut(5)
+  WRITE(UNIT_stdOut,formatStr)' Max k,o,mut: ', kgnut(1), EXP(kgnut(3)), kgnut(5)
   WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Min k,o,mut: ', EXP(kgnut(2)), EXP(kgnut(4)), kgnut(6)
+  WRITE(UNIT_stdOut,formatStr)' Min k,o,mut: ', kgnut(2), EXP(kgnut(4)), kgnut(6)
   WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
   WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(7:17:2)
   WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
@@ -318,16 +318,16 @@ DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       IntegrationWeight  =FV_w(i)*FV_w(j)*FV_w(k)/sJ(i,j,k,iElem,1)
       BulkCons           =BulkCons+U(:,i,j,k,iElem)*IntegrationWeight
-      BulkPrim(DENS:TEMP)=BulkPrim(DENS:TEMP)+UPrim(DENS:TEMP,i,j,k,iElem)*IntegrationWeight
-      BulkPrim(TKE:OMG)  =BulkPrim(TKE:OMG)  +EXP(UPrim(TKE:OMG,i,j,k,iElem))*IntegrationWeight
+      BulkPrim(DENS:TKE) =BulkPrim(DENS:TKE)+UPrim(DENS:TKE,i,j,k,iElem)*IntegrationWeight
+      BulkPrim(OMG)      =BulkPrim(OMG)  +EXP(UPrim(OMG,i,j,k,iElem))*IntegrationWeight
     END DO; END DO; END DO !i,j,k
   ELSE ! DG element
 #endif
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       IntegrationWeight  =wGPVol(i,j,k)/sJ(i,j,k,iElem,0)
       BulkCons           =BulkCons+U(:,i,j,k,iElem)*IntegrationWeight
-      BulkPrim(DENS:TEMP)=BulkPrim(DENS:TEMP)+UPrim(DENS:TEMP,i,j,k,iElem)*IntegrationWeight
-      BulkPrim(TKE:OMG)  =BulkPrim(TKE:OMG)  +EXP(UPrim(TKE:OMG,i,j,k,iElem))*IntegrationWeight
+      BulkPrim(DENS:TKE) =BulkPrim(DENS:TKE)+UPrim(DENS:TKE,i,j,k,iElem)*IntegrationWeight
+      BulkPrim(OMG)      =BulkPrim(OMG)  +EXP(UPrim(OMG,i,j,k,iElem))*IntegrationWeight
     END DO; END DO; END DO !i,j,k
 #if FV_ENABLED
   END IF

@@ -28,7 +28,7 @@ INTEGER                :: FilterType            !< filter to be applied 0: no fi
 REAL                   :: HestFilterParam(3)    !< filter parameters for modal Hesthaven style filter
 REAL,ALLOCATABLE       :: FilterMat(:,:)        !< 1D nodal filter matrix
 LOGICAL                :: FilterInitIsDone = .FALSE. !< filter routines have been initialized
-#if EQNSYSNR==2
+#if (EQNSYSNR==2||EQNSYSNR==4)
 REAL,ALLOCATABLE       :: lim(:)                !< Analysis data for LAF model
 REAL,ALLOCATABLE       :: eRatio(:)             !< Analysis data for LAF model
 REAL,ALLOCATABLE       :: r(:)                  !< Analysis data for LAF model
@@ -44,6 +44,7 @@ INTEGER                :: iPPRefState            !< RefState index for limiter t
 REAL                   :: PPEpsFac               !< limiter threashold factor (mulitplied with refstate to obtain threshold)
 REAL                   :: PPepsDens              !< limiter density threashold
 REAL                   :: PPepsPres              !< limiter pressure threashold
+REAL                   :: PPepsTKE               !< limiter turbulent kinetic energy threashold
 INTEGER,ALLOCATABLE    :: PP_Elems(:)            !< List of Elements that got limited
 INTEGER,ALLOCATABLE    :: PP_Elems_counter(:)    !< counts for every element the RK stages it was PP limited, nullified after
                                                  !< hdf5-output

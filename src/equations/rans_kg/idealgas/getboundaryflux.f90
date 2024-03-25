@@ -334,7 +334,7 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = UPrim_master(TEMP,p,q)                  ! adiabatic => temperature from the inside
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
-      UPrim_boundary(TKE ,p,q) = UPrim_master(TKE ,p,q)
+      UPrim_boundary(TKE ,p,q) = UPrim_Boundary(TKE,p,q)
       UPrim_boundary(OMG ,p,q) = 23.0258509299
     END DO; END DO ! q,p
 
@@ -348,7 +348,7 @@ CASE(3,4,9,91,23,24,25,27)
       UPrim_boundary(TEMP,p,q) = RefStatePrim(TEMP,BCState)              ! temperature from RefState
       ! set density via ideal gas equation, consistent to pressure and temperature
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
-      UPrim_boundary(TKE ,p,q) = UPrim_master(TKE ,p,q)
+      UPrim_boundary(TKE ,p,q) = UPrim_Boundary(TKE,p,q)
       UPrim_boundary(OMG ,p,q) = 23.0258509299
     END DO; END DO ! q,p
 
@@ -930,13 +930,13 @@ ELSE
       Flux(LIFT_DENS,p,q) = UPrim_Boundary(DENS,p,q)
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
-      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE ,p,q)
-      Flux(LIFT_OMG ,p,q) = UPrim_Boundary(OMG ,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = 23.0258509299!UPrim_Boundary(OMG ,p,q)
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
-      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE ,p,q)
-      Flux(LIFT_OMG ,p,q) = UPrim_Boundary(OMG ,p,q)
+      Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE,p,q)
+      Flux(LIFT_OMG ,p,q) = 23.0258509299
 #endif
     END DO; END DO !p,q
   CASE(9,91)

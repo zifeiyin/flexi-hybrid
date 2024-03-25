@@ -57,7 +57,7 @@ REAL                          ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                    :: magS
-REAL                                    :: kLog,gLog,muTOrig
+REAL                                    :: kPos,gLog,muTOrig
 !===================================================================================================================================
 ! Already take the square root of 2 into account here
 #if PP_dim==2
@@ -72,12 +72,11 @@ magS = SQRT( &
     (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))**2)
 #endif
 
-kLog    = MAX( U(RHOK) / U(DENS), -23.0258509299 )
+kPos    = MAX( U(RHOK) / U(DENS), 1.e-16 )
 gLog    = MAX( U(RHOG) / U(DENS), -23.0258509299 )
-muTOrig = U(DENS) * EXP( kLog - gLog )
+muTOrig = U(DENS) * kPos * EXP(-gLog)
 
-! muSGS = MIN(muTOrig, U(DENS) * kPos / (sqrt6 * magS))
-muSGS = MIN(muTOrig,  U(DENS) * EXP(kLog) / MAX(sqrt6 * magS, 1.e-16))
+muSGS = MIN(muTOrig,  U(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
 END SUBROUTINE DefaultEddyVisc_Point
 
 !===================================================================================================================================

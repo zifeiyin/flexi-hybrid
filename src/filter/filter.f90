@@ -99,7 +99,7 @@ USE MOD_Interpolation     ,ONLY:GetVandermonde
 USE MOD_Interpolation_Vars,ONLY:InterpolationInitIsDone,Vdm_Leg,sVdm_Leg,NodeType
 USE MOD_IO_HDF5           ,ONLY:AddToElemData,ElementOut
 USE MOD_ReadInTools       ,ONLY:GETINT,GETREAL,GETREALARRAY,GETLOGICAL,GETINTFROMSTR
-#if EQNSYSNR==2
+#if (EQNSYSNR==2 || EQNSYSNR==4)
 USE MOD_Interpolation_Vars,ONLY:wGP
 USE MOD_Mesh_Vars         ,ONLY:nElems,sJ
 #endif
@@ -114,7 +114,7 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER             :: iDeg
 REAL                :: Vol
-#if EQNSYSNR==2
+#if (EQNSYSNR==2 || EQNSYSNR==4)
 INTEGER             :: iElem,i,j,k
 #endif
 !==================================================================================================================================
@@ -152,7 +152,7 @@ IF(FilterType.GT.0) THEN
     ! Read in modal filter parameter
     HestFilterParam = GETREALARRAY('HestFilterParam',3,'(/36.,12.,1./)')
     CALL HestFilter()
-#if EQNSYSNR==2
+#if (EQNSYSNR==2 || EQNSYSNR==4)
   CASE (FILTERTYPE_LAF) ! Modal Filter cut-off, adaptive (LAF), only Euler/Navier-Stokes
     NFilter   = GETINT('NFilter')
     LAF_alpha = GETREAL('LAF_alpha')
@@ -296,7 +296,7 @@ END DO ! iElem
 END SUBROUTINE Filter
 
 
-#if EQNSYSNR==2
+#if (EQNSYSNR==2 || EQNSYSNR==4)
 !===============================================================================================================================
 !> LAF implementation via filter (only for Euler/Navier-Stokes)
 !===============================================================================================================================
@@ -539,7 +539,7 @@ USE MOD_PPLimiter,    ONLY: FinalizePPLimiter
 IMPLICIT NONE
 !==================================================================================================================================
 SDEALLOCATE(FilterMat)
-#if EQNSYSNR==2
+#if (EQNSYSNR==2 || EQNSYSNR==4)
 SDEALLOCATE(lim)
 SDEALLOCATE(eRatio)
 SDEALLOCATE(r)

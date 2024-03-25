@@ -142,7 +142,7 @@ IF(nRefState .GT. 0)THEN
   DO i=1,nRefState
     RefStatePrim(1:7,i) = GETREALARRAY('RefState',7)
     RefStatePrim(OMG,i) = LOG( RefStatePrim(7,i) ) 
-    RefStatePrim(TKE,i) = LOG( RefStatePrim(6,i) )
+    RefStatePrim(TKE,i) = RefStatePrim(6,i) 
     RefStatePrim(6  ,i) = 0.
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN

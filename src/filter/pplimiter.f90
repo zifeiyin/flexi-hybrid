@@ -12,7 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
-#if EQNSYSNR == 2
+#if (EQNSYSNR == 2 || EQNSYSNR == 4)
 #include "eos.h"
 #endif
 !==================================================================================================================================
@@ -165,7 +165,7 @@ USE MOD_PreProc
 USE MOD_DG_Vars             ,ONLY: U,UPrim
 USE MOD_Mesh_Vars           ,ONLY: nElems
 USE MOD_Filter_Vars         ,ONLY: iPPRefState,PPEpsFac
-USE MOD_Filter_Vars         ,ONLY: PPepsDens,PPepsPres
+USE MOD_Filter_Vars         ,ONLY: PPepsDens,PPepsPres,PPepsTKE
 USE MOD_Filter_Vars         ,ONLY: PP_Elems,PP_Switch_counter,PP_Elems_counter,PP_Elems_Amount
 USE MOD_EOS                 ,ONLY: ConsToPrim,PrimtoCons
 USE MOD_Equation_Vars       ,ONLY: RefStatePrim
@@ -180,11 +180,13 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER                :: iElem,i,j,k
 REAL                   :: UMean(PP_nVar),UMeanPrim(PP_nVarPrim),rhoMin,pMin
+REAL                   :: kMin
 REAL                   :: Theta1,Theta2,tLoc
 !==================================================================================================================================
 !InitFilter (InitPPLimiter) is called before InitEquation (where RefStatePrim is filled), so we have to do this here:
 PPepsDens=PPEpsFac*RefStatePrim(DENS,iPPRefState)
 PPepsPres=PPEpsFac*RefStatePrim(PRES,iPPRefState) !Isothermal expansion
+PPepsTKE =PPEpsFac*RefStatePrim(TKE ,iPPRefState)
 !PPepsPres=PPEpsFac**Kappa*RefStatePrim(PRES,iPPRefState) !Adiabatic expansion
 
 CALL ConsToPrim(PP_N,UPrim,U)
@@ -196,9 +198,10 @@ DO iElem=1,nElems
   ! Set initial values
   rhoMin = MINVAL(UPrim(DENS,:,:,:,iElem))
   pMin   = MINVAL(UPrim(PRES,:,:,:,iElem))
+  kMin   = MINVAL(UPrim(TKE ,:,:,:,iElem))
 
   ! Do nothing if density and pressure are above limit
-  IF ((rhoMin.GE.PPepsDens).AND.(pMin.GE.PPepsPres)) CYCLE
+  IF ((rhoMin.GE.PPepsDens).AND.(pMin.GE.PPepsPres).AND.(kMin.GE.PPepsTKE)) CYCLE
 
   ! Set element as active (for analyze/visu purposes only)
   PP_Elems(iElem)=1
@@ -211,10 +214,11 @@ DO iElem=1,nElems
 
   ! check if mean is admissible
   CALL ConsToPrim(UMeanPrim,UMean)
-  IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres)) THEN
+  IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres).OR.(UMeanPrim(TKE).LE.PPepsTKE)) THEN
     ! mean is not admissible: Make mean admissible and set to a constant value
     UMeanPrim(DENS) = MAX(UMeanPrim(DENS),PPepsDens)
     UMeanPrim(PRES) = MAX(UMeanPrim(PRES),PPepsPres)
+    UMeanPrim(TKE ) = MAX(UMeanPrim(TKE ),PPepsTKE )
     CALL PrimToCons(UMeanPrim,UMean)
     DO k=0,PP_NZ;DO j=0,PP_N;DO i=0,PP_N
       U(:,i,j,k,iElem) = UMean
@@ -243,6 +247,15 @@ DO iElem=1,nElems
       U(:,i,j,k,iElem) = Theta2*(U(:,i,j,k,iElem)-UMean) + UMean
     END DO;END DO;END DO
   END IF
+
+  ! Step 3, limit the turbulent kinetic energy
+  IF (kMin.LT.PPepsTKE) THEN
+    Theta1 = (UMean(RHOK)-PPepsTKE*Umean(DENS)) / (UMean(RHOK)-kMin*Umean(DENS))
+    DO k=0,PP_NZ;DO j=0,PP_N;DO i=0,PP_N
+      U(RHOK,i,j,k,iElem) = Theta1*(U(RHOK,i,j,k,iElem)-UMean(RHOK)) + UMean(RHOK)
+    END DO;END DO;END DO
+  END IF
+
 END DO !iElem
 ! collect statistics
 PP_Elems_counter  = PP_Elems_counter  + PP_Elems
@@ -271,7 +284,11 @@ REAL                    :: a,b,c
 REAL                    :: UDiff(PP_nVar)
 !==================================================================================================================================
 ! Calculate new pressure
+#if EQNSYSNR==2
 p = KappaM1*(ULoc(ENER)-0.5*DOT_PRODUCT(ULoc(MMV2),ULoc(MMV2))/ULoc(DENS))
+#elif EQNSYSNR==4
+p = KappaM1*(ULoc(ENER)-0.5*DOT_PRODUCT(ULoc(MMV2),ULoc(MMV2))/ULoc(DENS)-ULoc(RHOK))
+#endif 
 
 ! If pressure is greater than limit, return and do nothing
 IF (p .GE. PPepsPres) THEN
@@ -282,9 +299,10 @@ END IF
 ! Otherwise calculate the necessary value for Theta2
 UDiff=ULoc-UMean
 
-a = UDiff(ENER)*UDiff(DENS)                                                             - 0.5*DOT_PRODUCT(UDiff(MMV2),UDiff(MMV2))
-b = UMean(ENER)*UDiff(DENS) + UMean(DENS)*UDiff(ENER) - (PPepsPres/KappaM1)*UDiff(DENS)     - DOT_PRODUCT(UMean(MMV2),UDiff(MMV2))
-c = UMean(ENER)*UMean(DENS)                           - (PPepsPres/KappaM1)*UMean(DENS) - 0.5*DOT_PRODUCT(UMean(MMV2),UMean(MMV2))
+a = UDiff(ENER)*UDiff(DENS) - 0.5*DOT_PRODUCT(UDiff(MMV2),UDiff(MMV2)-UDiff(RHOK)*UDiff(DENS))
+b = UMean(ENER)*UDiff(DENS) + UMean(DENS)*UDiff(ENER) - (PPepsPres/KappaM1)*UDiff(DENS) - DOT_PRODUCT(UMean(MMV2),UDiff(MMV2)) &
+  - UMean(RHOK)*UMean(DENS)
+c = UMean(ENER)*UMean(DENS) - (PPepsPres/KappaM1)*UMean(DENS) - 0.5*DOT_PRODUCT(UMean(MMV2),UMean(MMV2)) - UMean(RHOK)*UMean(DENS)
 
 ! f = at^2+bt+c; f(0)>0; f(1)<0
 ! => exactly one root in [0,1], with df/dt<0

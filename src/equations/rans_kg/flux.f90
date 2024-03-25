@@ -90,8 +90,8 @@ f(MOM2) = U(MOM1) * UPrim(VEL2)               ! rho*u*v
 f(MOM3) = U(MOM1) * UPrim(VEL3)               ! rho*u*w
 f(ENER) = Ep * UPrim(VEL1)                    ! (rho*e+p)*u
 ! TODO(Shimushu): implement this
-f(RHOK) = U(MOM1) * UPrim(TKE)                ! rho*u*k
-f(RHOG) = U(MOM1) * UPrim(OMG)                ! rho*u*g
+f(RHOK) = U(RHOK) * UPrim(VEL1)                ! rho*u*k
+f(RHOG) = U(RHOG) * UPrim(VEL1)                ! rho*u*g
 ! Euler fluxes y-direction
 g(DENS) = U(MOM2)                             ! rho*v
 g(MOM1) = f(MOM2)                             ! rho*u*v
@@ -99,8 +99,8 @@ g(MOM2) = U(MOM2) * UPrim(VEL2) + UPrim(PRES) ! rho*v²+p
 g(MOM3) = U(MOM2) * UPrim(VEL3)               ! rho*v*w
 g(ENER) = Ep * UPrim(VEL2)                    ! (rho*e+p)*v
 ! TODO(Shimushu): implement this
-g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*v*k
-g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*v*g
+g(RHOK) = U(RHOK) * UPrim(VEL2)                ! rho*v*k
+g(RHOG) = U(RHOG) * UPrim(VEL2)                ! rho*v*g
 ! Euler fluxes z-direction
 h(DENS) = U(MOM3)                             ! rho*v
 h(MOM1) = f(MOM3)                             ! rho*u*w
@@ -108,8 +108,8 @@ h(MOM2) = g(MOM3)                             ! rho*v*w
 h(MOM3) = U(MOM3) * UPrim(VEL3) + UPrim(PRES) ! rho*v²+p
 h(ENER) = Ep * UPrim(VEL3)                    ! (rho*e+p)*w
 ! TODO(Shimushu): implement this
-h(RHOK) = U(MOM3) * UPrim(TKE)                ! rho*w*k
-h(RHOG) = U(MOM3) * UPrim(OMG)                ! rho*w*g
+h(RHOK) = U(RHOK) * UPrim(VEL3)                ! rho*w*k
+h(RHOG) = U(RHOG) * UPrim(VEL3)                ! rho*w*g
 #else
 
 ! Euler part
@@ -120,8 +120,8 @@ f(MOM2) = U(MOM1)*UPrim(VEL2)                 ! rho*u*v
 f(MOM3) = 0.
 f(ENER) = Ep*UPrim(VEL1)                      ! (rho*e+p)*u
 ! TODO(Shimushu): implement this
-f(RHOK) = U(MOM1) * UPrim(TKE)                ! rho*u*k
-f(RHOG) = U(MOM1) * UPrim(OMG)                ! rho*u*g
+f(RHOK) = U(RHOK) * UPrim(VEL1)                ! rho*u*k
+f(RHOG) = U(RHOG) * UPrim(VEL1)                ! rho*u*g
 ! Euler fluxes y-direction
 g(DENS)= U(MOM2)                              ! rho*v
 g(MOM1)= f(MOM2)                              ! rho*u*v
@@ -129,8 +129,8 @@ g(MOM2)= U(MOM2)*UPrim(VEL2)+UPrim(PRES)      ! rho*v²+p
 g(MOM3)= 0.
 g(ENER)= Ep*UPrim(VEL2)                       ! (rho*e+p)*v
 ! TODO(Shimushu): implement this
-g(RHOK) = U(MOM2) * UPrim(TKE)                ! rho*v*k
-g(RHOG) = U(MOM2) * UPrim(OMG)                ! rho*v*g
+g(RHOK) = U(RHOK) * UPrim(VEL2)                ! rho*v*k
+g(RHOG) = U(RHOG) * UPrim(VEL2)                ! rho*v*g
 ! Euler fluxes z-direction
 h   = 0.
 #endif
@@ -193,7 +193,7 @@ REAL                :: tau_zz,tau_xz,tau_yz
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
-muTOrig= MIN( UPrim(DENS) * EXP(UPrim(TKE) - UPrim(OMG)), 10000. * muS )
+muTOrig= MIN( UPrim(DENS) * MAX(UPrim(TKE),1.e-16) * EXP(-UPrim(OMG)), 10000. * muS )
 diffK  = muS + invSigmaK * muTOrig
 diffG  = muS + invSigmaG * muTOrig
 !Add turbulent sub grid scale viscosity to mu

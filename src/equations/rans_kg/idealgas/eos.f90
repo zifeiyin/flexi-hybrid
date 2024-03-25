@@ -209,16 +209,12 @@ prim(VEL3)=0.
 #endif
 
 ! TODO(Shimushu): fix this
-! pressure, will subtract rho*k later
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-MAX(cons(RHOK),0.))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 
 ! limiting turbulence variables
-prim(TKE)  = MAX( MIN( cons(RHOK)*sRho, LOG(prim(PRES)*KappaM1/cons(DENS)) ), -36.8413614879)
-#if DECOUPLE==0
-prim(PRES) = prim(PRES) - KappaM1 * cons(DENS) * EXP(prim(TKE))
-#endif
+prim(TKE)  = cons(RHOK)*sRho
 prim(OMG)  = MIN( MAX(cons(RHOG)*sRho, -36.8413614879), 23.0258509299)
 
 END SUBROUTINE ConsToPrim
@@ -314,7 +310,7 @@ cons(MOM3)=0.
 cons(RHOK)=prim(TKE)*prim(DENS)
 cons(RHOG)=prim(OMG)*prim(DENS)
 #if DECOUPLE==0
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+cons(DENS)*EXP(prim(TKE))
+cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+cons(DENS)*prim(TKE)
 #else
 cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))
 #endif

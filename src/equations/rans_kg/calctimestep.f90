@@ -185,7 +185,7 @@ DO iElem=1,nElems
     ! Viscous Eigenvalues
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
-    muTOrig = MIN( UE(EXT_DENS) * EXP( UE(EXT_TKE) - UE(EXT_OMG) ), 10000. * mu) 
+    muTOrig = MIN( UE(EXT_DENS) * MAX(UE(EXT_TKE),1.e-16) * EXP(-UE(EXT_OMG)), 10000. * mu) 
 #if DECOUPLE==0
     mu = mu + MAX( MAX(muSGSMax, invSigmaK * muTOrig), muSGSMax/PrSGS)
 #endif
