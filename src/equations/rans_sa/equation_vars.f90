@@ -32,6 +32,8 @@ REAL,ALLOCATABLE  :: RefStatePrim(:,:) !< refstates in primitive variables (as r
 REAL,ALLOCATABLE  :: RefStateCons(:,:) !< refstates in conservative variables
 CHARACTER(LEN=255):: BCStateFile       !< file containing the reference solution on the boundary to be used as BC
 
+INTEGER           :: SourceTerm        !< number identifying the used source term
+
 ! Boundary condition arrays
 REAL,ALLOCATABLE     :: BCData(:,:,:,:) !< array with precomputed BC values (conservative)
 REAL,ALLOCATABLE     :: BCDataPrim(:,:,:,:) !< array with precomputed BC values (primitive)

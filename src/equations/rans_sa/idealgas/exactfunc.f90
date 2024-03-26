@@ -99,6 +99,13 @@ CALL prms%CreateRealOption(         'delta99_in',   "Blasius boundary layer CASE
 CALL prms%CreateRealArrayOption(    'x_in',         "Blasius boundary layer CASE(1338)")
 #endif
 
+CALL prms%SetSection("SourceTerm")
+CALL prms%CreateIntFromStringOption('SourceTerm', "Source term to be used.",'-1')
+CALL addStrListEntry('IniExactFunc','None'             ,-1)
+CALL addStrListEntry('IniExactFunc','ConstantBodyForce',1)
+
+CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force CASE(1)")
+
 END SUBROUTINE DefineParametersExactFunc
 
 !==================================================================================================================================
@@ -110,7 +117,7 @@ USE MOD_PreProc
 USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
-USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState
+USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,SourceTerm
 
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -158,6 +165,13 @@ CASE(2,3,4,41,42) ! synthetic test cases
   END IF
 END SELECT
 #endif
+
+SourceTerm = GETINTFROMSTR('SourceTerm')
+SELECT CASE(SourceTerm)
+  CASE(-1) ! None
+  CASE(1) ! ConstantBodyForce
+    ConstantBodyForce = GETREALARRAY('ConstantBodyForce',3)
+END SELECT
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
@@ -651,11 +665,11 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc!,doCalcSource
+USE MOD_Equation_Vars    ,ONLY: IniExactFunc,SourceTerm
 USE MOD_Equation_Vars    ,ONLY: SAKappa,SAd,cw1,cb1,cb2,sigma
 USE MOD_Equation_Vars    ,ONLY: fv2,fw,STilde,fn,ct1,ct2,ct3,ct4,includeTrip,omegaT,dXt,SAdt,SADebug,doSADebug
 USE MOD_Eos_Vars         ,ONLY: Kappa,KappaM1!,cp
-USE MOD_Exactfunc_Vars   ,ONLY: AdvVel
+USE MOD_Exactfunc_Vars   ,ONLY: AdvVel,ConstantBodyForce
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_EOS              ,ONLY: ConsToPrim
 USE MOD_Viscosity
@@ -988,6 +1002,30 @@ DO iElem=1,nElems
   END DO; END DO; END DO ! i,j,k
 END DO
 #endif /*PARABOLIC*/
+
+SELECT CASE(SourceTerm)
+  CASE(1) ! ConstantBodyForce
+    DO iElem=1,nElems
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut_src(MOMV,i,j,k) = ConstantBodyForce
+        Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), ConstantBodyForce) / U(DENS,i,j,k,iElem)
+      END DO; END DO; END DO ! i,j,k
+#if FV_ENABLED
+      IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+        CALL ChangeBasisVolume(4,PP_N,PP_N,FV_Vdm,Ut_src(MOM1:ENER,:,:,:),Ut_src2(MOM1:ENER,:,:,:))
+        DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+          Ut(MOM1:ENER,i,j,k,iElem) = Ut(MOM1:ENER,i,j,k,iElem)+Ut_src2(MOM1:ENER,i,j,k)/sJ(i,j,k,iElem,1)
+        END DO; END DO; END DO ! i,j,k
+      ELSE
+#endif
+        DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+          Ut(MOM1:ENER,i,j,k,iElem) = Ut(MOM1:ENER,i,j,k,iElem)+Ut_src(MOM1:ENER,i,j,k)/sJ(i,j,k,iElem,0)
+        END DO; END DO; END DO ! i,j,k
+#if FV_ENABLED
+      END IF
+#endif
+    END DO
+END SELECT
 
 END SUBROUTINE CalcSource
 

@@ -40,6 +40,8 @@ REAL              :: x_in(2)           !< inflow position for Blasius solution
 LOGICAL           :: BlasiusInitDone = .FALSE. !< Flag indicating that the parameters for Blasius have been read (they can be read
                                                !< both in exact func init and in BC init)
 #endif
+
+REAL              :: ConstantBodyForce(3) ! < Constant body force CASE(1)
 !==================================================================================================================================
 
 END MODULE MOD_Exactfunc_Vars
