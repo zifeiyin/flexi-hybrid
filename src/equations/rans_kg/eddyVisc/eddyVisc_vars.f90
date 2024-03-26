@@ -44,10 +44,12 @@ LOGICAL,ALLOCATABLE  :: doFilterDir(:,:)              !< specifies in which dire
 
 REAL,ALLOCATABLE  :: yWall(:,:,:,:,:)                 !< wall distance
 REAL,ALLOCATABLE  :: damp(:,:,:,:,:)                  !< damping factor
+REAL,ALLOCATABLE  :: Cdes2(:,:,:,:)                   !< precomputed (model constant)**2 => dynamic Smagorinsky DDES
 REAL,ALLOCATABLE  :: IntElem(:,:,:,:)                 !< integration weights for dynamic Smagorinsky model
                                                       !< for dynamic Smagorinsky model
 
 REAL,ALLOCATABLE  :: DeltaS(:)                        !< filter width
+REAL,ALLOCATABLE  :: DeltaRatio(:)                    !< test-filter width / filter width
 REAL,ALLOCATABLE  :: CSdeltaS2(:)                     !< precomputed (model constant*filter width)**2 => Vreman,Sigma model
 REAL,ALLOCATABLE  :: muSGS(:,:,:,:,:)                 !< Sub-grid eddy viscosity
 REAL,ALLOCATABLE  :: muSGS_master(:,:,:,:)            !< Sub-grid eddy viscosity on master sides
