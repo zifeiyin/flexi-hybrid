@@ -215,7 +215,7 @@ prim(TEMP) = prim(PRES)*sRho / R
 
 ! limiting turbulence variables
 prim(TKE)  = cons(RHOK)*sRho
-prim(OMG)  = MIN( MAX(cons(RHOG)*sRho, -36.8413614879), 23.0258509299)
+prim(OMG)  = cons(RHOG)*sRho
 
 END SUBROUTINE ConsToPrim
 

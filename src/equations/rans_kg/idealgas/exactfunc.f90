@@ -761,17 +761,16 @@ REAL,INTENT(INOUT)  :: Ut(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems) !< DG time deriv
 INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 REAL                :: UPrim(PP_nVarPrim)
-REAL                :: muS,muT,kPos,gLog,muTOrig, invK
-REAL                :: expNegG, muEffK, muEffG
-REAL                :: omegaTildeR0, omegaR, tmpSum1, tmpSum2
+REAL                :: muS,muT,kPos,gPos,muTOrig
+REAL                :: muEffG, invR
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
-REAL                :: Sxx,Sxy,Syy,SijGradU, txx, txy, tyy
+REAL                :: Sxx,Sxy,Syy,SijGradU
 #if PP_dim == 3
-REAL                :: Sxz, Syz, Szz, txz, tyz, tzz
+REAL                :: Sxz, Syz, Szz
 #endif
-REAL                :: dGdG, dKdK, dKdG 
+REAL                :: dGdG 
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -780,13 +779,12 @@ DO iElem=1,nElems
     muS = VISCOSITY_PRIM(UPrim)
     muT = muSGS(1,i,j,k,iElem)
     kPos    = MAX( UPrim(TKE), 1.e-16 ) 
-    gLog    = MIN( UPrim(OMG), 23.0258509299 ) 
-    omegaR  = EXP(gLog)
-    expNegG = EXP(MIN(-gLog,20.7232658369))
+    gPos    = MAX( UPrim(OMG), 1.e-16 ) 
 
-    muTOrig = MIN( UPrim(DENS) * kPos * expNegG, 10000.0 * muS )
+    muTOrig = MIN( Cmu * UPrim(DENS) * kPos * gPos**2, 10000.0 * muS )
 
-    muEffK = (muS + invSigmaK * muTOrig)
+    invR   = 1. / MAX( 0.01 * muS, muTOrig )
+
     muEffG = (muS + invSigmaG * muTOrig)
 
 #if PP_dim==2
@@ -800,11 +798,9 @@ DO iElem=1,nElems
     Syy = 0.5 * (s43 * vy - s23 * ux)
     Sxy = 0.5 * (uy + vx)
 
-    txx = 2. * muT * Sxx - s23 * kPos * UPrim(DENS)
-    tyy = 2. * muT * Syy - s23 * kPos * UPrim(DENS)
-    txy = 2. * muT * Sxy
-
     SijGradU = Sxx * ux + Sxy * uy + Sxy * vx + Syy * vy
+
+    dGdG = gx * gx + gy * gy
 
     END ASSOCIATE
 #else
@@ -822,34 +818,26 @@ DO iElem=1,nElems
     Sxz = 0.5 * (uz + wx)
     Syz = 0.5 * (vz + wy)
 
-    txx = 2. * muT * Sxx - s23 * kPos * UPrim(DENS)
-    tyy = 2. * muT * Syy - s23 * kPos * UPrim(DENS)
-    tzz = 2. * muT * Szz - s23 * kPos * UPrim(DENS)
-    txy = 2. * muT * Sxy
-    txz = 2. * muT * Sxz
-    tyz = 2. * muT * Syz
-
     SijGradU = &
         Sxx * ux + Sxy * uy + Sxz * uz + &
         Sxy * vx + Syy * vy + Syz * vz + &
         Sxz * wx + Syz * wy + Szz * wz
 
     dGdG = gx * gx + gy * gy + gz * gz
-    dKdG = kx * gx + ky * gy + kz * gz
     
     END ASSOCIATE
 #endif
 
     prodK (1,i,j,k,iElem) = 2. * muT * SijGradU                 
-    dissK (1,i,j,k,iElem) = Cmu * UPrim(DENS) * kPos * omegaR
+    dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
     crossK(1,i,j,k,iElem) = 0.0
 
-    prodG (1,i,j,k,iElem) = MIN( 2. * Comega1 * UPrim(DENS) * expNegG * SijGradU, 1.e8 )
-    dissG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) * omegaR
-    crossG(1,i,j,k,iElem) = MIN( muEffG * dGdG, 1.e9)
+    prodG (1,i,j,k,iElem) = 0.5 * Comega2 / Cmu * UPrim(DENS) / MAX(gPos, 1.e-8) 
+    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU * MIN( 100.*muT/muTOrig, 1.0)
+    crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
 
-    Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem) + crossK(1,i,j,k,iElem)
-    Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) + crossG(1,i,j,k,iElem)
+    Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
+    Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
   END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED

@@ -157,7 +157,7 @@ REAL                          ,INTENT(OUT) :: fd      !> fd
 ! LOCAL VARIABLES
 REAL                                    :: sRho
 REAL                                    :: magS 
-REAL                                    :: kPos, gLog, muTOrig, muTLim
+REAL                                    :: kPos, gPos, muTOrig, muTLim
 REAL                                    :: lLES, lRANS, lDDES, rd
 REAL                                    :: dUdU
 REAL                                    :: muS
@@ -179,25 +179,25 @@ magS = SQRT( &
 #endif
 
 kPos    = MAX( UPrim(TKE), 1.e-16 )
-gLog    = MAX( UPrim(OMG), -23.0258509299 )
-muTOrig = UPrim(DENS) * kPos * EXP(-gLog)
+gPos    = MAX( UPrim(OMG), 1.e-16 )
+muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
 
 muTLim = MIN(muTOrig,  UPrim(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
 
-lRANS = SQRT(mutLim * sRho * EXP(MIN(-gLog,23.0258509299)) )
+lRANS = SQRT(mutLim * sRho * Cmu * gPos**2 )
 
 dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 + gradUx(LIFT_VEL3)**2 &
       + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUy(LIFT_VEL3)**2 &
       + gradUz(LIFT_VEL1)**2 + gradUz(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2
 
-rd    = ( kPos * EXP(-gLog) + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
 lLES = CDES0 * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-muSGS = UPrim(DENS) * lDDES**2 * EXP(gLog)
+muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
 
 END SUBROUTINE Smagorinsky_Point
 

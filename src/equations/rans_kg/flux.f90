@@ -193,7 +193,7 @@ REAL                :: tau_zz,tau_xz,tau_yz
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
-muTOrig= MIN( UPrim(DENS) * MAX(UPrim(TKE),1.e-16) * EXP(-UPrim(OMG)), 10000. * muS )
+muTOrig= MIN( Cmu * UPrim(DENS) * MAX(UPrim(TKE),1.e-16) * MAX(UPrim(OMG),1.e-16)**2, 10000. * muS )
 diffK  = muS + invSigmaK * muTOrig
 diffG  = muS + invSigmaG * muTOrig
 !Add turbulent sub grid scale viscosity to mu
