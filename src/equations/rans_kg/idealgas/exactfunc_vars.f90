@@ -41,6 +41,10 @@ REAL              :: JetRadius         !< parameter for Roundjet
 REAL              :: JetEnd            !< parameter for Roundjet
 LOGICAL           :: RoundJetInitDone=.FALSE.
 REAL              :: Re_tau            !< parameter for turbulent channel
+CHARACTER(LEN=255):: BCFile            !< parameter for BC
+INTEGER           :: BCFileID          !< parameter for BC
+INTEGER           :: BCLength
+REAL,ALLOCATABLE  :: BCData(:,:)
 #if PARABOLIC
 REAL              :: delta99_in        !< boundary layer thickness for Blasius solution
 REAL              :: x_in(2)           !< inflow position for Blasius solution

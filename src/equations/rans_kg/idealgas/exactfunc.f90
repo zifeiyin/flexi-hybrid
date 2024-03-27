@@ -86,6 +86,7 @@ CALL addStrListEntry('IniExactFunc','sod'               ,11)
 CALL addStrListEntry('IniExactFunc','dmr'               ,13)
 CALL addStrListEntry('IniExactFunc','harmonicgausspulse',14)
 CALL addStrListEntry('IniExactFunc','turbulentchannel'  ,517)
+CALL addStrListEntry('IniExactFunc','readfromfile'      ,301)
 #if PARABOLIC
 CALL addStrListEntry('IniExactFunc','blasius'  ,1338)
 #endif
@@ -106,10 +107,13 @@ CALL prms%CreateRealOption(         'AmplitudeFactor',         "Harmonic Gauss P
 CALL prms%CreateRealOption(         'HarmonicFrequency',       "Harmonic Gauss Pulse CASE(14)", '400')
 CALL prms%CreateRealOption(         'SigmaSqr',                "Harmonic Gauss Pulse CASE(14)", '0.1')
 CALL prms%CreateRealOption(         'Re_tau',                  "Re_tau CASE(517)")
+CALL prms%CreateStringOption(       'BCfile',                  "BC file CASE(301)")
 #if PARABOLIC
 CALL prms%CreateRealOption(         'delta99_in',              "Blasius boundary layer CASE(1338)")
 CALL prms%CreateRealArrayOption(    'x_in',                    "Blasius boundary layer CASE(1338)")
 #endif
+
+CALL prms%CreateLogicalOption(      'useBCFile',               "Use BC file CASE(301)", 'F')
 
 ! Extra source term
 CALL prms%SetSection("SourceTerm")
@@ -172,6 +176,14 @@ SELECT CASE (IniExactFunc)
     SiqmaSqr          = GETREAL('SigmaSqr')
   CASE(517) ! turbulent channel
     Re_tau            = GETREAL('Re_tau')
+  ! CASE(301) ! readfromfile
+  !   BCfile            = GETSTR('BCFile')
+  !   open(newunit=BCFileID, file=BCfile, status="old", action="read")
+  !   read(BCFileID, *) BCLength
+  !   ALLOCATE(BCData(1+PP_nVar,BCLength))
+  !   read(BCFileID, *) BCData
+  !   ! print * , BCData
+  !   close(BCFileID)
 #if PARABOLIC
   CASE(1338) ! Blasius boundary layer solution
     delta99_in      = GETREAL('delta99_in')
@@ -192,6 +204,16 @@ CASE(2,3,4,41,42) ! synthetic test cases
   END IF
 END SELECT
 #endif
+
+IF(GETLOGICAL('useBCFile'))THEN
+  BCfile            = GETSTR('BCFile')
+  open(newunit=BCFileID, file=BCfile, status="old", action="read")
+  read(BCFileID, *) BCLength
+  ALLOCATE(BCData(1+PP_nVar,BCLength))
+  read(BCFileID, *) BCData
+  ! print * , BCData
+  close(BCFileID)
+ENDIF
 
 IniSourceTerm = GETINTFROMSTR('IniSourceTerm')
 SELECT CASE (IniSourceTerm)
@@ -228,6 +250,7 @@ USE MOD_Exactfunc_Vars ,ONLY: MachShock,PreShockDens
 USE MOD_Exactfunc_Vars ,ONLY: P_Parameter,U_Parameter
 USE MOD_Exactfunc_Vars ,ONLY: JetRadius,JetEnd
 USE MOD_Exactfunc_Vars ,ONLY: Re_tau
+USE MOD_Exactfunc_Vars ,ONLY: BCLength,BCData
 USE MOD_Equation_Vars  ,ONLY: IniRefState,RefStateCons,RefStatePrim
 USE MOD_Timedisc_Vars  ,ONLY: fullBoundaryOrder,CurrentStage,dt,RKb,RKc,t
 USE MOD_TestCase       ,ONLY: ExactFuncTestcase
@@ -654,6 +677,22 @@ CASE(517) ! turbulent channel
   Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
 
   CALL PrimToCons(Prim, Resu)
+CASE(301) ! readfromfile
+  ! print *, 'readfromfile', x(2)
+  Prim = RefStatePrim(:,RefState)
+  DO i=2,BCLength
+    ! print *, BCData(1,i)
+    IF(x(2).LE.BCData(1,i))THEN
+      Prim(1:PP_nVar) = ( &
+          (BCData(1,i) - x(2)) * BCData(2:(1+PP_nVar),i-1) + &
+          (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i)) / (BCData(1,i) - BCData(1,i-1)) 
+      Prim(TKE:OMG) = Prim(RHOK:RHOG)
+      Prim(TEMP) = 0.
+      ! print *, Prim
+      CALL PrimToCons(Prim, Resu)
+      EXIT
+    END IF
+  END DO
 #if PARABOLIC
 CASE(1338) ! blasius
   prim=RefStatePrim(:,RefState)
