@@ -65,6 +65,7 @@ CALL prms%CreateLogicalOption('CalcWallVelocity' , "Set true to compute velociti
 CALL prms%CreateLogicalOption('CalcTotalStates'  , "Set true to compute total states (e.g. Tt,pt)"    , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTimeAverage'  , "Set true to compute time averages"                , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTurbulence'   , "Set true to compute upper and lower turbulence"   , '.TRUE.')
+CALL prms%CreateLogicalOption('CalcTurbSource'   , "Set true to compute upper and lower turb sources" , '.FALSE.')
 CALL prms%CreateLogicalOption('WriteBodyForces'  , "Set true to write bodyforces to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBulkState'   , "Set true to write bulk state to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteMeanFlux'    , "Set true to write mean flux to file"              , '.TRUE.')
@@ -105,6 +106,7 @@ doCalcMeanFlux      = GETLOGICAL('CalcMeanFlux')
 doCalcWallVelocity  = GETLOGICAL('CalcWallVelocity')
 doCalcTotalStates   = GETLOGICAL('CalcTotalStates')
 doCalcTurbulence    = GETLOGICAL('CalcTurbulence')
+doCalcTurbSource    = GETLOGICAL('CalcTurbSource')
 doWriteBodyForces   = GETLOGICAL('WriteBodyForces')
 doWriteBulkState    = GETLOGICAL('WriteBulkState')
 doWriteMeanFlux     = GETLOGICAL('WriteMeanFlux')
@@ -190,6 +192,7 @@ USE MOD_AnalyzeEquation_Vars
 USE MOD_CalcBodyForces,     ONLY: CalcBodyForces
 USE MOD_Mesh_Vars,          ONLY: BoundaryName,nBCs,BoundaryType
 USE MOD_Output,             ONLY: OutputToFile
+USE MOD_EddyVisc_Vars,      ONLY: eddyViscType 
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -203,7 +206,7 @@ REAL,DIMENSION(PP_nVar,nBCs)    :: MeanFlux
 REAL,DIMENSION(4,nBCs)          :: meanTotals
 REAL,DIMENSION(nBCs)            :: meanV,maxV,minV
 REAL                            :: BulkPrim(PP_nVarPrim),BulkCons(PP_nVar)
-REAL                            :: kgnut(18)
+REAL                            :: kgnut(20)
 INTEGER                         :: i
 !==================================================================================================================================
 ! Calculate derived quantities
@@ -270,14 +273,24 @@ IF(MPIRoot)THEN
 END IF ! MPIRoot
 
 IF(MPIRoot.AND.doCalcTurbulence)THEN
-  WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Max k,g,mut: ', kgnut(1), kgnut(3), kgnut(5)
-  WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Min k,g,mut: ', kgnut(2), kgnut(4), kgnut(6)
+  IF ( eddyViscType == 4 ) THEN 
+    WRITE(formatStr,'(A,I2,A)')'(A14,',4,'ES18.9)'
+    WRITE(UNIT_stdOut,formatStr)' Max k,g,m,c:', kgnut(1), kgnut(3), kgnut(5), kgnut(7)
+    WRITE(formatStr,'(A,I2,A)')'(A14,',4,'ES18.9)'
+    WRITE(UNIT_stdOut,formatStr)' Min k,g,m,c:', kgnut(2), kgnut(4), kgnut(6), kgnut(8)
+  ELSE 
+    WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
+    WRITE(UNIT_stdOut,formatStr)' Max k,g,mut:', kgnut(1), kgnut(3), kgnut(5)
+    WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
+    WRITE(UNIT_stdOut,formatStr)' Min k,g,mut:', kgnut(2), kgnut(4), kgnut(6)
+  ENDIF 
+ENDIF 
+
+IF(MPIRoot.AND.doCalcTurbSource)THEN
   WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(7:17:2)
+  WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(9:19:2)
   WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(8:18:2)
+  WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(10:20:2)
 END IF
 
 END SUBROUTINE AnalyzeEquation
@@ -590,11 +603,11 @@ SUBROUTINE CalcTurbulence(kgnut)
 USE MOD_Globals
 USE MOD_PreProc
 USE MOD_DG_Vars,            ONLY: U
-USE MOD_EddyVisc_Vars,      ONLY: muSGS,prodK,dissK,crossK,prodG,dissG,crossG
+USE MOD_EddyVisc_Vars,      ONLY: muSGS,prodK,dissK,crossK,prodG,dissG,crossG,eddyViscType,Cdes2 
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-REAL,INTENT(OUT)                :: kgnut(18)                   !> Conservative residuals
+REAL,INTENT(OUT)                :: kgnut(20)                   !> Conservative residuals
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: i
@@ -608,29 +621,34 @@ kgnut( 4) = -MINVAL(U(RHOG,:,:,:,:)/U(DENS,:,:,:,:))
 kgnut( 5) =  MAXVAL(muSGS(1,:,:,:,:))
 kgnut( 6) = -MINVAL(muSGS(1,:,:,:,:))
 
-kgnut( 7) =  MAXVAL(prodK(1,:,:,:,:))
-kgnut( 8) = -MINVAL(prodK(1,:,:,:,:))
-kgnut( 9) =  MAXVAL(dissK(1,:,:,:,:))
-kgnut(10) = -MINVAL(dissK(1,:,:,:,:))
-kgnut(11) =  MAXVAL(crossK(1,:,:,:,:))
-kgnut(12) = -MINVAL(crossK(1,:,:,:,:))
+IF ( eddyViscType == 4 ) THEN 
+  kgnut( 7) =  MAXVAL(Cdes2(:,:,:,:))
+  kgnut( 8) = -MINVAL(Cdes2(:,:,:,:))
+ENDIF 
 
-kgnut(13) =  MAXVAL(prodG(1,:,:,:,:))
-kgnut(14) = -MINVAL(prodG(1,:,:,:,:))
-kgnut(15) =  MAXVAL(dissG(1,:,:,:,:))
-kgnut(16) = -MINVAL(dissG(1,:,:,:,:))
-kgnut(17) =  MAXVAL(crossG(1,:,:,:,:))
-kgnut(18) = -MINVAL(crossG(1,:,:,:,:))
+kgnut( 9) =  MAXVAL(prodK(1,:,:,:,:))
+kgnut(10) = -MINVAL(prodK(1,:,:,:,:))
+kgnut(11) =  MAXVAL(dissK(1,:,:,:,:))
+kgnut(12) = -MINVAL(dissK(1,:,:,:,:))
+kgnut(13) =  MAXVAL(crossK(1,:,:,:,:))
+kgnut(14) = -MINVAL(crossK(1,:,:,:,:))
+
+kgnut(15) =  MAXVAL(prodG(1,:,:,:,:))
+kgnut(16) = -MINVAL(prodG(1,:,:,:,:))
+kgnut(17) =  MAXVAL(dissG(1,:,:,:,:))
+kgnut(18) = -MINVAL(dissG(1,:,:,:,:))
+kgnut(19) =  MAXVAL(crossG(1,:,:,:,:))
+kgnut(20) = -MINVAL(crossG(1,:,:,:,:))
 
 #if USE_MPI
 IF(MPIRoot)THEN
-  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(1:18),18,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(1:20),20,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
 ELSE
-  CALL MPI_REDUCE(kgnut(1:18) ,0          ,18,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_REDUCE(kgnut(1:20) ,0          ,20,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
 END IF
 #endif
 
-DO i=1,9
+DO i=1,10
   kgnut(2*i) = -kgnut(2*i)
 END DO
 

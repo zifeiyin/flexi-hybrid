@@ -280,6 +280,7 @@ INTEGER             :: i,j,k,iElem
 !===================================================================================================================================
 ! Compute Dynamic Smagorinsky Coefficients
 CALL Compute_Cd(U)
+CALL Apply_Clim()
 
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -292,12 +293,47 @@ END DO
 END SUBROUTINE DynSmagorinsky_Volume
 
 !===============================================================================================================================
+!> Compute the lower bound for the dynamic coefficient
+!===============================================================================================================================
+SUBROUTINE Apply_Clim()
+! MODULES
+USE MOD_PreProc
+USE MOD_Equation_Vars,     ONLY: Cmu
+USE MOD_Mesh_Vars,         ONLY: nElems, Elem_hmx
+USE MOD_EddyVisc_Vars,     ONLY: CDES0, Cdes2
+USE MOD_DG_Vars,           ONLY: UPrim
+USE MOD_VISCOSITY 
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER             :: i,j,k,iElem
+REAL                :: eta, ratio, epsilon, Clim
+REAL                :: muS
+!===================================================================================================================================
+
+! Limit Dynamic Smagorinsky Coefficients
+DO iElem = 1,nElems
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    muS     = VISCOSITY_PRIM(UPrim(:,i,j,k,iElem))
+    epsilon = MAX( UPrim(TKE,i,j,k,iElem) / UPrim(OMG,i,j,k,iElem)**2 , 1.e-16)
+    eta     = ( muS**3 / epsilon )**0.25  
+    ratio   = Elem_hmx(iElem) / eta
+    Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
+    Cdes2(i,j,k,iElem) = MAX( Cdes2(i,j,k,iElem)**2, Clim**2 )
+  END DO; END DO; END DO ! i,j,k
+END DO
+
+END SUBROUTINE Apply_Clim
+
+!===============================================================================================================================
 !> Compute TKE indicator needed for the modification of Smagorinskys viscosity.
 !===============================================================================================================================
 SUBROUTINE Compute_Cd(U_in)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
+USE MOD_Equation_Vars,  ONLY: Cmu
 USE MOD_EddyVisc_Vars ,ONLY: Cdes2,DeltaRatio,DeltaS,FilterMat_testFilter
 USE MOD_EddyVisc_Vars ,ONLY: doFilterDir,IntElem
 USE MOD_Lifting_Vars  ,ONLY: gradUx,gradUy,gradUz
@@ -314,7 +350,7 @@ REAL,INTENT(IN)  :: U_in(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems) !< Conservative vo
 INTEGER                                      :: i,j,k,l,m,iElem
 REAL,DIMENSION(3,3,0:PP_N,0:PP_N,0:PP_N)     :: S_lm, M_lm, L_lm, gradV
 REAL,DIMENSION(  3,0:PP_N,0:PP_N,0:PP_N)     :: V,V_filtered
-REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: S_eN,S_eN_filtered, omega, omega_filtered
+REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: omega, omega_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: MM ,ML ,divV
 REAL                                         :: MMa,MLa
 !===============================================================================================================================
@@ -358,7 +394,7 @@ DO iElem=1,nElems
   END DO; END DO
 
   ! Compute omega
-  omega(:,:,:) = EXP(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem))
+  omega(:,:,:) = 1. / (Cmu * MAX(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem),1.e-16)**2 )
 
   ! Correct for compressibility
   S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
@@ -388,14 +424,8 @@ DO iElem=1,nElems
 
   ! filter omega
   omega_filtered(:,:,:) = omega(:,:,:)
-  CALL Filter_Selective(3,FilterMat_testFilter,omega_filtered(:,:,:),doFilterDir(:,iElem))
+  CALL Filter_Selective(1,FilterMat_testFilter,omega_filtered(:,:,:),doFilterDir(:,iElem))
   !          _
-  ! Compute |S|
-  S_eN_filtered = SQRT(2.*(   S_lm(1,1,:,:,:)**2 + S_lm(2,2,:,:,:)**2 + S_lm(3,3,:,:,:)**2 &
-                            + 2.*S_lm(1,2,:,:,:)**2 &
-                            + 2.*S_lm(2,3,:,:,:)**2 &
-                            + 2.*S_lm(1,3,:,:,:)**2 &
-                          ))
 
   ! Correct for compressibility
   S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
@@ -425,8 +455,6 @@ DO iElem=1,nElems
     MLa = MLa + ML(i,j,k)*IntElem(i,j,k,iElem)
   END DO; END DO; END DO ! i,j,k
   Cdes2(:,:,:,iElem) = 0.5*MLa/MMa
-
-  ! bound the CDES value
 
 END DO
 END SUBROUTINE Compute_Cd
