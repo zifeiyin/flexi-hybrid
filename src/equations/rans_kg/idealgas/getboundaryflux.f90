@@ -412,6 +412,10 @@ CASE(3,4,9,91,23,24,25,27)
         UPrim_boundary(PRES,p,q) = pb                       ! Pressure
         ! set temperature via ideal gas equation, consistent to density and pressure
         UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
+        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN 
+          UPrim_boundary(TKE ,p,q) = RefStatePrim(6,BCState)
+          UPrim_boundary(TKE ,p,q) = RefStatePrim(7,BCState)
+        ENDIF 
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
         !             Hence, nothing to do here!

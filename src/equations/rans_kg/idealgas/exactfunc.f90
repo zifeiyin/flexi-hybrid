@@ -211,7 +211,6 @@ IF(GETLOGICAL('useBCFile'))THEN
   read(BCFileID, *) BCLength
   ALLOCATE(BCData(1+PP_nVar,BCLength))
   read(BCFileID, *) BCData
-  ! print * , BCData
   close(BCFileID)
 ENDIF
 
@@ -680,14 +679,14 @@ CASE(517) ! turbulent channel
 CASE(301) ! readfromfile
   Prim = RefStatePrim(:,RefState)
   DO i=2,BCLength
-    IF(x(2).LE.BCData(1,i))THEN
+    IF( (x(2) .LE. BCData(1,i)) .AND. (x(2) .GE. BCData(1,i-1)) )THEN
       Prim(1:PP_nVar) = ( &
-          (BCData(1,i) - x(2)) * BCData(2:(1+PP_nVar),i-1) + &
-          (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i)) / (BCData(1,i) - BCData(1,i-1)) 
+          (BCData(1,i) - x(2))   * BCData(2:(1+PP_nVar),i-1) + &
+          (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i  ) ) / (BCData(1,i) - BCData(1,i-1)) 
       Prim(OMG) = 1. / SQRT( 0.09 * Prim(7) )
       Prim(TKE) = Prim(6)
       Prim(TEMP) = 0.
-      ! print *, Prim
+      !print *, Prim
       CALL PrimToCons(Prim, Resu)
       EXIT
     END IF
