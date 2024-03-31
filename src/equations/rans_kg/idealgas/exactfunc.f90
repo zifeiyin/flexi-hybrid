@@ -678,15 +678,14 @@ CASE(517) ! turbulent channel
 
   CALL PrimToCons(Prim, Resu)
 CASE(301) ! readfromfile
-  ! print *, 'readfromfile', x(2)
   Prim = RefStatePrim(:,RefState)
   DO i=2,BCLength
-    ! print *, BCData(1,i)
     IF(x(2).LE.BCData(1,i))THEN
       Prim(1:PP_nVar) = ( &
           (BCData(1,i) - x(2)) * BCData(2:(1+PP_nVar),i-1) + &
           (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i)) / (BCData(1,i) - BCData(1,i-1)) 
-      Prim(TKE:OMG) = Prim(RHOK:RHOG)
+      Prim(OMG) = 1. / SQRT( 0.09 * Prim(7) )
+      Prim(TKE) = Prim(6)
       Prim(TEMP) = 0.
       ! print *, Prim
       CALL PrimToCons(Prim, Resu)
