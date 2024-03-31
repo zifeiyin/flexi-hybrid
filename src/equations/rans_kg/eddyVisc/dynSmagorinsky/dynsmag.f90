@@ -308,7 +308,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
-REAL                :: eta, ratio, epsilon, Clim
+REAL                :: eta, ratio, diss, Clim
 REAL                :: muS
 !===================================================================================================================================
 
@@ -316,8 +316,8 @@ REAL                :: muS
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     muS     = VISCOSITY_PRIM(UPrim(:,i,j,k,iElem))
-    epsilon = MAX( UPrim(TKE,i,j,k,iElem) / UPrim(OMG,i,j,k,iElem)**2 , 1.e-16)
-    eta     = ( muS**3 / epsilon )**0.25  
+    diss    = MAX( UPrim(TKE,i,j,k,iElem) / UPrim(OMG,i,j,k,iElem)**2 , 1.e-16)
+    eta     = ( muS**3 / diss )**0.25  
     ratio   = Elem_hmx(iElem) / eta
     Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
     Cdes2(i,j,k,iElem) = MAX( Cdes2(i,j,k,iElem)**2, Clim**2 )
