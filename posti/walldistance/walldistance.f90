@@ -145,8 +145,12 @@ REAL,PARAMETER                :: beta   = 0.1
 REAL                          :: eta
 REAL                          :: LagXi(0:PP_N),LagEta(0:PP_N)
 INTEGER                       :: nearestSide,qTrip,pTrip
+INTEGER                       :: NCompleted
 !===================================================================================================================================
 ! First step: Coarse search using the supersampled points
+NCompleted = 0
+!$OMP PARALLEL PRIVATE(i,j,k,best,xVol,iSide,p,q,dist)
+!$OMP DO
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     best = HUGE(1.)
@@ -164,8 +168,13 @@ DO iElem=1,nElems
       END DO; END DO ! p,q=0,PP_N
     END DO ! iSide = 1, nBCSides
   END DO; END DO; END DO! i,j,k=0,PP_N
-  WRITE(UNIT_stdOut,'(A,F7.2,A25)',ADVANCE='NO') CHAR(13),REAL(iElem)/REAL(nElems)*100., '% of coarse search done '
+!$OMP CRITICAL
+  NCompleted = NCompleted + 1
+!$OMP END CRITICAL
+  WRITE(UNIT_stdOut,'(A,F7.2,A25)',ADVANCE='NO') CHAR(13),REAL(NCompleted)/REAL(nElems)*100., '% of coarse search done '
 END DO ! iElem
+!$OMP END DO
+!$OMP END PARALLEL
 WRITE(UNIT_stdOut,'(A)') 'COARSE SEARCH DONE!'
 
 ! Second step: fine search on the side that has been found using the coarse search, use a gradient descent with restrictions
