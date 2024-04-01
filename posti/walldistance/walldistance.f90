@@ -178,6 +178,9 @@ END DO ! iElem
 WRITE(UNIT_stdOut,'(A)') 'COARSE SEARCH DONE!'
 
 ! Second step: fine search on the side that has been found using the coarse search, use a gradient descent with restrictions
+NCompleted = 0
+!$OMP PARALLEL PRIVATE(i,j,k,xVol,iSide,dX,p,q,l,xi_i,iter,LagXi,LagEta,xCur,Jac,g,eta,xi_old)
+!$OMP DO
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     ! Save the current volume coordinates
@@ -261,8 +264,13 @@ DO iElem=1,nElems
     distance(i,j,k,iElem) = SQRT((xVol(1)-xCur(1))**2+(xVol(2)-xCur(2))**2)
 #endif
   END DO; END DO; END DO! i,j,k=0,PP_N
-  WRITE(UNIT_stdOut,'(A,F7.2,A19)',ADVANCE='NO') CHAR(13),REAL(iElem)/REAL(nElems)*100., '% of elements done '
+!$OMP CRITICAL
+  NCompleted = NCompleted + 1
+!$OMP END CRITICAL
+  WRITE(UNIT_stdOut,'(A,F7.2,A19)',ADVANCE='NO') CHAR(13),REAL(NCompleted)/REAL(nElems)*100., '% of elements done '
 END DO ! iElem
+!$OMP END DO
+!$OMP END PARALLEL
 WRITE(UNIT_stdOut,'(A)') 'FINE SEARCH DONE!'
 
 IF (includeTrip) THEN
