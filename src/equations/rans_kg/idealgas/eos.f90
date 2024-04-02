@@ -209,7 +209,7 @@ prim(VEL3)=0.
 #endif
 
 ! TODO(Shimushu): fix this
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-MAX(cons(RHOK),0.))
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-cons(RHOK))
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 

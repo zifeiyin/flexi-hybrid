@@ -62,7 +62,7 @@
 #define ENTROPY_H(U,T)                 (R*(sKappaM1*LOG(T)-LOG(U(DENS))))
 /* TODO(Shimushu): fix this */
 #if DECOUPLE==0
-#define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS)-MAX(U(RHOK),0.))/(U(DENS)*cv))
+#define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS)-U(RHOK))/(U(DENS)*cv))
 #else
 #define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS))/(U(DENS)*cv))
 #endif
@@ -73,7 +73,7 @@
 #define VELOCITY_HE(UE)                (UE(EXT_MOMV)*UE(EXT_SRHO))
 /* TODO(Shimushu): fix this */
 #if DECOUPLE==0
-#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))-MAX(UE(EXT_RHOK),0.)))
+#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))-UE(EXT_RHOK)))
 #else
 #define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))))
 #endif
