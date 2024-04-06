@@ -143,8 +143,6 @@ CASE(PRM_RIEMANN_LF)
   Riemann_pointer => Riemann_LF
 CASE(PRM_RIEMANN_HLLC)
   Riemann_pointer => Riemann_HLLC
-CASE(PRM_RIEMANN_ROE)
-  Riemann_pointer => Riemann_Roe
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   Riemann_pointer => Riemann_RoeEntropyFix
 CASE(PRM_RIEMANN_HLL)
