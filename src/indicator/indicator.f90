@@ -12,7 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
 #include "eos.h"
 #endif
 
@@ -52,7 +52,7 @@ INTERFACE IndPersson
   MODULE PROCEDURE IndPersson
 END INTERFACE
 
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
 #if PARABOLIC
 INTERFACE DucrosIndicator
   MODULE PROCEDURE DucrosIndicator
@@ -226,7 +226,7 @@ USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Indicator_Vars   ,ONLY: IndicatorType,IndValue,IndStartTime
 USE MOD_Mesh_Vars        ,ONLY: offsetElem,Elem_xGP,nElems
-#if PARABOLIC && EQNSYSNR == 2
+#if PARABOLIC && ((EQNSYSNR == 2) || (EQNSYSNR == 4))
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 #endif
 #if FV_ENABLED == 2
@@ -291,7 +291,7 @@ CASE(INDTYPE_PERSSON) ! Modal Persson indicator
     IndValue(iElem) = IndPersson(U_P)
   END DO ! iElem
 #endif /*FV_ENABLED==2*/
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
 #if FV_ENABLED
 CASE(INDTYPE_JAMESON)
   IndValue = JamesonIndicator(U)
@@ -342,7 +342,7 @@ FUNCTION IndPersson(U) RESULT(IndValue)
 USE MOD_PreProc
 USE MOD_Indicator_Vars,ONLY:nModes,IndVar
 USE MOD_Interpolation_Vars, ONLY:sVdm_Leg
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
 USE MOD_EOS_Vars
 #endif /* NAVIER-STOKES */
 IMPLICIT NONE
@@ -353,7 +353,7 @@ REAL               :: IndValue                                  !< Value of the 
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER                              :: iDeg,i,j,k,l
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
 REAL                                 :: UE(1:PP_2Var)
 #endif /* NAVIER-STOKES */
 REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_loc
@@ -364,8 +364,8 @@ REAL,DIMENSION(0:PP_N,0:PP_N,0:PP_NZ) :: U_Modal
 SELECT CASE (IndVar)
 CASE(1:PP_nVar)
   U_loc = U(IndVar,:,:,:)
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
-CASE(6)
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
+CASE(8)
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     UE(EXT_CONS)=U(:,i,j,k)
     UE(EXT_SRHO)=1./UE(EXT_DENS)
@@ -417,7 +417,7 @@ IndValue=LOG10(IndValue)
 END FUNCTION IndPersson
 
 
-#if EQNSYSNR == 2 /* NAVIER-STOKES */
+#if (EQNSYSNR == 2) || (EQNSYSNR == 4) /* NAVIER-STOKES */
 #if PARABOLIC
 !==================================================================================================================================
 !> Indicator by Ducros.
@@ -532,7 +532,7 @@ INTEGER                   :: DataSizeSide_loc
 SELECT CASE(IndVar)
 CASE(1:PP_nVar)
   UJameson(1,:,:,:,:) = U(IndVar,:,:,:,:)
-CASE(6) ! Pressure
+CASE(8) ! Pressure
   DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       UE(EXT_CONS)=U(:,i,j,k,iElem)
@@ -541,7 +541,7 @@ CASE(6) ! Pressure
       UJameson(1,i,j,k,iElem)=PRESSURE_HE(UE)
     END DO; END DO; END DO! i,j,k=0,PP_N
   END DO ! iElem
-CASE(7) ! Entropy
+CASE(9) ! Entropy
   DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       UE(EXT_CONS) = U(:,i,j,k,iElem)
