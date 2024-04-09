@@ -786,7 +786,7 @@ USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #if PP_VISC == 1
 USE MOD_Viscosity        ,ONLY: muSuth
 #endif
-USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,crossK,prodG,dissG,crossG
+USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG
 ! USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -867,7 +867,6 @@ DO iElem=1,nElems
 
     prodK (1,i,j,k,iElem) = 2. * muT * SijGradU                 
     dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
-    crossK(1,i,j,k,iElem) = 0.0
 
     prodG (1,i,j,k,iElem) = 0.5 * Comega2 / Cmu * UPrim(DENS) / MAX(gPos, 1.e-8) 
     dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU * MIN( 100.*muT/muTOrig, 1.0)

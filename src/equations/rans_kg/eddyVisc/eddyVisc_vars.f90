@@ -69,7 +69,6 @@ LOGICAL           :: SigmaModelInitIsDone=.FALSE.     !< Logical indicating if s
 
 REAL,ALLOCATABLE  :: prodK (:,:,:,:,:)                !< production K
 REAL,ALLOCATABLE  :: dissK (:,:,:,:,:)                !< dissipation K
-REAL,ALLOCATABLE  :: crossK(:,:,:,:,:)                !< cross K
 REAL,ALLOCATABLE  :: prodG (:,:,:,:,:)                !< production G
 REAL,ALLOCATABLE  :: dissG (:,:,:,:,:)                !< dissipation G
 REAL,ALLOCATABLE  :: crossG(:,:,:,:,:)                !< cross G
