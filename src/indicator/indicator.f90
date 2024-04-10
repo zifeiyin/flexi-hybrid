@@ -150,28 +150,28 @@ IndicatorType = GETINTFROMSTR('IndicatorType')
 
 SELECT CASE(IndicatorType)
 CASE(INDTYPE_JAMESON)
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2) && (EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Jameson indicator only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* (EQNSYSNR != 2) && (EQNSYSNR != 4) */
 CASE(INDTYPE_DUCROS)
 #if !(PARABOLIC)
   CALL Abort(__STAMP__, &
       "Ducros indicator not available without PARABOLIC!")
 #endif
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2) && (EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Ducros indicator only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* (EQNSYSNR != 2) && (EQNSYSNR != 4) */
 CASE(INDTYPE_DUCROSTIMESJST)
 #if !(PARABOLIC)
   CALL Abort(__STAMP__, &
       "Ducros*JST indicator not available without PARABOLIC!")
 #endif
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2) && (EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Ducros*JST indicator only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* (EQNSYSNR != 2) && (EQNSYSNR != 4) */
 CASE(INDTYPE_PERSSON)
   ! number of modes to be checked by Persson indicator
   nModes_In = GETINT('nModes')
@@ -185,10 +185,10 @@ CASE(INDTYPE_PERSSON)
 #if FV_ENABLED == 2
   T_FV   = 0.5*10**(-1.8*(PP_N+1)**.25) ! Eq.(42) in: S. Hennemann et al., J.Comp.Phy., 2021
   sdT_FV = s_FV/T_FV
-#if EQNSYSNR != 2 /* NOT NAVIER-STOKES */
+#if (EQNSYSNR != 2) && (EQNSYSNR != 4) /* NOT NAVIER-STOKES */
   CALL Abort(__STAMP__, &
       "Persson indicator for FV-Blending only works with Navier-Stokes equations.")
-#endif /* EQNSYSNR != 2 */
+#endif /* (EQNSYSNR != 2) && (EQNSYSNR != 4) */
 #endif /*FV_ENABLED*/
 CASE(-1) ! legacy
   IndicatorType=INDTYPE_DG
