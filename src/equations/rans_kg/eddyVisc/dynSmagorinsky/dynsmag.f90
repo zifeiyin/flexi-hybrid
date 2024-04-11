@@ -315,7 +315,7 @@ REAL                :: muS
 ! Limit Dynamic Smagorinsky Coefficients
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    muS     = VISCOSITY_PRIM(UPrim(:,i,j,k,iElem))
+    muS     = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem))
     diss    = MAX( UPrim(TKE,i,j,k,iElem) / UPrim(OMG,i,j,k,iElem)**2 , 1.e-16)
     eta     = ( muS**3 / diss )**0.25  
     ratio   = Elem_hmx(iElem) / eta
