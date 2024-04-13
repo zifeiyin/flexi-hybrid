@@ -1,0 +1,31 @@
+master
+ed815a9f8bcfacb57440bdbb507e9014a2d1096e
+{[( GIT REFERENCE )]}
+master
+ed815a9f8bcfacb57440bdbb507e9014a2d1096e
+{[( GIT DIFF )]}
+{[( GIT URL )]}
+git@github.com:zifeiyin/flexi-hybrid.git
+{[( CMAKE )]}
+SET(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: None Debug Release RelWithDebInfo MinSizeRel ...")
+OPTION(FLEXI_EDDYVISCOSITY "No help, variable specified on the command line." ON)
+SET(FLEXI_EQNSYSNAME "rans_kg" CACHE STRING "No help, variable specified on the command line.")
+OPTION(FLEXI_EXACT_MASSMATRIX "No help, variable specified on the command line." OFF)
+OPTION(FLEXI_FV "No help, variable specified on the command line." OFF)
+OPTION(FLEXI_FV_RECONSTRUCTION "No help, variable specified on the command line." OFF)
+SET(FLEXI_LIFTING "br2" CACHE STRING "No help, variable specified on the command line.")
+SET(FLEXI_NODETYPE "GAUSS" CACHE STRING "No help, variable specified on the command line.")
+OPTION(FLEXI_PARABOLIC "No help, variable specified on the command line." ON)
+OPTION(FLEXI_PERFORMANCE "Enable performance optimizations" ON)
+OPTION(FLEXI_PERFORMANCE_IPO "Enable Interprocedural Optimization for build (if available)." ON)
+OPTION(FLEXI_PERFORMANCE_PGO "Enable profile-guided optimization (Only GNU Compiler supported)" OFF)
+SET(FLEXI_POLYNOMIAL_DEGREE "N" CACHE STRING "No help, variable specified on the command line.")
+OPTION(FLEXI_PP_LIMITER "No help, variable specified on the command line." OFF)
+OPTION(FLEXI_SPLIT_DG "No help, variable specified on the command line." OFF)
+SET(FLEXI_TESTCASE "default" CACHE STRING "No help, variable specified on the command line.")
+OPTION(FLEXI_UNITTESTS "No help, variable specified on the command line." ON)
+SET(FLEXI_VISCOSITY "constant" CACHE STRING "No help, variable specified on the command line.")
+OPTION(LIBS_BUILD_HDF5 "No help, variable specified on the command line." OFF)
+OPTION(POSTI_SWAPMESH "No help, variable specified on the command line." ON)
+OPTION(POSTI_WALLDISTANCE "No help, variable specified on the command line." ON)
+{[( END USERBLOCK )]}
