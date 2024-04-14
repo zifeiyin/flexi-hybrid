@@ -57,11 +57,12 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !==================================================================================================================================
 CALL prms%SetSection("Overintegration")
-CALL prms%CreateIntFromStringOption('OverintegrationType', "Type of overintegration. None, CutOff, ConsCutOff","none")
+CALL prms%CreateIntFromStringOption('OverintegrationType', "Type of overintegration. None, CutOff, ConsCutOff, turbConsCutoff","none")
 CALL addStrListEntry('OverintegrationType','none',      OVERINTEGRATIONTYPE_NONE)
 CALL addStrListEntry('OverintegrationType','cutoff',    OVERINTEGRATIONTYPE_CUTOFF)
 CALL addStrListEntry('OverintegrationType','conscutoff',OVERINTEGRATIONTYPE_CONSCUTOFF)
-CALL prms%CreateIntOption('NUnder',             "Polynomial degree to which solution is filtered (OverintegrationType == 1 or 2")
+Call addStrListEntry('OverintegrationType','turbConsCutoff', OVERINTEGRATIONTYPE_TURBCONSCUTOFF)
+CALL prms%CreateIntOption('NUnder',             "Polynomial degree to which solution is filtered (OverintegrationType == 1, 2, 3")
 END SUBROUTINE DefineParametersOverintegration
 
 
@@ -124,7 +125,8 @@ CASE (OVERINTEGRATIONTYPE_CUTOFF) ! modal cut-off filter on Ju_t
   OverintegrationMat=MATMUL(MATMUL(Vdm_Leg,OverintegrationMat),sVdm_Leg)
   SWRITE(UNIT_stdOut,'(A)') ' Method of overintegration: cut-off filter'
 
-CASE (OVERINTEGRATIONTYPE_CONSCUTOFF) ! conservative modal cut-off filter: Here, Ju_t is projection filtered from N to Nunder,
+CASE (OVERINTEGRATIONTYPE_CONSCUTOFF:OVERINTEGRATIONTYPE_TURBCONSCUTOFF) 
+                        ! conservative modal cut-off filter: Here, Ju_t is projection filtered from N to Nunder,
                         ! then sJ is applied on Nunder u_t is then interpolated back onto N grid: ensures that the modal content
                         ! of u_t between NUnder and N is zero. Here, the sJ on Nunder is prepared for later use from projection
                         ! of J from N to Under and inverting.
@@ -188,6 +190,8 @@ CASE (OVERINTEGRATIONTYPE_CUTOFF)
   CALL Filter_Pointer(U_in, OverintegrationMat)
 CASE (OVERINTEGRATIONTYPE_CONSCUTOFF)
   CALL FilterConservative(U_in)
+CASE (OVERINTEGRATIONTYPE_TURBCONSCUTOFF)
+  CALL FilterTurbConservative(U_in)
 CASE DEFAULT
   CALL Abort(__STAMP__, &
     "OverintegrationType unknown or not allowed!", IntInfo=OverintegrationType)
@@ -328,6 +332,139 @@ END DO
 #endif
 
 END SUBROUTINE FilterConservative
+
+!==================================================================================================================================
+!> Modal cutoff filter conserving both JU and U, only for turbulence variables
+!> project JU_t down from degree N to NUnder, then divide by Jacobian built on NUnder, interpolate resulting U up to N again
+!> input : JU_t on degree N, output: filtered Ut on degree N
+!==================================================================================================================================
+SUBROUTINE FilterTurbConservative(U_in)
+  !----------------------------------------------------------------------------------------------------------------------------------
+  ! MODULES
+  USE MOD_PreProc
+  USE MOD_Globals
+  USE MOD_Overintegration_Vars,  ONLY: Vdm_N_NUnder,Vdm_NUnder_N,NUnder,sJNUnder
+  USE MOD_ChangeBasisByDim,      ONLY: ChangeBasisVolume
+  USE MOD_Vector,                ONLY: VNullify
+  USE MOD_Mesh_Vars,             ONLY: nElems
+  #if FV_ENABLED
+  USE MOD_FV_Vars,               ONLY: FV_Elems
+  #endif
+  IMPLICIT NONE
+  !----------------------------------------------------------------------------------------------------------------------------------
+  ! INPUT/OUTPUT VARIABLES
+  REAL,INTENT(INOUT)  :: U_in(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,nElems)    !< Time derivative / JU_t to be filtered
+  !----------------------------------------------------------------------------------------------------------------------------------
+  ! LOCAL VARIABLES
+  #if PP_dim==2
+  INTEGER             :: i,j,iElem
+  #else
+  INTEGER             :: i,j,k,iElem
+  REAL                :: X3D_Buf1(6:PP_nVar,0:NUnder,0:PP_N,0:PP_N)     ! intermediate results from 1D interpolations
+  REAL                :: X3D_Buf2(6:PP_nVar,0:NUnder,0:NUnder,0:PP_N)   !
+  REAL                :: X3D_Buf3(6:PP_nVar,0:PP_N,0:NUnder,0:NUnder)   !
+  REAL                :: X3D_Buf4(6:PP_nVar,0:PP_N,0:PP_N,0:NUnder)     !
+  INTEGER             :: iU,jU,kU,nDOF_N,nDOF_NUnder
+  #endif
+  REAL                :: U_loc(   PP_nVar,0:NUnder,0:NUnder,0:NUnder) ! U_t / JU_t on NUnder
+  !==================================================================================================================================
+  #if PP_dim==2
+  ! The following 5 lines are original lines of code for the conservative filtering.
+  ! The below code does the same, but optimized for performance. For 2D, we use the non-optimized code.
+  ! TODO: Use optimized code for 2D!
+  ! === BEGIN ORIGINAL CODE ===
+  DO iElem=1,nElems
+  #if FV_ENABLED
+    IF (FV_Elems(iElem).GT.0) CYCLE ! Do only, when DG element
+  #endif
+    CALL ChangeBasisVolume(PP_nVar-5,PP_N,NUnder,Vdm_N_NUnder,U_in(6:PP_nVar,:,:,:,iElem),U_loc)
+    DO j=0,NUnder; DO i=0,NUnder
+      U_loc(6:PP_nVar,i,j,0)=U_loc(6:PP_nVar,i,j,0)*sJNUnder(i,j,0,iElem)
+    END DO; END DO
+    CALL ChangeBasisVolume(PP_nVar-5,NUnder,PP_N,Vdm_NUnder_N,U_loc,U_in(6:PP_nVar,:,:,:,iElem))
+  END DO
+  ! === END ORIGINAL CODE ===
+  #else
+  nDOF_N     =PP_nVar*(PP_N+1  )**3
+  nDOF_NUnder=PP_nVar*(NUnder+1)**3
+  DO iElem=1,nElems
+  #if FV_ENABLED
+    IF (FV_Elems(iElem).GT.0) CYCLE ! Do only, when DG element
+  #endif
+    ! First transform JU_N to JU_NUnder
+    ! first direction i
+    DO k=0,PP_N; DO j=0,PP_N
+      DO iU=0,NUnder
+        X3D_Buf1(6:PP_nVar,iU,j,k)=Vdm_N_NUnder(iU,0)*U_In(6:PP_nVar,0,j,k,iElem)
+      END DO ! iU
+      DO i=1,PP_N
+        DO iU=0,NUnder
+          X3D_Buf1(6:PP_nVar,iU,j,k)=X3D_Buf1(6:PP_nVar,iU,j,k)+Vdm_N_NUnder(iU,i)*U_In(6:PP_nVar,i,j,k,iElem)
+        END DO ! iU
+      END DO ! i
+    END DO; END DO ! k,j
+  
+    CALL VNullify(nDOF_NUnder,U_loc)
+    CALL VNullify(nDOF_N,U_in(6:PP_nVar,:,:,:,iElem))
+  
+    ! second direction j
+    DO k=0,PP_N
+      DO jU=0,NUnder; DO iU=0,NUnder
+        X3D_Buf2(6:PP_nVar,iU,jU,k)=Vdm_N_NUnder(jU,0)*X3D_Buf1(6:PP_nVar,iU,0,k)
+      END DO; END DO ! iU, jU
+      DO j=1,PP_N
+        DO jU=0,NUnder; DO iU=0,NUnder
+          X3D_Buf2(6:PP_nVar,iU,jU,k)=X3D_Buf2(6:PP_nVar,iU,jU,k)+Vdm_N_NUnder(jU,j)*X3D_Buf1(6:PP_nVar,iU,j,k)
+        END DO; END DO ! iU, jU
+      END DO ! j
+    END DO ! k
+    ! last direction k
+    DO k=0,PP_N
+      DO kU=0,NUnder; DO jU=0,NUnder; DO iU=0,NUnder
+        U_loc(6:PP_nVar,iU,jU,kU)=U_loc(6:PP_nVar,iU,jU,kU)+Vdm_N_NUnder(kU,k)*X3D_Buf2(6:PP_nVar,iU,jU,k)
+      END DO; END DO; END DO ! iU, jU, kU
+    END DO ! k
+  
+  
+    ! Apply Jacobian (JU_NUnder -> U_NUnder)
+    DO k=0,NUnder; DO j=0,NUnder; DO i=0,NUnder
+      U_loc(6:PP_nVar,i,j,k)=U_loc(6:PP_nVar,i,j,k)*sjNUnder(i,j,k,iElem)
+    END DO; END DO; END DO
+  
+    ! Now transform U_NUnder back to U_N
+    ! First direction iU
+    DO kU=0,NUnder; DO jU=0,NUnder
+      DO i=0,PP_N
+        X3D_Buf3(6:PP_nVar,i,jU,kU)=Vdm_NUnder_N(i,0)*U_loc(6:PP_nVar,0,jU,kU)
+      END DO
+      DO iU=1,NUnder
+        DO i=0,PP_N
+          X3D_Buf3(6:PP_nVar,i,jU,kU)=X3D_Buf3(6:PP_nVar,i,jU,kU)+Vdm_NUnder_N(i,iU)*U_loc(6:PP_nVar,iU,jU,kU)
+        END DO
+      END DO
+    END DO; END DO ! jU, jU
+    ! second direction jU
+    DO kU=0,NUnder
+      DO j=0,PP_N; DO i=0,PP_N
+        X3D_Buf4(6:PP_nVar,i,j,kU)=Vdm_NUnder_N(j,0)*X3D_Buf3(6:PP_nVar,i,0,kU)
+      END DO; END DO ! i,j
+      DO jU=1,NUnder
+        DO j=0,PP_N; DO i=0,PP_N
+          X3D_Buf4(6:PP_nVar,i,j,kU)=X3D_Buf4(6:PP_nVar,i,j,kU)+Vdm_NUnder_N(j,jU)*X3D_Buf3(6:PP_nVar,i,jU,kU)
+        END DO; END DO ! i,j
+      END DO ! jU
+    END DO ! kU
+    ! last direction kU
+    DO kU=0,NUnder
+      DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
+        U_in(6:PP_nVar,i,j,k,iElem)=U_in(6:PP_nVar,i,j,k,iElem)+Vdm_NUnder_N(k,kU)*X3D_Buf4(6:PP_nVar,i,j,kU)
+      END DO; END DO; END DO ! i,j,k
+    END DO ! kU
+  
+  END DO
+  #endif
+  
+  END SUBROUTINE FilterTurbConservative
 
 
 !==================================================================================================================================

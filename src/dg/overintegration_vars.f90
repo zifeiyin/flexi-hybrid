@@ -40,7 +40,7 @@ REAL,ALLOCATABLE   :: OverintegrationMat(:,:)     !< Overintegration filter matr
                                                   !< Overintegrationtype 1 only!
 
 !----------------------------------------------------------------------------------------------------------------------------------
-! used for type 2 only:
+! used for type 2 and 3 only:
 REAL,ALLOCATABLE   :: sJNUnder(:,:,:,:)           !< 1/Jacobi on NUnder, size [0..Nunder,0..Nunder,0..Nunder,nElems];
                                                   !< Overintegrationtype 2 only!
 
