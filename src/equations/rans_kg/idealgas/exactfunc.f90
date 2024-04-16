@@ -786,14 +786,13 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
-USE MOD_EOS_Vars         ,ONLY: mu0,Pr
+USE MOD_Mesh_Vars        ,ONLY: sJ,nElems
+USE MOD_EOS_Vars         ,ONLY: mu0
 USE MOD_Equation_Vars    ,ONLY: s43,s23,Cmu,Comega1,Comega2,invSigmaG,invSigmaK
-USE MOD_Equation_Vars    ,ONLY: sqrt6
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
+USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -828,7 +827,7 @@ DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
 
-    muS = VISCOSITY_PRIM(UPrim)
+    muS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem))
     muT = muSGS(1,i,j,k,iElem)
     kPos    = MAX( UPrim(TKE), 1.e-16 ) 
     gPos    = MAX( UPrim(OMG), 1.e-16 ) 

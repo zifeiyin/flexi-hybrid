@@ -276,7 +276,8 @@ WRITE(UNIT_stdOut,'(A)') 'FINE SEARCH DONE!'
 IF (includeTrip) THEN
   WRITE(UNIT_stdOut,'(A)') 'INCLUDE TRIP POINT PROJECTION'
   ! First step: Coarse search using the supersampled points, identify nearest side
-  xVol = TripX(1:PP_dim)
+  xVol(1:2) = TripX(1:2)
+  xVol(3)   = 0.
   best = HUGE(1.)
   DO iSide = 1, nBCSides
     IF ((BoundaryType(BC(iSide),BC_TYPE).NE.3).AND.(BoundaryType(BC(iSide),BC_TYPE).NE.4)) CYCLE

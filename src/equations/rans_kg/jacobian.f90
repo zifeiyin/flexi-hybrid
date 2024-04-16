@@ -211,7 +211,7 @@ REAL                :: tau(3,3)
 #else
 REAL                :: tau(2,2)
 #endif
-REAL                :: chi,muTurb,muTilde,muEff
+REAL                :: muEff
 REAL                :: muTOrig,diffK,diffG
 REAL                :: dmuTurb_drhok, dmuTurb_drhog
 REAL                :: dDiffK_drhok, dDiffK_drhog, dDiffG_drhok, dDiffG_drhog
@@ -224,6 +224,8 @@ DO i=1,nDOF_loc
   muS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i))
 #if EDDYVISCOSITY
   muEff = muS    + muSGS(1,i)
+#else 
+  muEff = muS
 #endif
 
   muTOrig= Cmu * UPrim(DENS,i) * MAX(UPrim(TKE,i),1.e-16) * MAX(UPrim(OMG,i),1.e-16)**2
@@ -445,7 +447,7 @@ REAL,DIMENSION(PP_nVar,PP_nVarPrim,nDOF_loc),INTENT(OUT) :: fJacQx,fJacQy,fJacQz
 ! LOCAL VARIABLES
 INTEGER             :: i
 REAL                :: muS,lambda
-REAL                :: muTilde,muT,muTOrig,diffK,diffG
+REAL                :: muTOrig,diffK,diffG
 REAL                :: v1, v2, v3
 !===================================================================================================================================
 DO i=1,nDOF_loc
