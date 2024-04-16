@@ -209,8 +209,13 @@ IF(NOT (FLEXI_FV STREQUAL "OFF"))
     ENDIF()
     ADD_DEFINITIONS(-DFV_ENABLED=2)
   ELSEIF(FLEXI_FV STREQUAL "SBLEND")
+<<<<<<< HEAD
     IF(NOT ((FLEXI_EQNSYSNAME STREQUAL "navierstokes") OR (FLEXI_EQNSYSNAME STREQUAL "rans_kg")))
       MESSAGE(SEND_ERROR "FLEXI_FV=SBLEND only works for FLEXI_EQNSYSNAME==navierstokes or rans_kg.")
+=======
+    IF(NOT FLEXI_EQNSYSNAME STREQUAL "navierstokes")
+      MESSAGE(SEND_ERROR "FLEXI_FV=SBLEND only works for FLEXI_EQNSYSNAME==navierstokes.")
+>>>>>>> upstream/master
     ELSEIF(FLEXI_NODETYPE STREQUAL "GAUSS")
       MESSAGE(SEND_ERROR "FLEXI_FV=SBLEND only works on FLEXI_NODETYPE==GAUSS-LOBATTO points.")
     ENDIF()
@@ -244,6 +249,7 @@ ELSE()
 ENDIF()
 
 # =========================================================================
+<<<<<<< HEAD
 # Decoupled system
 # =========================================================================
 IF(BUILD_TYPE_LC STREQUAL "validate")
@@ -260,6 +266,8 @@ ELSE()
 ENDIF()
 
 # =========================================================================  
+=======
+>>>>>>> upstream/master
 # Preconditioner for implicit
 # =========================================================================
 OPTION(FLEXI_USE_PRECONDITIONER "Use preconditioner for implicit" OFF)
