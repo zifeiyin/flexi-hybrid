@@ -74,7 +74,7 @@ REAL                          :: L_zeta(  0:NState,0:NInter,0:NInter,0:NInter)
 REAL                          :: L_eta_zeta
 REAL                          :: xGP(0:NState),wBaryGP(0:NState)
 REAL                          :: StartT,EndT
-INTEGER                       :: jElemNew,jElemOld,iElemExtrusion,iIter
+INTEGER                       :: jElemNew,iElemExtrusion,iIter
 !===================================================================================================================================
 ! GPs and Barycentric weights for solution
 CALL GetNodesAndWeights(NState,NodeTypeState,xGP)
@@ -175,7 +175,7 @@ IF (ExtrudePeriodic) THEN
   DO iElemNew=1,nElemsNew
     IF (Elem_IJK(3,iElemNew).LE.nElemsOld_IJK(3)) CYCLE ! Skip the extrusion layer, already done
     ! Search for the corresponding element in the extrusion layer
-    iIter = REAL(Elem_IJK(3,iElemNew)-1)/REAL(nElemsOld_IJK(3))
+    iIter = INT(REAL(Elem_IJK(3,iElemNew)-1)/REAL(nElemsOld_IJK(3)))
     DO jElemNew = 1, nElemsNew
       IF (ALL(Elem_IJK(:,jElemNew).EQ.(/Elem_IJK(1,iElemNew),Elem_IJK(2,iElemNew), Elem_IJK(3,iElemNew) -iIter*nElemsOld_IJK(3)/))) THEN
         iElemExtrusion = jElemNew

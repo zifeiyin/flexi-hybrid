@@ -85,6 +85,7 @@ CALL addStrListEntry('IniExactFunc','shock'             ,10)
 CALL addStrListEntry('IniExactFunc','sod'               ,11)
 CALL addStrListEntry('IniExactFunc','dmr'               ,13)
 CALL addStrListEntry('IniExactFunc','harmonicgausspulse',14)
+CALL addStrListEntry('IniExactFunc','blast_shock'       ,111)
 CALL addStrListEntry('IniExactFunc','turbulentchannel'  ,517)
 CALL addStrListEntry('IniExactFunc','readfromfile'      ,301)
 #if PARABOLIC
@@ -617,6 +618,20 @@ CASE(11) ! Sod Shock tube
   ELSE
     Resu = RefStateCons(:,2)
   END IF
+CASE(111) ! Sedov blast wave
+  xs = 0.5
+  Ms = SQRT(SUM((X(1:3)-1.5)**2))
+  IF ((Ms.LE.xs).AND.(Ms.NE.0)) THEN
+    prim(DENS)      = 1.3416
+    prim(VEL1:VEL3) = 0.3615*(X(1:3)-1.5)/Ms
+    prim(PRES)      = 1.5133
+  ELSE
+    prim(DENS)      = 1.
+    prim(VELV)      = 0.
+    prim(PRES)      = 1.
+  END IF
+  prim(TEMP)=prim(PRES)/(prim(DENS)*R)
+  CALL PrimToCons(prim,resu)
 CASE(12) ! Shu Osher density fluctuations shock wave interaction
   IF (x(1).LT.-4.0) THEN
     prim(DENS)      = 3.857143
@@ -771,14 +786,13 @@ SUBROUTINE CalcSource(Ut,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Mesh_Vars        ,ONLY: Elem_xGP,sJ,nElems
-USE MOD_EOS_Vars         ,ONLY: mu0,Pr
+USE MOD_Mesh_Vars        ,ONLY: sJ,nElems
+USE MOD_EOS_Vars         ,ONLY: mu0
 USE MOD_Equation_Vars    ,ONLY: s43,s23,Cmu,Comega1,Comega2,invSigmaG,invSigmaK
-USE MOD_Equation_Vars    ,ONLY: sqrt6
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
-USE MOD_Equation_Vars    ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
+USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -813,7 +827,7 @@ DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
 
-    muS = VISCOSITY_PRIM(UPrim)
+    muS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem))
     muT = muSGS(1,i,j,k,iElem)
     kPos    = MAX( UPrim(TKE), 1.e-16 ) 
     gPos    = MAX( UPrim(OMG), 1.e-16 ) 

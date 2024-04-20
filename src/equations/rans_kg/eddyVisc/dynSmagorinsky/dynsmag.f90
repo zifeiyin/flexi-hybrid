@@ -53,13 +53,11 @@ USE MOD_PreProc
 USE MOD_EddyVisc_Vars
 USE MOD_StringTools        ,ONLY: STRICMP
 USE MOD_ReadInTools        ,ONLY: GETREAL,GETINT,GETSTR,GETREALARRAY,GETLOGICAL,CountOption
-USE MOD_Mesh_Vars          ,ONLY: MeshInitIsDone,nElems,sJ,Elem_xGP,MeshFile,offsetElem
+USE MOD_Mesh_Vars          ,ONLY: MeshInitIsDone,nElems,sJ,MeshFile,offsetElem
 USE MOD_Interpolation_Vars ,ONLY: InterpolationInitIsDone,Vdm_Leg,sVdm_Leg,NodeType,wGP,NodeTypeCL
 USE MOD_Interpolation      ,ONLY: GetVandermonde
 USE MOD_ChangeBasis        ,ONLY: changeBasis3D
 USE MOD_Interpolation_Vars ,ONLY: wGP
-USE MOD_Mesh_Vars          ,ONLY: dXCL_N
-USE MOD_Mesh_Vars          ,ONLY: Metrics_fTilde,Metrics_gTilde,Metrics_hTilde
 USE MOD_Testcase_Vars      ,ONLY: testcase
 USE MOD_HDF5_Input        ,ONLY: ReadArray,OpenDataFile,CloseDataFile,GetDataSize,ReadAttribute
 USE MOD_2D                ,ONLY: ExpandArrayTo3D
@@ -69,7 +67,6 @@ USE MOD_IO_HDF5
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-LOGICAL             :: isn
 LOGICAL             :: file_exists
 LOGICAL             :: doAvgDir(3,nElems)
 INTEGER             :: i,j,k,iElem
@@ -268,7 +265,7 @@ SUBROUTINE DynSmagorinsky_Volume()
 ! MODULES
 USE MOD_PreProc
 USE MOD_Mesh_Vars,         ONLY: nElems, Elem_hmx
-USE MOD_EddyVisc_Vars,     ONLY: Cdes2, muSGS, yWall, muSGS_limits, DeltaS, fd
+USE MOD_EddyVisc_Vars,     ONLY: Cdes2, muSGS, yWall, DeltaS, fd
 USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
 USE MOD_DG_Vars,           ONLY: UPrim, U
 IMPLICIT NONE

@@ -119,7 +119,6 @@ ENDIF()
 # Try to find system HDF5 using CMake
 SET(LIBS_HDF5_CMAKE TRUE)
 FIND_PACKAGE(HDF5 NAMES hdf5 COMPONENTS C Fortran ${SEARCH_TYPE} QUIET PATH_SUFFIXES share/cmake)
-# Try to find the configure version
 SET(LIBS_HDF5_CMAKE FALSE)
 FIND_PACKAGE(HDF5 COMPONENTS C Fortran QUIET)
 # Hide all the HDF5 libs paths
