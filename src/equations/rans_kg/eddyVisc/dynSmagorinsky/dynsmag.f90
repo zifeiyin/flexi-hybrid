@@ -101,9 +101,13 @@ muSGS_limits(1) = 0.
 
 ! Build filter matrix for test filter (modal cut-off filter)
 N_testFilter = GETINT('N_testFilter')
-IF (N_testFilter .LT. 1) N_testFilter = PP_N-2
+IF ((N_testFilter .LT. 1) .AND. (PP_N .ge. 3) ) THEN
+  N_testFilter = PP_N-2
+ELSEIF ((N_testFilter .LT. 1) .AND. (PP_N .eq. 2) ) THEN
+  N_testFilter = 1
+ENDIF
 IF (N_testFilter .LT. 1) CALL CollectiveStop(__STAMP__,&
-    "Please use at least N=3 for the dynamic Smagorinsky model.")
+    "Please use at least N=2 for the dynamic Smagorinsky model.")
 
 ALLOCATE(FilterMat_testFilter(0:PP_N,0:PP_N))
 FilterMat_testFilter(:,:) = 0.
