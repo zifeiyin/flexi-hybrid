@@ -827,7 +827,7 @@ DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
 
-    muS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem))
+    muS = VISCOSITY_TEMPERATURE(UPrim(TEMP))
     muT = muSGS(1,i,j,k,iElem)
     kPos    = MAX( UPrim(TKE), 1.e-16 ) 
     gPos    = MAX( UPrim(OMG), 1.e-16 ) 
