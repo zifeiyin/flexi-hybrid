@@ -338,7 +338,11 @@ INTEGER             :: i,j,k
 !==================================================================================================================================
 DO k=0,PP_N_zeta;  DO j=0,PP_N_eta; DO i=0,PP_N_xi
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j,k),gradUx(:,i,j,k),gradUy(:,i,j,k),gradUz(:,i,j,k), &
-                                                f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k))
+                                                f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  &
+#if EDDYVISCOSITY
+                            ,muSGS(1,i,j,k,iElem)&
+#endif
+                            )
 END DO; END DO; END DO ! i,j,k
 END SUBROUTINE EvalDiffFlux3D_Volume_FV
 #endif /*FV_ENABLED*/
