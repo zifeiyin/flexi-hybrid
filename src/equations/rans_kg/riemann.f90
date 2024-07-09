@@ -44,6 +44,7 @@ INTEGER,PARAMETER      :: PRM_RIEMANN_ROE           = 3
 INTEGER,PARAMETER      :: PRM_RIEMANN_ROEENTROPYFIX = 33
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLL           = 4
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLLE          = 5
+INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU2         = 6
 #ifdef SPLIT_DG
 INTEGER,PARAMETER      :: PRM_RIEMANN_CH            = 7
 INTEGER,PARAMETER      :: PRM_RIEMANN_Average       = 0
@@ -102,6 +103,7 @@ CALL addStrListEntry('Riemann','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('Riemann','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('Riemann','hll',          PRM_RIEMANN_HLL)
 CALL addStrListEntry('Riemann','hlle',         PRM_RIEMANN_HLLE)
+CALL addStrListEntry('Riemann','slau2',        PRM_RIEMANN_SLAU2)
 #ifdef SPLIT_DG
 CALL addStrListEntry('Riemann','ch',           PRM_RIEMANN_CH)
 CALL addStrListEntry('Riemann','avg',          PRM_RIEMANN_Average)
@@ -114,6 +116,7 @@ CALL addStrListEntry('RiemannBC','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('RiemannBC','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('RiemannBC','hll',          PRM_RIEMANN_HLL)
 CALL addStrListEntry('RiemannBC','hlle',         PRM_RIEMANN_HLLE)
+CALL addStrListEntry('RiemannBC','slau2',        PRM_RIEMANN_SLAU2)
 #ifdef SPLIT_DG
 CALL addStrListEntry('RiemannBC','ch',           PRM_RIEMANN_CH)
 CALL addStrListEntry('RiemannBC','avg',          PRM_RIEMANN_Average)
@@ -149,6 +152,8 @@ CASE(PRM_RIEMANN_HLL)
   Riemann_pointer => Riemann_HLL
 CASE(PRM_RIEMANN_HLLE)
   Riemann_pointer => Riemann_HLLE
+CASE(PRM_RIEMANN_SLAU2)
+  Riemann_pointer => Riemann_SLAU2
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,&
     'Riemann solver not defined!')
@@ -168,6 +173,8 @@ CASE(PRM_RIEMANN_HLL)
   RiemannBC_pointer => Riemann_HLL
 CASE(PRM_RIEMANN_HLLE)
   RiemannBC_pointer => Riemann_HLLE
+CASE(PRM_RIEMANN_SLAU2)
+  Riemann_pointer => Riemann_SLAU2
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,&
     'RiemannBC solver not defined!')
@@ -860,6 +867,69 @@ ELSE
 END IF ! subsonic case
 END SUBROUTINE Riemann_HLLE
 
+!=================================================================================================================================
+!> SLAU2
+!=================================================================================================================================
+PPURE SUBROUTINE Riemann_SLAU2(F_L,F_R,U_LL,U_RR,F)
+!=================================================================================================================================
+! MODULES
+USE MOD_EOS_Vars      ,ONLY: Kappa,KappaM1
+IMPLICIT NONE
+!---------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+                                               !> extended solution vector on the left/right side of the interface
+REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR
+                                               !> advection fluxes on the left/right side of the interface
+REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R
+REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
+!---------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL    :: H_L,H_R
+REAL    :: cL, cR, c0_5, VL2, VR2, VAvg, MM, chi, MaL, MaR, fL, fR
+REAL    :: pTilde, g, Vn, VnPlus, VnMinus, massFlux
+!=================================================================================================================================
+H_L       = TOTALENTHALPY_HE(U_LL)
+H_R       = TOTALENTHALPY_HE(U_RR)
+cL        = SPEEDOFSOUND_HE(U_LL)
+cR        = SPEEDOFSOUND_HE(U_RR)
+c0_5      = 0.5 * (cL + cR) ! Eq. 2.3h
+VL2       = DOT_PRODUCT(U_LL(EXT_VELV), U_LL(EXT_VELV))
+VR2       = DOT_PRODUCT(U_RR(EXT_VELV), U_RR(EXT_VELV))
+VAvg      = SQRT(0.5 * (VL2 + VR2))
+MM        = min(1.0, VAvg / c0_5)
+chi       = (1.0 - MM)**2
+MaL       = U_LL(EXT_VEL1) / c0_5 
+MaR       = U_RR(EXT_VEL1) / c0_5 
+IF (MaL .GE. 1.0) THEN
+  fL = 0.5 * (1 + SIGN(1.0, MaL))
+ELSE
+  fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL)
+END IF
+IF (MaR .GE. 1.0) THEN
+  fR = 0.5 * (1 - SIGN(1.0, MaL))
+ELSE
+  fR = 0.25 * (MaL - 1.0)**2 * (2.0 + MaL)
+END IF
+pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
+            0.5 * (fL - fR) * (U_LL(EXT_PRES) - U_RR(EXT_PRES)) + &
+            VAvg * (fL + fR - 1.0) * 0.5 * (U_LL(EXT_DENS) + U_RR(EXT_DENS)) * c0_5
+g         = -MAX(MIN(U_LL(EXT_VEL1) / cL, 0.0), -1.0) * &
+             MIN(MAX(U_RR(EXT_VEL1) / cR, 0.0), 1.0)
+Vn        = (U_LL(EXT_DENS) * U_LL(EXT_VEL1) + U_RR(EXT_DENS) * U_RR(EXT_VEL1)) / &
+            (U_LL(EXT_DENS) + U_RR(EXT_DENS))
+VnPlus    = (1 - g) * Vn + g * ABS(U_LL(EXT_VEL1))
+VnMinus   = (1 - g) * Vn + g * ABS(U_RR(EXT_VEL1))
+massFlux  = 0.5 * ( &
+              U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
+              U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
+              chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+IF (massFlux .GE. 0.0) THEN
+  F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_RHOK:EXT_RHOG)/)
+ELSE
+  F = massFlux * (/1.0, U_RR(EXT_VELV), H_R, U_RR(EXT_RHOK:EXT_RHOG)/)
+END IF
+F(VEL1) = F(VEL1) + pTilde
+END SUBROUTINE Riemann_SLAU2
 
 #ifdef SPLIT_DG
 !==================================================================================================================================
