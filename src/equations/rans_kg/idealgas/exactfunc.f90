@@ -669,26 +669,27 @@ CASE(517) ! turbulent channel
   Prim(VELV) = 0.
   Prim(VEL1) = 1. / 0.41 * LOG(1. + 0.41 * y_plus) + 7.8 * (1. - EXP(-y_plus / 11.) - y_plus / 11. * EXP(-y_plus / 3.))
   Prim(VEL1) = Prim(VEL1) * RefStatePrim(VEL1, RefState)
+  Amplitude = 0.1 * Prim(VEL1)
 
   ! copied from src/testcase/channel/testcase.f90
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL1)=Prim(VEL1)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(30.0*PP_PI*(x(2)/(2.0)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(35.0*PP_PI*(x(2)/(2.0)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(40.0*PP_PI*(x(2)/(2.0)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(45.0*PP_PI*(x(2)/(2.0)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(50.0*PP_PI*(x(2)/(2.0)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
 
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
-  Prim(VEL2)=Prim(VEL2)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
+  Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
   
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))
-  Prim(VEL3)=Prim(VEL3)+0.1*Prim(VEL1)*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(2)/(2.0)))
+  Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(2)/(2.0)))
 
   CALL PrimToCons(Prim, Resu)
 CASE(301) ! readfromfile
