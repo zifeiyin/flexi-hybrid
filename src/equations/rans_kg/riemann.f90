@@ -255,8 +255,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_LL(EXT_SRHO)=1./U_LL(EXT_DENS)
   U_LL(EXT_ENER)=U_L(ENER,i,j)
   U_LL(EXT_PRES)=UPrim_L(PRES,i,j)
-  U_LL(EXT_RHOK)=U_L(RHOK,i,j) 
-  U_LL(EXT_RHOG)=U_L(RHOG,i,j) 
+  U_LL(EXT_RHOK)=U_L(RHOK,i,j)
+  U_LL(EXT_RHOG)=U_L(RHOG,i,j)
   U_LL(EXT_TKE )=UPrim_L(TKE,i,j)
   U_LL(EXT_OMG )=UPrim_L(OMG,i,j)
 
@@ -277,8 +277,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_RR(EXT_SRHO)=1./U_RR(EXT_DENS)
   U_RR(EXT_ENER)=U_R(ENER,i,j)
   U_RR(EXT_PRES)=UPrim_R(PRES,i,j)
-  U_RR(EXT_RHOK)=U_R(RHOK,i,j) 
-  U_RR(EXT_RHOG)=U_R(RHOG,i,j)  
+  U_RR(EXT_RHOK)=U_R(RHOK,i,j)
+  U_RR(EXT_RHOG)=U_R(RHOG,i,j)
   U_RR(EXT_TKE )=UPrim_R(TKE,i,j)
   U_RR(EXT_OMG )=UPrim_R(OMG,i,j)
   ! rotate momentum in normal and tangential direction
@@ -896,39 +896,41 @@ c0_5      = 0.5 * (cL + cR) ! Eq. 2.3h
 VL2       = DOT_PRODUCT(U_LL(EXT_VELV), U_LL(EXT_VELV))
 VR2       = DOT_PRODUCT(U_RR(EXT_VELV), U_RR(EXT_VELV))
 VAvg      = SQRT(0.5 * (VL2 + VR2))
-MM        = min(1.0, VAvg / c0_5)
-chi       = (1.0 - MM)**2
-MaL       = U_LL(EXT_VEL1) / c0_5 
-MaR       = U_RR(EXT_VEL1) / c0_5 
+MM        = min(1.0, VAvg / c0_5) ! Eq. 2.3e
+chi       = (1.0 - MM)**2 ! Eq. 2.3d
+MaL       = U_LL(EXT_VEL1) / c0_5 ! Eq. 2.3g
+MaR       = U_RR(EXT_VEL1) / c0_5 ! Eq. 2.3g
 IF (MaL .GE. 1.0) THEN
-  fL = 0.5 * (1 + SIGN(1.0, MaL))
+  fL = 0.5 * (1.0 + SIGN(1.0, MaL)) ! Eq. 2.3f
 ELSE
-  fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL)
+  fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL) ! Eq. 2.3f
 END IF
 IF (MaR .GE. 1.0) THEN
-  fR = 0.5 * (1 - SIGN(1.0, MaL))
+  fR = 0.5 * (1.0 - SIGN(1.0, MaR)) ! Eq. 2.3f
 ELSE
-  fR = 0.25 * (MaL - 1.0)**2 * (2.0 + MaL)
+  fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
 END IF
+! Eq. 2.3c
 pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
             0.5 * (fL - fR) * (U_LL(EXT_PRES) - U_RR(EXT_PRES)) + &
             VAvg * (fL + fR - 1.0) * 0.5 * (U_LL(EXT_DENS) + U_RR(EXT_DENS)) * c0_5
+! Eq. 2.3l
 g         = -MAX(MIN(U_LL(EXT_VEL1) / cL, 0.0), -1.0) * &
              MIN(MAX(U_RR(EXT_VEL1) / cR, 0.0), 1.0)
-Vn        = (U_LL(EXT_DENS) * U_LL(EXT_VEL1) + U_RR(EXT_DENS) * U_RR(EXT_VEL1)) / &
-            (U_LL(EXT_DENS) + U_RR(EXT_DENS))
-VnPlus    = (1 - g) * Vn + g * ABS(U_LL(EXT_VEL1))
-VnMinus   = (1 - g) * Vn + g * ABS(U_RR(EXT_VEL1))
+Vn        = (U_LL(EXT_MOM1) + U_RR(EXT_MOM1)) / (U_LL(EXT_DENS) + U_RR(EXT_DENS)) ! Eq. 2.3k
+VnPlus    = (1.0 - g) * Vn + g * ABS(U_LL(EXT_VEL1)) ! Eq. 2.3j
+VnMinus   = (1.0 - g) * Vn + g * ABS(U_RR(EXT_VEL1)) ! Eq. 2.3j
+! Eq. 2.3i
 massFlux  = 0.5 * ( &
               U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
               U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
 IF (massFlux .GE. 0.0) THEN
-  F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_RHOK:EXT_RHOG)/)
+  F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
 ELSE
-  F = massFlux * (/1.0, U_RR(EXT_VELV), H_R, U_RR(EXT_RHOK:EXT_RHOG)/)
+  F = massFlux * (/1.0, U_RR(EXT_VELV), H_R, U_RR(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
 END IF
-F(VEL1) = F(VEL1) + pTilde
+F(MOM1) = F(MOM1) + pTilde ! Eq. 2.3a
 END SUBROUTINE Riemann_SLAU2
 
 #ifdef SPLIT_DG
