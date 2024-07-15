@@ -884,7 +884,7 @@ DO iElem=1,nElems
     dissK (1,i,j,k,iElem) = U(RHOK,i,j,k,iElem) / MAX( gPos**2, 1.e-10 ) ! hope to make negtive k come back           
     !dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
 
-    prodG (1,i,j,k,iElem) = 0.5 * Comega2 / Cmu * UPrim(DENS) / MAX(gPos, 1.e-8) 
+    prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
     dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU * MIN( 100.*muTOrig/muS, 1.0)
     crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
 
