@@ -896,16 +896,16 @@ c0_5      = 0.5 * (cL + cR) ! Eq. 2.3h
 VL2       = DOT_PRODUCT(U_LL(EXT_VELV), U_LL(EXT_VELV))
 VR2       = DOT_PRODUCT(U_RR(EXT_VELV), U_RR(EXT_VELV))
 VAvg      = SQRT(0.5 * (VL2 + VR2))
-MM        = min(1.0, VAvg / c0_5) ! Eq. 2.3e
+MM        = MIN(1.0, VAvg / c0_5) ! Eq. 2.3e
 chi       = (1.0 - MM)**2 ! Eq. 2.3d
 MaL       = U_LL(EXT_VEL1) / c0_5 ! Eq. 2.3g
 MaR       = U_RR(EXT_VEL1) / c0_5 ! Eq. 2.3g
-IF (MaL .GE. 1.0) THEN
+IF (ABS(MaL) .GE. 1.0) THEN
   fL = 0.5 * (1.0 + SIGN(1.0, MaL)) ! Eq. 2.3f
 ELSE
   fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL) ! Eq. 2.3f
 END IF
-IF (MaR .GE. 1.0) THEN
+IF (ABS(MaR) .GE. 1.0) THEN
   fR = 0.5 * (1.0 - SIGN(1.0, MaR)) ! Eq. 2.3f
 ELSE
   fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
@@ -917,7 +917,7 @@ pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
 ! Eq. 2.3l
 g         = -MAX(MIN(U_LL(EXT_VEL1) / cL, 0.0), -1.0) * &
              MIN(MAX(U_RR(EXT_VEL1) / cR, 0.0), 1.0)
-Vn        = (U_LL(EXT_MOM1) + U_RR(EXT_MOM1)) / (U_LL(EXT_DENS) + U_RR(EXT_DENS)) ! Eq. 2.3k
+Vn        = (ABS(U_LL(EXT_MOM1)) + ABS(U_RR(EXT_MOM1))) / (U_LL(EXT_DENS) + U_RR(EXT_DENS)) ! Eq. 2.3k
 VnPlus    = (1.0 - g) * Vn + g * ABS(U_LL(EXT_VEL1)) ! Eq. 2.3j
 VnMinus   = (1.0 - g) * Vn + g * ABS(U_RR(EXT_VEL1)) ! Eq. 2.3j
 ! Eq. 2.3i
