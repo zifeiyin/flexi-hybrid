@@ -27,6 +27,7 @@ INTEGER                 :: NCalc             !< Polynomial degree to perform DFF
 REAL                    :: Re_tau            !< Reynolds number based on friction velocity and channel half height
 LOGICAL                 :: ReadMean          !< Read TimeAvg instead of State
 CHARACTER(LEN=255)      :: OutputNodeType    !< output node type, "Gauss", "Gauss-Lobatto", etc.
+INTEGER                 :: NMean             !< Number of mean variables
 
 REAL,ALLOCATABLE        :: VdmGaussEqui(:,:) !< Vandermonde from state to FFT grid
 
