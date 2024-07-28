@@ -28,6 +28,8 @@ REAL                    :: Re_tau            !< Reynolds number based on frictio
 LOGICAL                 :: ReadMean          !< Read TimeAvg instead of State
 CHARACTER(LEN=255)      :: OutputNodeType    !< output node type, "Gauss", "Gauss-Lobatto", etc.
 INTEGER                 :: NMean             !< Number of mean variables
+INTEGER                 :: Permutation       !< Permutation
+INTEGER,ALLOCATABLE     :: PIJK(:,:,:,:)     !< Permutation
 
 REAL,ALLOCATABLE        :: VdmGaussEqui(:,:) !< Vandermonde from state to FFT grid
 

@@ -63,12 +63,13 @@ CALL DefineParametersIO_HDF5()
 CALL DefineParametersMesh()
 
 CALL prms%SetSection("channelFFT")
-CALL prms%CreateIntOption(    "OutputFormat", "Choose the main format for output. 0: Tecplot, 2: HDF5")
-CALL prms%CreateIntOption(    "NCalc",        "Polynomial degree to perform DFFT on.")
-CALL prms%CreateRealOption(   "Re_tau",       "Reynolds number based on friction velocity and channel half height.")
-CALL prms%CreateLogicalOption("ReadMean",     "Read TimeAvg file instead of State.")
-CALL prms%CreateStringOption("OutputNodeType","Interpolation node type, Gauss, Gauss-Lobatto, etc.")
-CALL prms%CreateIntOption(    "NMean",        "Number of mean variables", "-1")
+CALL prms%CreateIntOption(    "OutputFormat",   "Choose the main format for output. 0: Tecplot, 2: HDF5")
+CALL prms%CreateIntOption(    "NCalc",          "Polynomial degree to perform DFFT on.")
+CALL prms%CreateRealOption(   "Re_tau",         "Reynolds number based on friction velocity and channel half height.")
+CALL prms%CreateLogicalOption("ReadMean",       "Read TimeAvg file instead of State.")
+CALL prms%CreateStringOption( "OutputNodeType", "Interpolation node type, Gauss, Gauss-Lobatto, etc.")
+CALL prms%CreateIntOption(    "NMean",          "Number of mean variables", "-1")
+CALL prms%CreateIntOption(    "Permutation",    "Permutation", "0")
 
 ! check for command line argument --help or --markdown
 IF (doPrintHelp.GT.0) THEN

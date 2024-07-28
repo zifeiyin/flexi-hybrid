@@ -73,6 +73,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER :: i,j,k
 !===================================================================================================================================
 ! Read in user-defined parameters
 OutputFormat = GETINT('OutputFormat','0')
@@ -87,6 +88,27 @@ END IF
 IF (NMean .EQ. -1) THEN
   NMean = PP_nVar
 ENDIF
+Permutation = GETINT('Permutation', '0')
+ALLOCATE(PIJK(3,0:NCalc,0:NCalc,0:NCalc))
+DO k=0,NCalc
+  DO j=0,NCalc
+    DO i=0,NCalc
+      IF (Permutation.EQ.0) THEN
+        PIJK(:,i,j,k) = (/i,j,k/)
+      ELSE IF (Permutation.EQ.1) THEN
+        PIJK(:,i,j,k) = (/i,k,j/)
+      ELSE IF (Permutation.EQ.2) THEN
+        PIJK(:,i,j,k) = (/j,i,k/)
+      ELSE IF (Permutation.EQ.3) THEN
+        PIJK(:,i,j,k) = (/j,k,i/)
+      ELSE IF (Permutation.EQ.4) THEN
+        PIJK(:,i,j,k) = (/k,i,j/)
+      ELSE IF (Permutation.EQ.5) THEN
+        PIJK(:,i,j,k) = (/k,j,i/)
+      END IF
+    END DO
+  END DO
+END DO
 
 ! Allocate solution array in DG vars, used to store state
 ALLOCATE(U(NMean,0:PP_N,0:PP_N,0:PP_N,nElems))
@@ -166,13 +188,23 @@ DO iElem=1,nGlobalElems
   jj=Elem_IJK(2,iElem)
   kk=Elem_IJK(3,iElem)
   CALL ChangeBasis3D(3,PP_N,NCalc,VdmGaussEqui,Elem_xGP(:,:,:,:,iElem),X_aux)
+  ! DO k=0,NCalc
+  !   kGlob=(kk-1)*(NCalc+1)+k+1
+  !   DO j=0,NCalc
+  !     jGlob=(jj-1)*(NCalc+1)+j+1
+  !     DO i=0,NCalc
+  !       iGlob=(ii-1)*(NCalc+1)+i+1
+  !       X_FFT(:,iGlob,jGlob,kGlob)=X_aux(:,i,j,k)
+  !     END DO
+  !   END DO
+  ! END DO
   DO k=0,NCalc
     kGlob=(kk-1)*(NCalc+1)+k+1
     DO j=0,NCalc
       jGlob=(jj-1)*(NCalc+1)+j+1
       DO i=0,NCalc
         iGlob=(ii-1)*(NCalc+1)+i+1
-        X_FFT(:,iGlob,jGlob,kGlob)=X_aux(:,i,j,k)
+        X_FFT(:,iGlob,jGlob,kGlob)=X_aux(:,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
       END DO
     END DO
   END DO
@@ -219,18 +251,30 @@ DO iElem=1,nGlobalElems
       jGlob=(jj-1)*(NCalc+1)+j+1
       DO i=0,NCalc
         iGlob=(ii-1)*(NCalc+1)+i+1
-        U_FFT(1,iGlob,jGlob,kGlob)=U_aux(1,i,j,k)
-        U_FFT(2:4,iGlob,jGlob,kGlob)=U_aux(2:4,i,j,k)/U_aux(1,i,j,k)
+        U_FFT(1,iGlob,jGlob,kGlob)=U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
+        U_FFT(2:4,iGlob,jGlob,kGlob)= &
+            U_aux(2:4,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) / &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
 #if EQNSYSNR == 2
         ! navierstokes
-        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*(U_aux(5,i,j,k)-U_aux(1,i,j,k)*SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
+        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*( &
+            U_aux(5,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) - &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) * &
+            SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
 #elif EQNSYSNR == 4
         ! rans-kg
-        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*(U_aux(5,i,j,k)-U_aux(6,i,j,k)-U_aux(1,i,j,k)*SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
-        U_FFT(6:7,iGlob,jGlob,kGlob)=U_aux(6:7,i,j,k)/U_aux(1,i,j,k)
+        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*( &
+            U_aux(5,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) - &
+            U_aux(6,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) - &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) * &
+            SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
+        U_FFT(6:7,iGlob,jGlob,kGlob)= & 
+            U_aux(6:7,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) / &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
 #endif
       IF (NMean .GT. PP_nVar) THEN
-        U_FFT(PP_nVar+1:NMean,iGlob,jGlob,kGlob)=U_aux(PP_nVar+1:NMean,i,j,k)
+        U_FFT(PP_nVar+1:NMean,iGlob,jGlob,kGlob)= &
+            U_aux(PP_nVar+1:NMean,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
       END IF
       END DO
     END DO
@@ -370,6 +414,18 @@ REAL,ALLOCATABLE   :: PointData(:,:)
 CHARACTER(LEN=255),ALLOCATABLE :: VarNamesFFT(:)
 !===================================================================================================================================
 !Sum up the lower and upper channel halfes
+PRINT *, "The first direction"
+DO i=1,N_FFT(1)
+  PRINT *, X_FFT(1,i,1,1), X_FFT(2,i,1,1), X_FFT(3,i,1,1)
+END DO
+PRINT *, "The second direction"
+DO i=1,N_FFT(2)
+  PRINT *, X_FFT(1,1,i,1), X_FFT(2,1,i,1), X_FFT(3,1,i,1)
+END DO
+PRINT *, "The third direction"
+DO i=1,N_FFT(3)
+  PRINT *, X_FFT(1,1,1,i), X_FFT(2,1,1,i), X_FFT(3,1,1,i)
+END DO
 DO j=N_FFT(2)/2+1,N_FFT(2)
   Ex_uu(j,:)=(Ex_uu(N_FFT(2)-j+1,:)+Ex_uu(j,:))
   Ex_vv(j,:)=(Ex_vv(N_FFT(2)-j+1,:)+Ex_vv(j,:))
@@ -709,6 +765,7 @@ SDEALLOCATE(VdmGaussEqui)
 SDEALLOCATE(MS_t)
 SDEALLOCATE(MS_PSD)
 SDEALLOCATE(M_t)
+SDEALLOCATE(PIJK)
 END SUBROUTINE FinalizeFFT
 
 END MODULE MOD_FFT
