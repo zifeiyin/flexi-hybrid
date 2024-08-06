@@ -343,7 +343,7 @@ IF(Time.GT.RestartTime) THEN
   SWRITE(UNIT_stdOut,'(132("-"))')
   CALL PrintStatusLine(time,dt,tStart,tEnd,iter,maxIter,doETA=.TRUE.)
   SWRITE(UNIT_stdOut,'(132("."))')
-  SWRITE(UNIT_stdOut,'(A,A,A,F8.2,A)') ' FLEXI RUNNING ',TRIM(ProjectName),'... [',RunTime,' sec ]'
+  SWRITE(UNIT_stdOut,'(A,A,A,F10.2,A)') ' FLEXI RUNNING ',TRIM(ProjectName),'... [',RunTime,' sec ]'
   SWRITE(UNIT_stdOut,'(132("-"))')
   SWRITE(UNIT_stdOut,*)
 END IF
