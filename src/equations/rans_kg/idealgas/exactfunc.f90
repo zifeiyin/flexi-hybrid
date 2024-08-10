@@ -814,7 +814,7 @@ INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 REAL                :: UPrim(PP_nVarPrim)
 REAL                :: muS,muT,kPos,gPos,muTOrig
-REAL                :: muEffG, invR
+REAL                :: muEffG,invR,invG
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
@@ -836,6 +836,7 @@ DO iElem=1,nElems
     muTOrig = MIN( Cmu * UPrim(DENS) * kPos * gPos**2, 10000.0 * muS )
 
     invR   = 1. / MAX( 0.01 * muS, muTOrig )
+    invG   = SQRT(Cmu * UPrim(DENS) * kPos * invR)
 
     muEffG = (muS + invSigmaG * muTOrig)
 
@@ -885,7 +886,7 @@ DO iElem=1,nElems
     ! dissK (1,i,j,k,iElem) = U(RHOK,i,j,k,iElem) / MAX( gPos**2, 1.e-10 ) ! hope to make negtive k come back
     dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
 
-    prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2. * Cmu * MAX(gPos, 1.e-8))
+    prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2. * Cmu) * invG
     dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
     crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
     ! crossG(1,i,j,k,iElem) = muEffG * 3.0 / MAX(gPos, 1.e-8) * dGdG
