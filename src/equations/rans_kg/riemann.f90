@@ -678,6 +678,7 @@ REAL                    :: RoeVel(3),RoeH,Roec,RoeDens
 REAL,DIMENSION(5)       :: r1,r2,r3,r4,r5,a,al,ar,Delta_U,Alpha  ! Roe eigenvectors
 REAL                    :: tmp,da
 REAL                    :: LambdaMax
+REAL                    :: lmfix
 !=================================================================================================================================
 c_L       = SPEEDOFSOUND_HE(U_LL)
 c_R       = SPEEDOFSOUND_HE(U_RR)
@@ -710,11 +711,12 @@ r5 = (/ 1.,             a(5),      RoeVel(2), RoeVel(3), RoeH+RoeVel(1)*Roec /)
 
 ! calculate wave strenghts
 tmp      = 0.5/(Roec*Roec)
-Alpha(1) = tmp*(Delta_U(DELTA_U5)-RoeDens*Roec*Delta_U(DELTA_U2))
+lmfix    = MIN(1.0, (ABS(RoeVel(1)) + SQRT(DOT_PRODUCT(RoeVel(2:3), RoeVel(2:3)))) / Roec)
+Alpha(1) = tmp*(Delta_U(DELTA_U5)-RoeDens*Roec*lmfix*Delta_U(DELTA_U2))
 Alpha(2) = Delta_U(DELTA_U1) - Delta_U(DELTA_U5)*2.*tmp
 Alpha(3) = RoeDens*Delta_U(DELTA_U3)
 Alpha(4) = RoeDens*Delta_U(DELTA_U4)
-Alpha(5) = tmp*(Delta_U(DELTA_U5)+RoeDens*Roec*Delta_U(DELTA_U2))
+Alpha(5) = tmp*(Delta_U(DELTA_U5)+RoeDens*Roec*lmfix*Delta_U(DELTA_U2))
 
 ! Harten+Hyman entropy fix (apply only for acoustic waves, don't fix r)
 
