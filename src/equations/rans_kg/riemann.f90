@@ -44,7 +44,8 @@ INTEGER,PARAMETER      :: PRM_RIEMANN_ROE           = 3
 INTEGER,PARAMETER      :: PRM_RIEMANN_ROEENTROPYFIX = 33
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLL           = 4
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLLE          = 5
-INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU2         = 6
+INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU          = 6
+INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU2         = 62
 #ifdef SPLIT_DG
 INTEGER,PARAMETER      :: PRM_RIEMANN_CH            = 7
 INTEGER,PARAMETER      :: PRM_RIEMANN_Average       = 0
@@ -103,6 +104,7 @@ CALL addStrListEntry('Riemann','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('Riemann','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('Riemann','hll',          PRM_RIEMANN_HLL)
 CALL addStrListEntry('Riemann','hlle',         PRM_RIEMANN_HLLE)
+CALL addStrListEntry('Riemann','slau',         PRM_RIEMANN_SLAU)
 CALL addStrListEntry('Riemann','slau2',        PRM_RIEMANN_SLAU2)
 #ifdef SPLIT_DG
 CALL addStrListEntry('Riemann','ch',           PRM_RIEMANN_CH)
@@ -116,6 +118,7 @@ CALL addStrListEntry('RiemannBC','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('RiemannBC','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('RiemannBC','hll',          PRM_RIEMANN_HLL)
 CALL addStrListEntry('RiemannBC','hlle',         PRM_RIEMANN_HLLE)
+CALL addStrListEntry('RiemannBC','slau',         PRM_RIEMANN_SLAU)
 CALL addStrListEntry('RiemannBC','slau2',        PRM_RIEMANN_SLAU2)
 #ifdef SPLIT_DG
 CALL addStrListEntry('RiemannBC','ch',           PRM_RIEMANN_CH)
@@ -152,6 +155,8 @@ CASE(PRM_RIEMANN_HLL)
   Riemann_pointer => Riemann_HLL
 CASE(PRM_RIEMANN_HLLE)
   Riemann_pointer => Riemann_HLLE
+CASE(PRM_RIEMANN_SLAU)
+  Riemann_pointer => Riemann_SLAU
 CASE(PRM_RIEMANN_SLAU2)
   Riemann_pointer => Riemann_SLAU2
 CASE DEFAULT
@@ -173,6 +178,8 @@ CASE(PRM_RIEMANN_HLL)
   RiemannBC_pointer => Riemann_HLL
 CASE(PRM_RIEMANN_HLLE)
   RiemannBC_pointer => Riemann_HLLE
+CASE(PRM_RIEMANN_SLAU)
+  Riemann_pointer => Riemann_SLAU
 CASE(PRM_RIEMANN_SLAU2)
   Riemann_pointer => Riemann_SLAU2
 CASE DEFAULT
@@ -868,9 +875,9 @@ END IF ! subsonic case
 END SUBROUTINE Riemann_HLLE
 
 !=================================================================================================================================
-!> SLAU2
+!> SLAU
 !=================================================================================================================================
-PPURE SUBROUTINE Riemann_SLAU2(F_L,F_R,U_LL,U_RR,F)
+PPURE SUBROUTINE Riemann_SLAU(F_L,F_R,U_LL,U_RR,F)
 !=================================================================================================================================
 ! MODULES
 USE MOD_EOS_Vars      ,ONLY: Kappa,KappaM1
@@ -886,7 +893,7 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
 ! LOCAL VARIABLES
 REAL    :: H_L,H_R
 REAL    :: cL, cR, c0_5, VL2, VR2, VAvg, MM, chi, MaL, MaR, fL, fR
-REAL    :: pTilde, g, Vn, VnPlus, VnMinus, massFlux
+REAL    :: pTilde, g, Vn, massFlux
 !=================================================================================================================================
 H_L       = TOTALENTHALPY_HE(U_LL)
 H_R       = TOTALENTHALPY_HE(U_RR)
@@ -913,18 +920,91 @@ END IF
 ! Eq. 2.3c
 pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
             0.5 * (fL - fR) * (U_LL(EXT_PRES) - U_RR(EXT_PRES)) + &
+            (1.0 - chi) * (fL + fR - 1.0) * 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES))
+! Eq. 2.3l
+g         = -MAX(MIN(MaL, 0.0), -1.0) * MIN(MAX(MaR, 0.0), 1.0)
+Vn        = (ABS(U_LL(EXT_MOM1)) + ABS(U_RR(EXT_MOM1))) / (U_LL(EXT_DENS) + U_RR(EXT_DENS)) ! Eq. 2.3k
+! Eq. 2.3i
+massFlux  = 0.5 * (( &
+              U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
+              Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g) - &
+              chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+IF (massFlux .GE. 0.0) THEN
+  F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
+ELSE
+  F = massFlux * (/1.0, U_RR(EXT_VELV), H_R, U_RR(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
+END IF
+F(MOM1) = F(MOM1) + pTilde ! Eq. 2.3a
+END SUBROUTINE Riemann_SLAU
+
+!=================================================================================================================================
+!> SLAU2
+!=================================================================================================================================
+PPURE SUBROUTINE Riemann_SLAU2(F_L,F_R,U_LL,U_RR,F)
+!=================================================================================================================================
+! MODULES
+USE MOD_EOS_Vars      ,ONLY: Kappa,KappaM1
+IMPLICIT NONE
+!---------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+                                               !> extended solution vector on the left/right side of the interface
+REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR
+                                               !> advection fluxes on the left/right side of the interface
+REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R
+REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
+!---------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL    :: H_L,H_R
+REAL    :: cL, cR, c0_5, VL2, VR2, VAvg, MM, chi, MaL, MaR, fL, fR
+REAL    :: pTilde, g, Vn, VnPlus, VnMinus, massFlux
+!=================================================================================================================================
+H_L       = TOTALENTHALPY_HE(U_LL)
+H_R       = TOTALENTHALPY_HE(U_RR)
+cL        = SPEEDOFSOUND_HE(U_LL)
+cR        = SPEEDOFSOUND_HE(U_RR)
+! c0_5      = 0.5 * (cL + cR) ! Eq. 2.3h
+! p. 1694, Shima and Kitamura, 2011
+c0_5      = SQRT(kappa*(U_LL(EXT_PRES)+U_RR(EXT_PRES))/(U_LL(EXT_DENS)+U_RR(EXT_DENS)))
+VL2       = DOT_PRODUCT(U_LL(EXT_VELV), U_LL(EXT_VELV))
+VR2       = DOT_PRODUCT(U_RR(EXT_VELV), U_RR(EXT_VELV))
+VAvg      = SQRT(0.5 * (VL2 + VR2))
+MM        = MIN(1.0, VAvg / c0_5) ! Eq. 2.3e
+chi       = (1.0 - MM)**2 ! Eq. 2.3d
+MaL       = U_LL(EXT_VEL1) / c0_5 ! Eq. 2.3g
+MaR       = U_RR(EXT_VEL1) / c0_5 ! Eq. 2.3g
+IF (ABS(MaL) .GE. 1.0) THEN
+  fL = 0.5 * (1.0 + SIGN(1.0, MaL)) ! Eq. 2.3f
+ELSE
+  fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL) ! Eq. 2.3f
+END IF
+IF (ABS(MaR) .GE. 1.0) THEN
+  fR = 0.5 * (1.0 - SIGN(1.0, MaR)) ! Eq. 2.3f
+ELSE
+  fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
+END IF
+! Eq. 2.3c
+pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
+            0.5 * (fL - fR) * (U_LL(EXT_PRES) - U_RR(EXT_PRES)) + &
             VAvg * (fL + fR - 1.0) * 0.5 * (U_LL(EXT_DENS) + U_RR(EXT_DENS)) * c0_5
 ! Eq. 2.3l
-g         = -MAX(MIN(U_LL(EXT_VEL1) / cL, 0.0), -1.0) * &
-             MIN(MAX(U_RR(EXT_VEL1) / cR, 0.0), 1.0)
+g         = -MAX(MIN(MaL, 0.0), -1.0) * MIN(MAX(MaR, 0.0), 1.0)
 Vn        = (ABS(U_LL(EXT_MOM1)) + ABS(U_RR(EXT_MOM1))) / (U_LL(EXT_DENS) + U_RR(EXT_DENS)) ! Eq. 2.3k
 VnPlus    = (1.0 - g) * Vn + g * ABS(U_LL(EXT_VEL1)) ! Eq. 2.3j
 VnMinus   = (1.0 - g) * Vn + g * ABS(U_RR(EXT_VEL1)) ! Eq. 2.3j
 ! Eq. 2.3i
-massFlux  = 0.5 * ( &
-              U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
-              U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
-              chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+! massFlux  = 0.5 * ( &
+!               U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
+!               U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
+!               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+! Eq. 29, Shima and Kitamura, 2011
+! massFlux  = 0.5 * (( &
+!               U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
+!               Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g) - &
+!               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+! Limit as M -> 0
+massFlux  = 0.5 * (( &
+              U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
+              Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g))
 IF (massFlux .GE. 0.0) THEN
   F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
 ELSE
