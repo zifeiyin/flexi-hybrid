@@ -883,13 +883,11 @@ DO iElem=1,nElems
 
 
     prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
-    ! dissK (1,i,j,k,iElem) = U(RHOK,i,j,k,iElem) / MAX( gPos**2, 1.e-10 ) ! hope to make negtive k come back
     dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
 
     prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2. * Cmu) * invG
     dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
-    crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
-    ! crossG(1,i,j,k,iElem) = muEffG * 3.0 / MAX(gPos, 1.e-8) * dGdG
+    crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
