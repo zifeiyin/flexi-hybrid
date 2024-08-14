@@ -974,16 +974,32 @@ MM        = MIN(1.0, VAvg / c0_5) ! Eq. 2.3e
 chi       = (1.0 - MM)**2 ! Eq. 2.3d
 MaL       = U_LL(EXT_VEL1) / c0_5 ! Eq. 2.3g
 MaR       = U_RR(EXT_VEL1) / c0_5 ! Eq. 2.3g
-IF (ABS(MaL) .GE. 1.0) THEN
-  fL = 0.5 * (1.0 + SIGN(1.0, MaL)) ! Eq. 2.3f
-ELSE
+! Adapted from line 766,
+! https://github.com/su2code/SU2/blob/master/SU2_CFD/src/numerics/flow/convection/ausm_slau.cpp
+IF (ABS(MaL) .LE. 1.0) THEN
   fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL) ! Eq. 2.3f
-END IF
-IF (ABS(MaR) .GE. 1.0) THEN
-  fR = 0.5 * (1.0 - SIGN(1.0, MaR)) ! Eq. 2.3f
+ELSE IF (MaL .GE. 0.0) THEN
+  fL = 1.0 ! Eq. 2.3f
 ELSE
-  fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
+  fL = 0.0 ! Eq. 2.3f
 END IF
+IF (ABS(MaR) .LE. 1.0) THEN
+  fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
+ELSE IF (MaR .GE. 0.0) THEN
+  fR = 0.0 ! Eq. 2.3f
+ELSE
+  fR = 1.0 ! Eq. 2.3f
+END IF
+! IF (ABS(MaL) .GE. 1.0) THEN
+!   fL = 0.5 * (1.0 + SIGN(1.0, MaL)) ! Eq. 2.3f
+! ELSE
+!   fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL) ! Eq. 2.3f
+! END IF
+! IF (ABS(MaR) .GE. 1.0) THEN
+!   fR = 0.5 * (1.0 - SIGN(1.0, MaR)) ! Eq. 2.3f
+! ELSE
+!   fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
+! END IF
 ! Eq. 2.3c
 pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
             0.5 * (fL - fR) * (U_LL(EXT_PRES) - U_RR(EXT_PRES)) + &
@@ -994,15 +1010,15 @@ Vn        = (ABS(U_LL(EXT_MOM1)) + ABS(U_RR(EXT_MOM1))) / (U_LL(EXT_DENS) + U_RR
 VnPlus    = (1.0 - g) * Vn + g * ABS(U_LL(EXT_VEL1)) ! Eq. 2.3j
 VnMinus   = (1.0 - g) * Vn + g * ABS(U_RR(EXT_VEL1)) ! Eq. 2.3j
 ! Eq. 2.3i
-! massFlux  = 0.5 * ( &
-!               U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
-!               U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
-!               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
-! Eq. 29, Shima and Kitamura, 2011
-massFlux  = 0.5 * (( &
-              U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
-              Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g) - &
+massFlux  = 0.5 * ( &
+              U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
+              U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+! Eq. 29, Shima and Kitamura, 2011
+! massFlux  = 0.5 * (( &
+!               U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
+!               Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g) - &
+!               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
 IF (massFlux .GE. 0.0) THEN
   F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
 ELSE
