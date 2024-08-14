@@ -994,15 +994,15 @@ Vn        = (ABS(U_LL(EXT_MOM1)) + ABS(U_RR(EXT_MOM1))) / (U_LL(EXT_DENS) + U_RR
 VnPlus    = (1.0 - g) * Vn + g * ABS(U_LL(EXT_VEL1)) ! Eq. 2.3j
 VnMinus   = (1.0 - g) * Vn + g * ABS(U_RR(EXT_VEL1)) ! Eq. 2.3j
 ! Eq. 2.3i
-massFlux  = 0.5 * ( &
-              U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
-              U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
-              chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
-! Eq. 29, Shima and Kitamura, 2011
-! massFlux  = 0.5 * (( &
-!               U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
-!               Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g) - &
+! massFlux  = 0.5 * ( &
+!               U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
+!               U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
 !               chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+! Eq. 29, Shima and Kitamura, 2011
+massFlux  = 0.5 * (( &
+              U_LL(EXT_MOM1) + U_RR(EXT_MOM1) - &
+              Vn * (U_RR(EXT_DENS) - U_LL(EXT_DENS))) * (1.0 - g) - &
+              chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
 IF (massFlux .GE. 0.0) THEN
   F = massFlux * (/1.0, U_LL(EXT_VELV), H_L, U_LL(EXT_TKE:EXT_OMG)/) ! Eq. 2.3a
 ELSE
