@@ -685,7 +685,7 @@ INTEGER                 :: iVar
 REAL                    :: c_L,c_R
 REAL                    :: H_L,H_R
 REAL                    :: SqrtRho_L,SqrtRho_R,sSqrtRho,absVel
-REAL                    :: RoeVel(3),RoeH,Roec,RoeDens
+REAL                    :: RoeVel(3),RoeH,Roec,RoeDens,Roek
 REAL,DIMENSION(5)       :: r1,r2,r3,r4,r5,a,al,ar,Delta_U,Alpha  ! Roe eigenvectors
 REAL                    :: tmp,da
 REAL                    :: LambdaMax
@@ -703,7 +703,8 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R+SqrtRho_L*H_L) * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
+Roek      = (SqrtRho_R*U_RR(EXT_TKE)+SqrtRho_L*U_LL(EXT_TKE)) * sSqrtRho
+Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
 RoeDens   = SQRT(U_LL(EXT_DENS)*U_RR(EXT_DENS))
 ! Roe+Pike version of Roe Riemann solver
 
@@ -815,9 +816,9 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
 RoeH      = (SqrtRho_R*H_R+SqrtRho_L*H_L) * sSqrtRho
-Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
 Roek      = (SqrtRho_R*U_RR(EXT_TKE)+SqrtRho_L*U_LL(EXT_TKE)) * sSqrtRho
 Roeg      = (SqrtRho_R*U_RR(EXT_OMG)+SqrtRho_L*U_LL(EXT_OMG)) * sSqrtRho
+Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
 RoeKE     = 0.5 * absVel
 
 ! mean eigenvalues and eigenvectors
@@ -888,7 +889,7 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
 ! LOCAL VARIABLES
 REAL    :: H_L,H_R
 REAL    :: SqrtRho_L,SqrtRho_R,sSqrtRho,absVel
-REAL    :: RoeVel(3),RoeH,Roec
+REAL    :: RoeVel(3),RoeH,Roek,Roec
 REAL    :: Ssl,Ssr
 !=================================================================================================================================
 H_L       = TOTALENTHALPY_HE(U_LL)
@@ -899,8 +900,9 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 ! Roe mean values
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L)            * sSqrtRho
+Roek      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE))  * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
+Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
 ! HLL flux
 ! Basic Davis estimate for wave speed
 !Ssl = U_LL(EXT_VEL1) - c_L
@@ -939,7 +941,7 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
 ! LOCAL VARIABLES
 REAL    :: H_L,H_R
 REAL    :: SqrtRho_L,SqrtRho_R,sSqrtRho,absVel
-REAL    :: RoeVel(3),RoeH,Roec
+REAL    :: RoeVel(3),RoeH,Roek,Roec
 REAL    :: Ssl,Ssr,beta
 !=================================================================================================================================
 H_L       = TOTALENTHALPY_HE(U_LL)
@@ -950,8 +952,9 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 ! Roe mean values
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L)            * sSqrtRho
+Roek      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE))  * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
+Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
 ! HLLE flux (positively conservative)
 beta=BETA_RIEMANN_H()
 SsL=MIN(RoeVel(1)-Roec,U_LL(EXT_VEL1) - beta*SPEEDOFSOUND_HE(U_LL), 0.)
