@@ -107,6 +107,8 @@ ALLOCATE(dissK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(prodG (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(dissG (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(crossG(1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(SijUij(  0:PP_N,0:PP_N,0:PP_NZ,nElems))
+ALLOCATE(dGidGi(  0:PP_N,0:PP_N,0:PP_NZ,nElems))
 
 ! Turbulent Prandtl number
 PrSGS  = GETREAL('PrSGS')
@@ -161,6 +163,8 @@ SDEALLOCATE(dissK)
 SDEALLOCATE(prodG)
 SDEALLOCATE(dissG)
 SDEALLOCATE(crossG)
+SDEALLOCATE(SijUij)
+SDEALLOCATE(dGidGi)
 IF (ASSOCIATED(FinalizeEddyViscosity)) CALL FinalizeEddyViscosity()
 END SUBROUTINE
 
