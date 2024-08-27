@@ -206,7 +206,7 @@ REAL,DIMENSION(PP_nVar,nBCs)    :: MeanFlux
 REAL,DIMENSION(4,nBCs)          :: meanTotals
 REAL,DIMENSION(nBCs)            :: meanV,maxV,minV
 REAL                            :: BulkPrim(PP_nVarPrim),BulkCons(PP_nVar)
-REAL                            :: kgnut(18)
+REAL                            :: kgnut(22)
 INTEGER                         :: i
 !==================================================================================================================================
 ! Calculate derived quantities
@@ -287,10 +287,10 @@ IF(MPIRoot.AND.doCalcTurbulence)THEN
 ENDIF 
 
 IF(MPIRoot.AND.doCalcTurbSource)THEN
-  WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(9:17:2)
-  WRITE(formatStr,'(A,I2,A)')'(A14,',6,'ES18.9)'
-  WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(10:18:2)
+  WRITE(formatStr,'(A,I2,A)')'(A14,',7,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(9:21:2)
+  WRITE(formatStr,'(A,I2,A)')'(A14,',7,'ES18.9)'
+  WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(10:22:2)
 END IF
 
 END SUBROUTINE AnalyzeEquation
@@ -603,11 +603,11 @@ SUBROUTINE CalcTurbulence(kgnut)
 USE MOD_Globals
 USE MOD_PreProc
 USE MOD_DG_Vars,            ONLY: U
-USE MOD_EddyVisc_Vars,      ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,eddyViscType,Cdes2 
+USE MOD_EddyVisc_Vars,      ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,eddyViscType,Cdes2,SijUij,dGidGi
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-REAL,INTENT(OUT)                :: kgnut(18)                   !> Conservative residuals
+REAL,INTENT(OUT)                :: kgnut(22)                   !> Conservative residuals
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER :: i
@@ -637,16 +637,20 @@ kgnut(15) =  MAXVAL(dissG(1,:,:,:,:))
 kgnut(16) = -MINVAL(dissG(1,:,:,:,:))
 kgnut(17) =  MAXVAL(crossG(1,:,:,:,:))
 kgnut(18) = -MINVAL(crossG(1,:,:,:,:))
+kgnut(19) =  MAXVAL(SijUij(:,:,:,:))
+kgnut(20) = -MINVAL(SijUij(:,:,:,:))
+kgnut(21) =  MAXVAL(dGidGi(:,:,:,:))
+kgnut(22) = -MINVAL(dGidGi(:,:,:,:))
 
 #if USE_MPI
 IF(MPIRoot)THEN
-  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(1:18),18,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_REDUCE(MPI_IN_PLACE,kgnut(1:22),22,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
 ELSE
-  CALL MPI_REDUCE(kgnut(1:18) ,0          ,18,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_REDUCE(kgnut(1:22) ,0          ,22,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_FLEXI,iError)
 END IF
 #endif
 
-DO i=1,9
+DO i=1,11
   kgnut(2*i) = -kgnut(2*i)
 END DO
 

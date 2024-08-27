@@ -82,7 +82,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=25
+nMaxVarAvg=27
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -109,6 +109,8 @@ VarNamesAvgList(22) ='DissG'
 VarNamesAvgList(23) ='CrossG'
 VarNamesAvgList(24) ='fd'
 VarNamesAvgList(25) ='CDes'
+VarNamesAvgList(26) ='MagS'
+VarNamesAvgList(27) ='dGdG'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -337,7 +339,7 @@ USE MOD_EOS          ,ONLY: ConsToPrim
 USE MOD_EOS_Vars     ,ONLY: Kappa
 USE MOD_Analyze_Vars ,ONLY: WriteData_dt
 USE MOD_AnalyzeEquation_Vars
-USE MOD_EddyVisc_Vars,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,fd,Cdes2
+USE MOD_EddyVisc_Vars,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,fd,Cdes2,SijUij,dGidGi
 #if FV_ENABLED
 USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm
 USE MOD_ChangeBasisByDim,ONLY:ChangeBasisVolume
@@ -509,6 +511,14 @@ DO iElem=1,nElems
 
   IF(CalcAvg(25))THEN ! 'cdes'
     tmpVars(iAvg(25),:,:,:)=cdes2(:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(16))THEN ! 'MagS'
+    tmpVars(iAvg(26),:,:,:)=SijUij(:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(27))THEN ! 'dGdG'
+    tmpVars(iAvg(27),:,:,:)=dGidGi(:,:,:,iElem)
   END IF
 
   UAvg(:,:,:,:,iElem)= UAvg (:,:,:,:,iElem) + tmpVars(1:nVarAvg,:,:,:)*dtStep

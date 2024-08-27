@@ -74,4 +74,7 @@ REAL,ALLOCATABLE  :: dissG (:,:,:,:,:)                !< dissipation G
 REAL,ALLOCATABLE  :: crossG(:,:,:,:,:)                !< cross G
 REAL,ALLOCATABLE  :: fd(:,:,:,:)                      !< fd in DDES
 
+REAL,ALLOCATABLE  :: SijUij(:,:,:,:)                  !< magS
+REAL,ALLOCATABLE  :: dGidGi(:,:,:,:)                  !< dGdG
+
 END MODULE MOD_EddyVisc_Vars

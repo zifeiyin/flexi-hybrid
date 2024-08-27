@@ -73,6 +73,7 @@ IMPLICIT NONE
 ! OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+INTEGER :: i,j,k
 !===================================================================================================================================
 ! Read in user-defined parameters
 OutputFormat = GETINT('OutputFormat','0')
@@ -80,9 +81,37 @@ NCalc  = GETINT('NCalc')          ! Polynomial degree to perfrom DFFT on
 Re_tau = GETREAL('Re_tau')        ! Reynolds number bases on friction velocity and channel half height
 ReadMean = GETLOGICAL('ReadMean') ! Read TimeAvg instead of State
 OutputNodeType = GETSTR('OutputNodeType', 'VISU_INNER')
+NMean = -1
+IF (ReadMean) THEN
+  NMean = GETINT('NMean', '-1')
+END IF
+IF (NMean .EQ. -1) THEN
+  NMean = PP_nVar
+ENDIF
+Permutation = GETINT('Permutation', '0')
+ALLOCATE(PIJK(3,0:NCalc,0:NCalc,0:NCalc))
+DO k=0,NCalc
+  DO j=0,NCalc
+    DO i=0,NCalc
+      IF (Permutation.EQ.0) THEN
+        PIJK(:,i,j,k) = (/i,j,k/)
+      ELSE IF (Permutation.EQ.1) THEN
+        PIJK(:,i,j,k) = (/i,k,j/)
+      ELSE IF (Permutation.EQ.2) THEN
+        PIJK(:,i,j,k) = (/j,i,k/)
+      ELSE IF (Permutation.EQ.3) THEN
+        PIJK(:,i,j,k) = (/j,k,i/)
+      ELSE IF (Permutation.EQ.4) THEN
+        PIJK(:,i,j,k) = (/k,i,j/)
+      ELSE IF (Permutation.EQ.5) THEN
+        PIJK(:,i,j,k) = (/k,j,i/)
+      END IF
+    END DO
+  END DO
+END DO
 
 ! Allocate solution array in DG vars, used to store state
-ALLOCATE(U(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems))
+ALLOCATE(U(NMean,0:PP_N,0:PP_N,0:PP_N,nElems))
 
 ! Allocate auxilliary arrays for FFT
 N_FFT(1)=(NCalc+1)*nElems_IJK(1)
@@ -106,16 +135,17 @@ ALLOCATE(Ez_ww(N_FFT(2),nSamples_specK))
 ALLOCATE(Ez_pp(N_FFT(2),nSamples_specK))
 Ex_uu=0.;Ex_vv=0.;Ex_ww=0.;Ex_pp=0.
 Ez_uu=0.;Ez_vv=0.;Ez_ww=0.;Ez_pp=0.
-ALLOCATE(U_FFT(1:PP_nVar,1:N_FFT(1),1:N_FFT(2),1:N_FFT(3)))
+ALLOCATE(U_FFT(1:NMean,1:N_FFT(1),1:N_FFT(2),1:N_FFT(3)))
 ALLOCATE(MS_PSD(N_FFT(2),4))
 ALLOCATE(MS_t(N_FFT(2),3))
-#if EQNSYSNR == 2
-! navierstokes
-ALLOCATE(M_t(N_FFT(2),5))
-#elif EQNSYSNR == 4
-! rans-kg
-ALLOCATE(M_t(N_FFT(2),7))
-#endif
+ALLOCATE(M_t(N_FFT(2),NMean))
+! #if EQNSYSNR == 2
+! ! navierstokes
+! ALLOCATE(M_t(N_FFT(2),5))
+! #elif EQNSYSNR == 4
+! ! rans-kg
+! ALLOCATE(M_t(N_FFT(2),7))
+! #endif
 MS_t=0.
 MS_PSD=0.
 M_t=0.
@@ -158,13 +188,23 @@ DO iElem=1,nGlobalElems
   jj=Elem_IJK(2,iElem)
   kk=Elem_IJK(3,iElem)
   CALL ChangeBasis3D(3,PP_N,NCalc,VdmGaussEqui,Elem_xGP(:,:,:,:,iElem),X_aux)
+  ! DO k=0,NCalc
+  !   kGlob=(kk-1)*(NCalc+1)+k+1
+  !   DO j=0,NCalc
+  !     jGlob=(jj-1)*(NCalc+1)+j+1
+  !     DO i=0,NCalc
+  !       iGlob=(ii-1)*(NCalc+1)+i+1
+  !       X_FFT(:,iGlob,jGlob,kGlob)=X_aux(:,i,j,k)
+  !     END DO
+  !   END DO
+  ! END DO
   DO k=0,NCalc
     kGlob=(kk-1)*(NCalc+1)+k+1
     DO j=0,NCalc
       jGlob=(jj-1)*(NCalc+1)+j+1
       DO i=0,NCalc
         iGlob=(ii-1)*(NCalc+1)+i+1
-        X_FFT(:,iGlob,jGlob,kGlob)=X_aux(:,i,j,k)
+        X_FFT(:,iGlob,jGlob,kGlob)=X_aux(:,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
       END DO
     END DO
   END DO
@@ -196,7 +236,7 @@ REAL                                :: kappaM1
 REAL,DIMENSION(:,:,:,:),ALLOCATABLE :: U_aux
 !===================================================================================================================================
 ! 1:5 does not work for RANS eq
-ALLOCATE(U_aux(1:PP_nVar,0:NCalc,0:NCalc,0:NCalc))
+ALLOCATE(U_aux(1:NMean,0:NCalc,0:NCalc,0:NCalc))
 
 KappaM1=0.4
 U_FFT=0.
@@ -204,23 +244,38 @@ DO iElem=1,nGlobalElems
   ii=Elem_IJK(1,iElem)
   jj=Elem_IJK(2,iElem)
   kk=Elem_IJK(3,iElem)
-  CALL ChangeBasis3D(PP_nVar,PP_N,NCalc,VdmGaussEqui,U(:,:,:,:,iElem),U_aux)
+  CALL ChangeBasis3D(NMean,PP_N,NCalc,VdmGaussEqui,U(:,:,:,:,iElem),U_aux)
   DO k=0,NCalc
     kGlob=(kk-1)*(NCalc+1)+k+1
     DO j=0,NCalc
       jGlob=(jj-1)*(NCalc+1)+j+1
       DO i=0,NCalc
         iGlob=(ii-1)*(NCalc+1)+i+1
-        U_FFT(1,iGlob,jGlob,kGlob)=U_aux(1,i,j,k)
-        U_FFT(2:4,iGlob,jGlob,kGlob)=U_aux(2:4,i,j,k)/U_aux(1,i,j,k)
+        U_FFT(1,iGlob,jGlob,kGlob)=U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
+        U_FFT(2:4,iGlob,jGlob,kGlob)= &
+            U_aux(2:4,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) / &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
 #if EQNSYSNR == 2
         ! navierstokes
-        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*(U_aux(5,i,j,k)-U_aux(1,i,j,k)*SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
+        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*( &
+            U_aux(5,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) - &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) * &
+            SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
 #elif EQNSYSNR == 4
         ! rans-kg
-        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*(U_aux(5,i,j,k)-U_aux(6,i,j,k)-U_aux(1,i,j,k)*SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
-        U_FFT(6:7,iGlob,jGlob,kGlob)=U_aux(6:7,i,j,k)/U_aux(1,i,j,k)
+        U_FFT(5,iGlob,jGlob,kGlob)=KappaM1*( &
+            U_aux(5,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) - &
+            U_aux(6,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) - &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) * &
+            SUM(U_FFT(2:4,iGlob,jGlob,kGlob)**2)*0.5)
+        U_FFT(6:7,iGlob,jGlob,kGlob)= & 
+            U_aux(6:7,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k)) / &
+            U_aux(1,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
 #endif
+      IF (NMean .GT. PP_nVar) THEN
+        U_FFT(PP_nVar+1:NMean,iGlob,jGlob,kGlob)= &
+            U_aux(PP_nVar+1:NMean,PIJK(1,i,j,k),PIJK(2,i,j,k),PIJK(3,i,j,k))
+      END IF
       END DO
     END DO
   END DO
@@ -278,6 +333,11 @@ DO j=1,N_FFT(2)
   M_t(j,6)=M_t(j,6)+SUM(U_FFT(6,1:N_FFT(1),j,1:N_FFT(3)))
   M_t(j,7)=M_t(j,7)+SUM(U_FFT(7,1:N_FFT(1),j,1:N_FFT(3)))
 #endif
+  IF (NMean .GT. PP_nVar) THEN
+    DO k=PP_nVar+1,NMean
+      M_t(j,k)=M_t(j,k)+SUM(U_FFT(k,1:N_FFT(1),j,1:N_FFT(3)))
+    END DO
+  END IF
   !  For mean uv
   MS_t(j,1)=MS_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
   MS_t(j,2)=MS_t(j,2)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
@@ -354,6 +414,18 @@ REAL,ALLOCATABLE   :: PointData(:,:)
 CHARACTER(LEN=255),ALLOCATABLE :: VarNamesFFT(:)
 !===================================================================================================================================
 !Sum up the lower and upper channel halfes
+PRINT *, "The first direction"
+DO i=1,N_FFT(1)
+  PRINT *, X_FFT(1,i,1,1), X_FFT(2,i,1,1), X_FFT(3,i,1,1)
+END DO
+PRINT *, "The second direction"
+DO i=1,N_FFT(2)
+  PRINT *, X_FFT(1,1,i,1), X_FFT(2,1,i,1), X_FFT(3,1,i,1)
+END DO
+PRINT *, "The third direction"
+DO i=1,N_FFT(3)
+  PRINT *, X_FFT(1,1,1,i), X_FFT(2,1,1,i), X_FFT(3,1,1,i)
+END DO
 DO j=N_FFT(2)/2+1,N_FFT(2)
   Ex_uu(j,:)=(Ex_uu(N_FFT(2)-j+1,:)+Ex_uu(j,:))
   Ex_vv(j,:)=(Ex_vv(N_FFT(2)-j+1,:)+Ex_vv(j,:))
@@ -373,6 +445,9 @@ DO j=N_FFT(2)/2+1,N_FFT(2)
   ! rans-kg
   M_t(j,6:7)=(M_t(N_FFT(2)-j+1,6:7)+M_t(j,6:7))
 #endif
+  IF (NMean .GT. PP_nVar) THEN
+    M_t(j,PP_nVar+1:NMean)=(M_t(N_FFT(2)-j+1,PP_nVar+1:NMean)+M_t(j,PP_nVar+1:NMean))
+  END IF
 END DO
 !Mean of u,v,w,p
 M_t=M_t/((nArgs-1)*N_FFT(1)*N_FFT(3)*2)
@@ -399,6 +474,9 @@ Ez_pp(:,2:nSamples_SpecK)=Ez_pp(:,2:nSamples_SpecK)/(N_FFT(1)*REAL(nArgs-1)*2)
 
 SELECT CASE(OutputFormat)
   CASE(0) !Write mean square fluctuations data and mean velocity to Tecplot format
+    IF (Nmean .NE. PP_nVar) THEN
+      CALL CollectiveStop(__STAMP__,'ERROR - Tecplot output is not supported when NMean != PP_nVar.')
+    ENDIF
     FileUnit_EK=155
     INQUIRE(UNIT=FileUnit_EK, OPENED=connected)
     IF (Connected) THEN
@@ -504,13 +582,14 @@ SELECT CASE(OutputFormat)
     FileName_EK=TIMESTAMP(TRIM(ProjectName)//'_MS',time)
     FileName_EK=TRIM(Filename_EK)//'.h5'
 
-#if EQNSYSNR == 2
-    ! navierstokes
-    nVal=12
-#elif EQNSYSNR == 4
-    ! rans-kg
-    nVal=14
-#endif
+    nVal = 7 + Nmean
+! #if EQNSYSNR == 2
+!     ! navierstokes
+!     nVal=12
+! #elif EQNSYSNR == 4
+!     ! rans-kg
+!     nVal=14
+! #endif
     nSamples=N_FFT(2)/2
     ALLOCATE(VarNamesFFT(nVal))
     ALLOCATE(PointData(nVal,nSamples))
@@ -533,6 +612,11 @@ SELECT CASE(OutputFormat)
     VarNamesFFT(13)='k_mean'
     VarNamesFFT(14)='g_mean'
 #endif
+    IF (Nmean.GT.PP_nVar) THEN
+      DO i=PP_nVar+1,Nmean
+        VarNamesFFT(i)='MEAN_VARIABLE'
+      END DO
+    END IF
     i=0
     DO j=N_FFT(2)/2+1,N_FFT(2)
       k=N_FFT(2)-i
@@ -540,13 +624,14 @@ SELECT CASE(OutputFormat)
       PointData(1,i)    = (X_FFT(2,1,i,1)+1)*Re_tau
       PointData(2:4,i)  = MS_PSD(k,1:3)
       PointData(5:7,i)  = MS_t(k,1:3)
-#if EQNSYSNR == 2
-      ! navierstokes
-      PointData(8:12,i) = M_t(k,1:5)
-#elif EQNSYSNR == 4
-      ! rans-kg
-      PointData(8:14,i) = M_t(k,1:7)
-#endif
+      PointData(8:7+NMean,i) = M_t(k,1:NMean)
+! #if EQNSYSNR == 2
+!       ! navierstokes
+!       PointData(8:12,i) = M_t(k,1:5)
+! #elif EQNSYSNR == 4
+!       ! rans-kg
+!       PointData(8:14,i) = M_t(k,1:7)
+! #endif
     END DO
     CALL OpenDataFile(Filename_EK,create=.TRUE.,single=.TRUE.,readOnly=.FALSE.)
     ! Write dataset attributes
@@ -680,6 +765,7 @@ SDEALLOCATE(VdmGaussEqui)
 SDEALLOCATE(MS_t)
 SDEALLOCATE(MS_PSD)
 SDEALLOCATE(M_t)
+SDEALLOCATE(PIJK)
 END SUBROUTINE FinalizeFFT
 
 END MODULE MOD_FFT

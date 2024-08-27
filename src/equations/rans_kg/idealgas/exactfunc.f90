@@ -669,7 +669,7 @@ CASE(517) ! turbulent channel
   Prim(VELV) = 0.
   Prim(VEL1) = 1. / 0.41 * LOG(1. + 0.41 * y_plus) + 7.8 * (1. - EXP(-y_plus / 11.) - y_plus / 11. * EXP(-y_plus / 3.))
   Prim(VEL1) = Prim(VEL1) * RefStatePrim(VEL1, RefState)
-  Amplitude = 0.1*Prim(VEL1)
+  Amplitude = 0.1 * Prim(VEL1)
 
   ! copied from src/testcase/channel/testcase.f90
   Prim(VEL1)=Prim(VEL1)+Amplitude*SIN(20.0*PP_PI*(x(2)/(2.0)))*SIN(20.0*PP_PI*(x(3)/(2*PP_PI)))
@@ -684,7 +684,7 @@ CASE(517) ! turbulent channel
   Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(3)/(2*PP_PI)))
   Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(45.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(45.0*PP_PI*(x(3)/(2*PP_PI)))
   Prim(VEL2)=Prim(VEL2)+Amplitude*SIN(50.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(50.0*PP_PI*(x(3)/(2*PP_PI)))
-  
+
   Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(30.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(30.0*PP_PI*(x(2)/(2.0)))
   Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(35.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(35.0*PP_PI*(x(2)/(2.0)))
   Prim(VEL3)=Prim(VEL3)+Amplitude*SIN(40.0*PP_PI*(x(1)/(4*PP_PI)))*SIN(40.0*PP_PI*(x(2)/(2.0)))
@@ -698,7 +698,7 @@ CASE(301) ! readfromfile
     IF( (x(2) .LE. BCData(1,i)) .AND. (x(2) .GE. BCData(1,i-1)) )THEN
       Prim(1:PP_nVar) = ( &
           (BCData(1,i) - x(2))   * BCData(2:(1+PP_nVar),i-1) + &
-          (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i  ) ) / (BCData(1,i) - BCData(1,i-1)) 
+          (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i  ) ) / (BCData(1,i) - BCData(1,i-1))
       Prim(OMG) = 1. / SQRT( 0.09 * Prim(7) )
       Prim(TKE) = Prim(6)
       Prim(TEMP) = 0.
@@ -801,7 +801,7 @@ USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #if PP_VISC == 1
 USE MOD_Viscosity        ,ONLY: muSuth
 #endif
-USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG
+USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,SijUij,dGidGi
 ! USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -814,7 +814,7 @@ INTEGER             :: i,j,k,iElem
 REAL                :: Ut_src(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 REAL                :: UPrim(PP_nVarPrim)
 REAL                :: muS,muT,kPos,gPos,muTOrig
-REAL                :: muEffG, invR
+REAL                :: muEffG,invR,invG
 #if FV_ENABLED
 REAL                :: Ut_src2(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
 #endif
@@ -822,7 +822,7 @@ REAL                :: Sxx,Sxy,Syy,SijGradU
 #if PP_dim == 3
 REAL                :: Sxz, Syz, Szz
 #endif
-REAL                :: dGdG 
+REAL                :: dGdG
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -830,12 +830,13 @@ DO iElem=1,nElems
 
     muS = VISCOSITY_TEMPERATURE(UPrim(TEMP))
     muT = muSGS(1,i,j,k,iElem)
-    kPos    = MAX( UPrim(TKE), 1.e-16 ) 
-    gPos    = MAX( UPrim(OMG), 1.e-16 ) 
+    kPos    = MAX( UPrim(TKE), 1.e-16 )
+    gPos    = MAX( UPrim(OMG), 1.e-16 )
 
     muTOrig = MIN( Cmu * UPrim(DENS) * kPos * gPos**2, 10000.0 * muS )
 
     invR   = 1. / MAX( 0.01 * muS, muTOrig )
+    invG   = SQRT(Cmu * UPrim(DENS) * kPos * invR)
 
     muEffG = (muS + invSigmaG * muTOrig)
 
@@ -876,18 +877,21 @@ DO iElem=1,nElems
         Sxz * wx + Syz * wy + Szz * wz
 
     dGdG = gx * gx + gy * gy + gz * gz
-    
+
     END ASSOCIATE
 #endif
 
+    SijUij(i,j,k,iElem) = SijGradU
+    dGidGi(i,j,k,iElem) = dGdG
 
-    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU     
-    ! dissK (1,i,j,k,iElem) = U(RHOK,i,j,k,iElem) / MAX( gPos**2, 1.e-10 ) ! hope to make negtive k come back
+    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
     dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
 
     prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
-    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU * MIN( 100.*muTOrig/muS, 1.0)
+    ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2 * Cmu) * invG
+    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
     crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
+    ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
