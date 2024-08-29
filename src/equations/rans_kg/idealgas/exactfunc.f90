@@ -123,6 +123,7 @@ CALL addStrListEntry('IniSourceTerm','None'             ,0)
 CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
 
 CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
+CALL prms%CreateRealOption('Fluctuation',            "Fluctation of the constant body force (-1 < f < 1)")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -135,7 +136,7 @@ USE MOD_PreProc
 USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
-USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce
+USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,Fluctuation
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -220,6 +221,7 @@ SELECT CASE (IniSourceTerm)
 CASE(0) ! None
 CASE(1) ! ConstantBodyForce
   ConstantBodyForce = GETREALARRAY('ConstantBodyForce', 3)
+  Fluctuation = GETREAL('Fluctuation', '0.0')
 #if PP_dim==2
   IF(ConstantBodyForce(3).NE.0.) THEN
     CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set ConstantBodyForce(3) = 0!')
@@ -793,7 +795,7 @@ USE MOD_Equation_Vars    ,ONLY: s43,s23,Cmu,Comega1,Comega2,invSigmaG,invSigmaK
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
-USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce
+USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,Fluctuation
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -823,6 +825,7 @@ REAL                :: Sxx,Sxy,Syy,SijGradU
 REAL                :: Sxz, Syz, Szz
 #endif
 REAL                :: dGdG
+REAL                :: bodyForce(3)
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -921,8 +924,14 @@ CASE(1) ! ConstantBodyForce
   DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       Ut_src(:,i,j,k) = 0.
-      Ut_src(MOMV,i,j,k) = ConstantBodyForce
-      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), ConstantBodyForce) / U(DENS,i,j,k,iElem)
+      IF (Fluctuation .NE. 0.0) THEN
+        CALL RANDOM_NUMBER(bodyForce)
+        bodyForce = ConstantBodyForce * (2.0 * bodyForce)
+      ELSE
+        bodyForce = ConstantBodyForce
+      ENDIF
+      Ut_src(MOMV,i,j,k) = bodyForce
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), bodyForce) / U(DENS,i,j,k,iElem)
     END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
