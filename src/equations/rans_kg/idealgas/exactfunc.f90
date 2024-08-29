@@ -926,7 +926,7 @@ CASE(1) ! ConstantBodyForce
       Ut_src(:,i,j,k) = 0.
       IF (Fluctuation .NE. 0.0) THEN
         CALL RANDOM_NUMBER(bodyForce)
-        bodyForce = ConstantBodyForce * (2.0 * bodyForce)
+        bodyForce = ConstantBodyForce * (1.0 + Fluctuation * (2.0 * bodyForce - 1.0))
       ELSE
         bodyForce = ConstantBodyForce
       ENDIF
