@@ -59,7 +59,7 @@ USE MOD_PreProc
 USE FFTW3
 USE MOD_FFT_Vars
 USE MOD_Commandline_Arguments
-USE MOD_Interpolation,           ONLY: GetVandermonde
+USE MOD_Interpolation,           ONLY: GetVandermonde,GetNodesAndWeights
 USE MOD_StringTools,             ONLY: STRICMP,GetFileExtension
 USE MOD_ReadInTools,             ONLY: GETREAL,GETINT,GETLOGICAL,GETSTR
 USE MOD_Mesh_Vars,               ONLY: nElems_IJK,nElems
@@ -153,6 +153,10 @@ M_t=0.
 ! Get vandermonde from computation N on Gauss or Gauss-Lobatto points to equidistand FFT points
 ALLOCATE(VdmGaussEqui(0:NCalc,0:PP_N))
 CALL GetVandermonde(PP_N,NodeType,NCalc,OutputNodeType,VdmGaussEqui)
+ALLOCATE(xGP(0:NCalc))
+ALLOCATE(wGP(0:NCalc))
+CALL GetNodesAndWeights(NCalc,OutputNodeType,xGP,wGP)
+wGP = wGP * REAL(NCalc + 1) / 2.0
 
 CALL DFFTW_PLAN_DFT_1D(planI,nSamplesI,inI,outI,FFTW_FORWARD,FFTW_ESTIMATE)
 CALL DFFTW_PLAN_DFT_1D(planK,nSamplesK,inK,outK,FFTW_FORWARD,FFTW_ESTIMATE)
@@ -296,7 +300,7 @@ IMPLICIT NONE
 ! INPUT / OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER           :: j,k
+INTEGER           :: j,k,ii,jj,kk
 !===================================================================================================================================
 DO j=1,N_FFT(2)
   DO k=1,N_FFT(3)
@@ -321,27 +325,46 @@ DO j=1,N_FFT(2)
   ! For the mean of u,v,w,p compute the sum over J-Planes
   ! (==Y-Planes in our channel testcase) and add to the
   ! sum of previous state files
-  M_t(j,1)=M_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3)))
-  M_t(j,2)=M_t(j,2)+SUM(U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
-  M_t(j,3)=M_t(j,3)+SUM(U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
-  M_t(j,4)=M_t(j,4)+SUM(U_FFT(5,1:N_FFT(1),j,1:N_FFT(3)))
-  M_t(j,5)=M_t(j,5)+SUM(U_FFT(1,1:N_FFT(1),j,1:N_FFT(3)))
+  DO ii=1,N_FFT(1); DO kk=1,N_FFT(3)
+    M_t(j,1)=M_t(j,1)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(2,ii,j,kk)
+    M_t(j,2)=M_t(j,2)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(3,ii,j,kk)
+    M_t(j,3)=M_t(j,3)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(4,ii,j,kk)
+    M_t(j,4)=M_t(j,4)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(5,ii,j,kk)
+    M_t(j,5)=M_t(j,5)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(1,ii,j,kk)      
+  END DO; END DO
+  ! M_t(j,1)=M_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3)))
+  ! M_t(j,2)=M_t(j,2)+SUM(U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
+  ! M_t(j,3)=M_t(j,3)+SUM(U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
+  ! M_t(j,4)=M_t(j,4)+SUM(U_FFT(5,1:N_FFT(1),j,1:N_FFT(3)))
+  ! M_t(j,5)=M_t(j,5)+SUM(U_FFT(1,1:N_FFT(1),j,1:N_FFT(3)))
 #if EQNSYSNR == 2
   ! navierstokes
 #elif EQNSYSNR == 4
   ! rans-kg
-  M_t(j,6)=M_t(j,6)+SUM(U_FFT(6,1:N_FFT(1),j,1:N_FFT(3)))
-  M_t(j,7)=M_t(j,7)+SUM(U_FFT(7,1:N_FFT(1),j,1:N_FFT(3)))
+  DO ii=1,N_FFT(1); DO kk=1,N_FFT(3)
+    M_t(j,6)=M_t(j,6)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(6,ii,j,kk)
+    M_t(j,7)=M_t(j,7)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(7,ii,j,kk)
+  END DO; END DO
+  ! M_t(j,6)=M_t(j,6)+SUM(U_FFT(6,1:N_FFT(1),j,1:N_FFT(3)))
+  ! M_t(j,7)=M_t(j,7)+SUM(U_FFT(7,1:N_FFT(1),j,1:N_FFT(3)))
 #endif
   IF (NMean .GT. PP_nVar) THEN
     DO k=PP_nVar+1,NMean
-      M_t(j,k)=M_t(j,k)+SUM(U_FFT(k,1:N_FFT(1),j,1:N_FFT(3)))
+      DO ii=1,N_FFT(1); DO kk=1,N_FFT(3)
+        M_t(j,k)=M_t(j,K)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(k,ii,j,kk)
+      END DO; END DO
+      ! M_t(j,k)=M_t(j,k)+SUM(U_FFT(k,1:N_FFT(1),j,1:N_FFT(3)))
     END DO
   END IF
   !  For mean uv
-  MS_t(j,1)=MS_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
-  MS_t(j,2)=MS_t(j,2)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
-  MS_t(j,3)=MS_t(j,3)+SUM(U_FFT(3,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
+  DO ii=1,N_FFT(1); DO kk=1,N_FFT(3)
+    MS_t(j,1)=MS_t(j,1)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(2,ii,j,kk)*U_FFT(3,ii,j,kk)
+    MS_t(j,2)=MS_t(j,2)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(2,ii,j,kk)*U_FFT(4,ii,j,kk)
+    MS_t(j,3)=MS_t(j,3)+wGP(MOD(ii-1,NCalc+1))*wGP(MOD(kk-1,NCalc+1))*U_FFT(3,ii,j,kk)*U_FFT(4,ii,j,kk)
+  END DO; END DO
+  ! MS_t(j,1)=MS_t(j,1)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(3,1:N_FFT(1),j,1:N_FFT(3)))
+  ! MS_t(j,2)=MS_t(j,2)+SUM(U_FFT(2,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
+  ! MS_t(j,3)=MS_t(j,3)+SUM(U_FFT(3,1:N_FFT(1),j,1:N_FFT(3))*U_FFT(4,1:N_FFT(1),j,1:N_FFT(3)))
 END DO
 
 END SUBROUTINE PerformFFT
@@ -766,6 +789,8 @@ SDEALLOCATE(MS_t)
 SDEALLOCATE(MS_PSD)
 SDEALLOCATE(M_t)
 SDEALLOCATE(PIJK)
+SDEALLOCATE(xGP)
+SDEALLOCATE(wGP)
 END SUBROUTINE FinalizeFFT
 
 END MODULE MOD_FFT

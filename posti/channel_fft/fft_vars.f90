@@ -36,6 +36,9 @@ REAL,ALLOCATABLE        :: VdmGaussEqui(:,:) !< Vandermonde from state to FFT gr
 CHARACTER(LEN=255)      :: ProjectName       !< Name of project, read from state
 REAL                    :: Time              !< Timestamp of project, read from first state file
 
+REAL,ALLOCATABLE        :: xGP(:)
+REAL,ALLOCATABLE        :: wGP(:)
+
 ! FFT variables
 INTEGER(KIND=8)         :: planI
 INTEGER(KIND=8)         :: planK
