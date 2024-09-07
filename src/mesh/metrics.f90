@@ -816,23 +816,45 @@ SUBROUTINE CalcHMax()
   IMPLICIT NONE
   INTEGER :: iElem, i, j, k
   REAL    :: dx, dy, dz
+  REAL    :: xmax, xmin, ymax, ymin, zmax, zmin
+  REAL    :: gauss_node_fix(10)
 
-  dx = 0.
-  dy = 0.
-  dz = 0.
-  DO iElem = 1, nElems
-    DO k = 0, PP_NZ; DO j = 0, PP_N
-      dx = MAX(dx, ABS(Elem_xGP(1, PP_N, j, k, iElem) - Elem_xGP(1, 0, j, k, iElem)))
-    END DO; END DO
-    DO k = 0, PP_NZ; DO i = 0, PP_N
-      dy = MAX(dy, ABS(Elem_xGP(2, i, PP_N, k, iElem) - Elem_xGP(2, i, 0, k, iElem)))
-    END DO; END DO
-#if (PP_dim == 3)
-    DO j = 0, PP_NZ; DO i = 0, PP_N
-      dz = MAX(dz, ABS(Elem_xGP(3, i, j, PP_NZ, iElem) - Elem_xGP(3, i, j, 0, iElem)))
-    END DO; END DO
+#if PP_NodeType==1 /* Gauss node */
+  gauss_node_fix = (/ &
+      1.73205081, &
+      1.29099445, &
+      1.16125634, &
+      1.10353370, &
+      1.07242112, &
+      1.05362097, &
+      1.04135225, &
+      1.03288687, &
+      1.02679258, &
+      1.02225588 &
+  /)
+#else
+  gauss_node_fix = 1.0
 #endif
-    Elem_hmx(iElem) = MAX(dx, dy, dz) / (REAL(PP_N) + 1.)
+
+  DO iElem = 1, nElems
+    xmax = -HUGE(1.)
+    xmin = HUGE(1.)
+    ymax = -HUGE(1.)
+    ymin = HUGE(1.)
+    zmax = -HUGE(1.)
+    zmin = HUGE(1.)
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      xmax = MAX(xmax, Elem_xGP(1,i,j,k,iElem))
+      xmin = MIN(xmin, Elem_xGP(1,i,j,k,iElem))
+      ymax = MAX(ymax, Elem_xGP(2,i,j,k,iElem))
+      ymin = MIN(ymin, Elem_xGP(2,i,j,k,iElem))
+      zmax = MAX(zmax, Elem_xGP(3,i,j,k,iElem))
+      zmin = MIN(zmin, Elem_xGP(3,i,j,k,iElem))
+    END DO; END DO; END DO
+    dx = xmax - xmin
+    dy = ymax - ymin
+    dz = zmax - zmin
+    Elem_hmx(iElem) = gauss_node_fix(PP_N) * MAX(dx, dy, dz) / (REAL(PP_N) + 1.)
   END DO
 END SUBROUTINE CalcHMax
 
