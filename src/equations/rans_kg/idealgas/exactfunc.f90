@@ -286,6 +286,7 @@ REAL                            :: du, dTemp, RT, r2       ! aux var for SHU VOR
 REAL                            :: pi_loc,phi,radius       ! needed for cylinder potential flow
 REAL                            :: h,sRT,pexit,pentry   ! needed for Couette-Poiseuille
 REAL                            :: y_plus
+INTEGER                         :: flag, upper, lower
 #if PARABOLIC
 ! needed for blasius BL
 INTEGER                         :: nSteps,i
@@ -695,20 +696,30 @@ CASE(517) ! turbulent channel
 
   CALL PrimToCons(Prim, Resu)
 CASE(301) ! readfromfile
-  Prim = RefStatePrim(:,RefState)
-  DO i=2,BCLength
-    IF( (x(2) .LE. BCData(1,i)) .AND. (x(2) .GE. BCData(1,i-1)) )THEN
+  lower = 1
+  upper = BCLength
+  DO WHILE (.TRUE.)
+    IF (upper - lower .EQ. 1) THEN
       Prim(1:PP_nVar) = ( &
-          (BCData(1,i) - x(2))   * BCData(2:(1+PP_nVar),i-1) + &
-          (x(2) - BCData(1,i-1)) * BCData(2:(1+PP_nVar),i  ) ) / (BCData(1,i) - BCData(1,i-1))
+          (BCData(1,upper) - x(2)) * BCData(2:(1+PP_nVar),lower) + &
+          (x(2) - BCData(1,lower)) * BCData(2:(1+PP_nVar),upper) ) / &
+          (BCData(1,upper) - BCData(1,lower))
+      EXIT
+    END IF
+    i = (upper + lower) / 2
+    IF (x(2) .EQ. BCData(1,i)) THEN
+      Prim(1:PP_nVar) = BCData(2:(1+PP_nVar),i)
+      EXIT
+    ELSE IF (x(2) .GT. BCData(1,i)) THEN
+      lower = i
+    ELSE
+      upper = i
+    END IF
+  END DO
       Prim(OMG) = 1. / SQRT( 0.09 * Prim(7) )
       Prim(TKE) = Prim(6)
       Prim(TEMP) = 0.
-      !print *, Prim
       CALL PrimToCons(Prim, Resu)
-      EXIT
-    END IF
-  END DO
 #if PARABOLIC
 CASE(1338) ! blasius
   prim=RefStatePrim(:,RefState)
