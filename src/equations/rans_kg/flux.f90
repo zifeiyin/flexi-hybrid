@@ -92,27 +92,24 @@ f(MOM1) = U(MOM1) * UPrim(VEL1) + UPrim(PRES) ! rho*u²+p
 f(MOM2) = U(MOM1) * UPrim(VEL2)               ! rho*u*v
 f(MOM3) = U(MOM1) * UPrim(VEL3)               ! rho*u*w
 f(ENER) = Ep * UPrim(VEL1)                    ! (rho*e+p)*u
-! TODO(Shimushu): implement this
-f(RHOK) = U(RHOK) * UPrim(VEL1)                ! rho*u*k
-f(RHOG) = U(RHOG) * UPrim(VEL1)                ! rho*u*g
+f(RHOK) = U(RHOK) * UPrim(VEL1)               ! rho*u*k
+f(RHOG) = U(RHOG) * UPrim(VEL1)               ! rho*u*g
 ! Euler fluxes y-direction
 g(DENS) = U(MOM2)                             ! rho*v
 g(MOM1) = f(MOM2)                             ! rho*u*v
 g(MOM2) = U(MOM2) * UPrim(VEL2) + UPrim(PRES) ! rho*v²+p
 g(MOM3) = U(MOM2) * UPrim(VEL3)               ! rho*v*w
 g(ENER) = Ep * UPrim(VEL2)                    ! (rho*e+p)*v
-! TODO(Shimushu): implement this
-g(RHOK) = U(RHOK) * UPrim(VEL2)                ! rho*v*k
-g(RHOG) = U(RHOG) * UPrim(VEL2)                ! rho*v*g
+g(RHOK) = U(RHOK) * UPrim(VEL2)               ! rho*v*k
+g(RHOG) = U(RHOG) * UPrim(VEL2)               ! rho*v*g
 ! Euler fluxes z-direction
 h(DENS) = U(MOM3)                             ! rho*v
 h(MOM1) = f(MOM3)                             ! rho*u*w
 h(MOM2) = g(MOM3)                             ! rho*v*w
 h(MOM3) = U(MOM3) * UPrim(VEL3) + UPrim(PRES) ! rho*v²+p
 h(ENER) = Ep * UPrim(VEL3)                    ! (rho*e+p)*w
-! TODO(Shimushu): implement this
-h(RHOK) = U(RHOK) * UPrim(VEL3)                ! rho*w*k
-h(RHOG) = U(RHOG) * UPrim(VEL3)                ! rho*w*g
+h(RHOK) = U(RHOK) * UPrim(VEL3)               ! rho*w*k
+h(RHOG) = U(RHOG) * UPrim(VEL3)               ! rho*w*g
 #else
 
 ! Euler part
@@ -122,18 +119,16 @@ f(MOM1) = U(MOM1)*UPrim(VEL1)+UPrim(PRES)     ! rho*u²+p
 f(MOM2) = U(MOM1)*UPrim(VEL2)                 ! rho*u*v
 f(MOM3) = 0.
 f(ENER) = Ep*UPrim(VEL1)                      ! (rho*e+p)*u
-! TODO(Shimushu): implement this
-f(RHOK) = U(RHOK) * UPrim(VEL1)                ! rho*u*k
-f(RHOG) = U(RHOG) * UPrim(VEL1)                ! rho*u*g
+f(RHOK) = U(RHOK) * UPrim(VEL1)               ! rho*u*k
+f(RHOG) = U(RHOG) * UPrim(VEL1)               ! rho*u*g
 ! Euler fluxes y-direction
 g(DENS)= U(MOM2)                              ! rho*v
 g(MOM1)= f(MOM2)                              ! rho*u*v
 g(MOM2)= U(MOM2)*UPrim(VEL2)+UPrim(PRES)      ! rho*v²+p
 g(MOM3)= 0.
 g(ENER)= Ep*UPrim(VEL2)                       ! (rho*e+p)*v
-! TODO(Shimushu): implement this
-g(RHOK) = U(RHOK) * UPrim(VEL2)                ! rho*v*k
-g(RHOG) = U(RHOG) * UPrim(VEL2)                ! rho*v*g
+g(RHOK) = U(RHOK) * UPrim(VEL2)               ! rho*v*k
+g(RHOG) = U(RHOG) * UPrim(VEL2)               ! rho*v*g
 ! Euler fluxes z-direction
 h   = 0.
 #endif
@@ -225,7 +220,6 @@ f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1  ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
-! TODO(Shimushu): implement this
 f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
 f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
@@ -234,7 +228,6 @@ g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2  ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
-! TODO(Shimushu): implement this
 g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
 g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
@@ -243,7 +236,6 @@ h(MOM1) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 h(MOM2) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 h(MOM3) = -tau_zz                                       ! F_euler-4/3*mu*w_z+2/3*mu*(u_x+v_y)
 h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3  ! F_euler-(tau_zx*u+tau_zy*v+tau_zz*w-q_z) q_z=-lambda*T_z
-! TODO(Shimushu): implement this
 h(RHOK) = -diffK*gradK3                                 ! F_euler-(mu+muTOrig/sigmaK)*k_z
 h(RHOG) = -diffG*gradG3                                 ! F_euler-(mu+muTOrig/sigmaG)*g_z
 #else
@@ -259,7 +251,6 @@ f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = 0.
 f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1            ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
-! TODO(Shimushu): implement this
 f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
 f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
@@ -268,7 +259,6 @@ g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = 0.
 g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2            ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
-! TODO(Shimushu): implement this
 g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
 g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
