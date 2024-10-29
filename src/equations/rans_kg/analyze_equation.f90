@@ -59,6 +59,7 @@ IMPLICIT NONE
 !==================================================================================================================================
 CALL prms%SetSection("AnalyzeEquation")
 CALL prms%CreateLogicalOption('CalcBodyForces'   , "Set true to compute body forces at walls"         , '.FALSE.')
+CALL prms%CreateLogicalOption('WriteBodyForceDOF', "Set true to write body forces at DOFs at walls"   , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcBulkState'    , "Set true to compute the flows bulk quantities"    , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcMeanFlux'     , "Set true to compute mean flux through boundaries" , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcWallVelocity' , "Set true to compute velocities at wall boundaries", '.FALSE.')
@@ -101,6 +102,7 @@ INTEGER          :: i
 !==================================================================================================================================
 ! Get the various analysis/output variables
 doCalcBodyForces    = GETLOGICAL('CalcBodyForces')
+doCalcBodyForcesDOF = GETLOGICAL('WriteBodyForceDOF')
 doCalcBulkState     = GETLOGICAL('CalcBulkState')
 doCalcMeanFlux      = GETLOGICAL('CalcMeanFlux')
 doCalcWallVelocity  = GETLOGICAL('CalcWallVelocity')
@@ -162,7 +164,7 @@ IF(MPIRoot)THEN
   END IF
   IF(doCalcBulkState.AND.doWriteBulkState)THEN
     FileName_Bulk  = TRIM(ProjectName)//'_Bulk'
-    CALL InitOutputToFile(FileName_Bulk,'Bulk',2*PP_nVar-1,[StrVarNamesPrim,StrVarNames(2:PP_nVar)])
+    CALL InitOutputToFile(FileName_Bulk,'Bulk',2*PP_nVar,[StrVarNamesPrim,StrVarNames(2:PP_nVar)])
   END IF
   IF(doCalcMeanFlux.AND.doWriteMeanFlux)THEN
     ALLOCATE(Filename_MeanFlux(nBCs))

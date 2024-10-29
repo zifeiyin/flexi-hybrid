@@ -43,8 +43,9 @@ USE MOD_DG_Vars,         ONLY:UPrim_master
 #if PARABOLIC
 USE MOD_Lifting_Vars,    ONLY:gradUx_master,gradUy_master,gradUz_master
 #endif
-USE MOD_Mesh_Vars,       ONLY:NormVec,SurfElem,nBCSides,BC,nBCs
-USE MOD_AnalyzeEquation_Vars,ONLY:isWall
+USE MOD_Mesh_Vars,       ONLY:NormVec,SurfElem,nBCSides,BC,nBCs,Face_xGP
+USE MOD_AnalyzeEquation_Vars,ONLY:isWall,doCalcBodyForcesDOF
+USE MOD_TimeDisc_Vars,   ONLY:t
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -54,10 +55,16 @@ REAL,INTENT(OUT)               :: BodyForce(3,nBCs)       !< Sum of pressure/fri
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                           :: Fp_loc(3)
+REAL,ALLOCATABLE               :: Fpa(:,:,:)
 #if PARABOLIC
 REAL                           :: Fv_loc(3)
+REAL,ALLOCATABLE               :: Fva(:,:,:)
 #endif
 INTEGER                        :: SideID,iBC
+INTEGER                        :: i,j
+INTEGER                        :: OutputFileID
+CHARACTER(LEN=64)              :: OutputFileName
+CHARACTER(LEN=64)              :: FormatStr
 #if USE_MPI
 REAL                           :: Box(6,nBCs)
 #endif /*USE_MPI*/
@@ -98,6 +105,62 @@ END IF
 #else
 BodyForce=Fv+Fp
 #endif
+
+IF (doCalcBodyForcesDOF) THEN
+  ALLOCATE(Fpa(3,0:PP_N,0:PP_NZ))
+  ALLOCATE(Fva(3,0:PP_N,0:PP_NZ))
+  Fpa = 0.
+  Fva = 0.
+
+  WRITE(OutputFileName, '(A, "_", I4.4, ".csv")') trim(TIMESTAMP("bodyforce", t)), myRank 
+  OPEN(UNIT=OutputFileID, FILE=trim(OutputFileName), STATUS='NEW', ACTION='WRITE')
+
+  ! #if !PARABOLIC
+  ! WRITE(OutputFileID, *) "x,y,z,px,py,pz"
+  ! #else
+  ! WRITE(OutputFileID, *) "x,y,z,px,py,pz,tx,ty,tz"
+  ! #endif
+
+  DO SideID=1,nBCSides
+    iBC=BC(SideID)
+    IF(.NOT.isWall(iBC)) CYCLE
+    DO j=0,PP_NZ; DO i=0,PP_N
+      Fpa(:,i,j)=UPrim_master(PRES,i,j,SideID)*NormVec(:,i,j,0,SideID)
+    END DO; END DO
+#if PARABOLIC
+      CALL CalcViscousForceDOF(Fva(:,:,:),                  &
+                               UPrim_master(:,:,:,SideID),  &
+                               gradUx_master(:,:,:,SideID), &
+                               gradUy_master(:,:,:,SideID), &
+                               gradUz_master(:,:,:,SideID), &
+                               SurfElem(:,:,0,SideID),      &
+                               NormVec(:,:,:,0,SideID))
+#endif
+
+    DO j=0,PP_NZ; DO i=0,PP_N
+#if !PARABOLIC
+    WRITE(formatStr,'(A10,I2,A18)')'(E23.14E5,',5,'(",",1X,E23.14E5))'
+    ! WRITE(FormatStr, '(A,5A,A)') "(", 'F17.9, ",",', 'F17.9)'
+    WRITE(OutputFileID, *) &
+        Face_xGP(:,i,j,0,SideID), Fpa(:,i,j)
+        ! Face_xGP(1,i,j,0,SideID), Face_xGP(2,i,j,0,SideID), Face_xGP(3,i,j,0,SideID), &
+        ! Fpa(1,i,j), Fpa(2,i,j), Fpa(3,i,j)
+#else
+    WRITE(formatStr,'(A10,I2,A18)')'(E23.14E5,',8,'(",",1X,E23.14E5))'
+    ! WRITE(FormatStr, '(A,8A,A)') "(", 'F17.9, ",",', 'F17.9)'
+    WRITE(OutputFileID, *) &
+        Face_xGP(:,i,j,0,SideID), Fpa(:,i,j), Fva(:,i,j)
+        ! Face_xGP(1,i,j,0,SideID), Face_xGP(2,i,j,0,SideID), Face_xGP(3,i,j,0,SideID), &
+        ! Fpa(1,i,j), Fpa(2,i,j), Fpa(3,i,j), Fva(1,i,j), Fva(2,i,j), Fva(3,i,j)
+#endif
+    END DO; END DO
+  END DO
+
+  CLOSE(OutputFileID)
+
+  SDEALLOCATE(Fpa)
+  SDEALLOCATE(Fva)
+END IF
 
 END SUBROUTINE CalcBodyForces
 
@@ -188,6 +251,62 @@ END DO; END DO
 Fv=-Fv  ! Change direction to get the force acting on the wall
 
 END SUBROUTINE CalcViscousForce
+
+!==================================================================================================================================
+!> Compute integral viscous force per DOF
+!==================================================================================================================================
+SUBROUTINE CalcViscousForceDOF(Fv,UPrim_Face,gradUx_Face,gradUy_Face,gradUz_Face,SurfElem,NormVec)
+! MODULES
+USE MOD_PreProc
+USE MOD_Viscosity
+USE MOD_Analyze_Vars, ONLY:wGPSurf
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL, INTENT(IN)               :: UPrim_Face( PP_nVarPrim,0:PP_N,0:PP_NZ)    !< (IN) primitive solution on face
+REAL, INTENT(IN)               :: gradUx_Face(PP_nVarLifting,0:PP_N,0:PP_NZ) !< (IN) sln. gradients x-dir on face
+REAL, INTENT(IN)               :: gradUy_Face(PP_nVarLifting,0:PP_N,0:PP_NZ) !< (IN) sln. gradients y-dir on face
+REAL, INTENT(IN)               :: gradUz_Face(PP_nVarLifting,0:PP_N,0:PP_NZ) !< (IN) sln. gradients z-dir on face
+REAL, INTENT(IN)               :: SurfElem(0:PP_N,0:PP_NZ)                   !< (IN) face surface
+REAL, INTENT(IN)               :: NormVec(3,0:PP_N,0:PP_NZ)                  !< (IN) face normal vectors
+REAL, INTENT(OUT)              :: Fv(3,0:PP_N,0:PP_NZ)                       !< (OUT) viscous force
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                           :: tau(3,3)                  ! Viscous stress tensor
+REAL                           :: muS
+REAL                           :: GradV(3,3),DivV,prim(PP_nVarPrim)
+INTEGER                        :: i, j
+!==================================================================================================================================
+Fv       =0.
+
+DO j=0,PP_NZ; DO i=0,PP_N
+  ! calculate viscosity
+  prim = UPrim_Face(:,i,j)
+  muS=VISCOSITY_PRIM(prim)
+
+  ! velocity gradients
+  GradV(:,1)=gradUx_Face(LIFT_VELV,i,j)
+  GradV(:,2)=gradUy_Face(LIFT_VELV,i,j)
+#if PP_dim==3
+  GradV(:,3)=gradUz_Face(LIFT_VELV,i,j)
+#else
+  GradV(:,3)=0.
+#endif
+
+  ! Velocity divergence
+  DivV=GradV(1,1)+GradV(2,2)+GradV(3,3)
+  ! Calculate shear stress tensor
+  tau=muS*(GradV + TRANSPOSE(GradV))
+  tau(1,1)=tau(1,1)-2./3.*muS*DivV
+  tau(2,2)=tau(2,2)-2./3.*muS*DivV
+#if PP_dim==3
+  tau(3,3)=tau(3,3)-2./3.*muS*DivV
+#endif
+  ! Calculate viscous force vector
+  Fv(:,i,j) = -MATMUL(tau,NormVec(:,i,j))
+END DO; END DO
+
+END SUBROUTINE CalcViscousForceDOF
 #endif /*PARABOLIC*/
 
 END MODULE MOD_CalcBodyForces

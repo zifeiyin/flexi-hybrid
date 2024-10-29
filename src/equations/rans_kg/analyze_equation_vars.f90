@@ -28,6 +28,7 @@ INTEGER              :: maxlen                            !< max length of BCNam
 
 ! Variables for the specific analyze routines
 LOGICAL              :: doCalcBodyForces    =.FALSE.      !< marks if body forces at walls shall be computed
+LOGICAL              :: doCalcBodyForcesDOF =.FALSE.      !< marks if body forces at walls shall be computed
 LOGICAL              :: doCalcBulkState     =.FALSE.      !< marks if bulk state shall be computed
 LOGICAL              :: doCalcMeanFlux      =.FALSE.      !< marks if mean flux shall be computed
 LOGICAL              :: doCalcTotalStates   =.FALSE.      !< marks if total states (pt, Tt) shall be computed
