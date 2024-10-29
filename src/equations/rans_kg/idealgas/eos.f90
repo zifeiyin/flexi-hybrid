@@ -220,8 +220,11 @@ prim(VEL3)=cons(MOM3)*sRho
 prim(VEL3)=0.
 #endif
 
-! TODO(Shimushu): fix this
+#if DECOUPLE==0
 prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-cons(RHOK))
+#else
+prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)))
+#endif
 ! temperature
 prim(TEMP) = prim(PRES)*sRho / R
 
@@ -317,7 +320,6 @@ cons(MOM3)=prim(VEL3)*prim(DENS)
 #else
 cons(MOM3)=0.
 #endif
-! TODO(Shimushu): fix this
 ! energy
 cons(RHOK)=prim(TKE)*prim(DENS)
 cons(RHOG)=prim(OMG)*prim(DENS)
