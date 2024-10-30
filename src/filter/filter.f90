@@ -291,7 +291,11 @@ DO iElem=1,nElems
 #if FV_ENABLED
   IF (FV_Elems(iElem).GT.0) CYCLE ! Do only, when DG element
 #endif
+#if EQNSYSNR==4
+  CALL ChangeBasisVolume(5,PP_N,PP_N,FilterMat,U_in(1:5,:,:,:,iElem))
+#else
   CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FilterMat,U_in(:,:,:,:,iElem))
+#endif
 END DO ! iElem
 END SUBROUTINE Filter
 
