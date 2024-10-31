@@ -840,7 +840,7 @@ REAL                :: Sxz, Syz, Szz
 REAL                :: dGdG
 REAL                :: bodyForce(3)
 REAL                :: lambda
-REAL                :: comp_f, comp_c, comp_t, comp_q, comp_u, comp_M, comp_utau, comp_Mtau, comp_Bq
+REAL                :: comp_f, comp_c, comp_t, comp_qx, comp_qy, comp_qz, comp_q, comp_u, comp_M, comp_utau, comp_Mtau, comp_Bq
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -875,7 +875,10 @@ DO iElem=1,nElems
 
     dGdG = gx * gx + gy * gy
 
-    comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2)
+    comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
+    comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
+    ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2)
+    comp_q = SQRT(comp_qx**2 + comp_qy**2)
     comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
     comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
 
@@ -902,7 +905,11 @@ DO iElem=1,nElems
 
     dGdG = gx * gx + gy * gy + gz * gz
 
-    comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2+gradUz(LIFT_TEMP,i,j,k,iElem)**2)
+    comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
+    comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
+    comp_qz = lambda * gradUz(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxz + UPrim(VEL2) * Syz + UPrim(VEL3) * Szz)
+    ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2+gradUz(LIFT_TEMP,i,j,k,iElem)**2)
+    comp_q = SQRT(comp_qx**2 + comp_qy**2 + comp_qz**2)
     comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
     comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
 
