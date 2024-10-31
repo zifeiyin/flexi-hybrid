@@ -899,7 +899,14 @@ DO iElem=1,nElems
     dGidGi(i,j,k,iElem) = dGdG
 
     prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
-    dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
+    ! dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
+    IF (UPrim(TKE).GE.0.0) THEN
+      dissK (1,i,j,k,iElem) = +(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
+    ELSE
+      dissK (1,i,j,k,iElem) = -(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
+    END IF
+    ! dissK (1,i,j,k,iElem) = UPrim(DENS) * kPos * MIN(Cmu * UPrim(DENS) * kPos * invR, 1.0 / dt)
+    ! prodK (1,i,j,k,iElem) = MIN(20. * dissK (1,i,j,k,iElem), 2. * muT * SijGradU)
 
     prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
     ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2 * Cmu) * invG
