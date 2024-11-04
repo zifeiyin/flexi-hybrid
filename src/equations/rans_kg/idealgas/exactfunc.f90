@@ -817,7 +817,7 @@ USE MOD_Viscosity        ,ONLY: muSuth
 USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,SijUij,dGidGi
 ! USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 USE MOD_EOS_Vars         ,ONLY: cp,Pr,kappa
-USE MOD_EddyVisc_Vars    ,ONLY: PrSGS
+USE MOD_EddyVisc_Vars    ,ONLY: PrSGS,fd
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -922,6 +922,10 @@ DO iElem=1,nElems
     comp_Mtau = comp_utau / comp_c
     comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
     CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
+
+    IF (ALLOCATED(fd)) THEN
+      comp_f = fd(i,j,k,iElem) + (1.0 - fd(i,j,k,iElem)) * comp_f
+    END IF
 
     SijUij(i,j,k,iElem) = SijGradU
     dGidGi(i,j,k,iElem) = dGdG
