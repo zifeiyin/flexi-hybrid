@@ -917,7 +917,8 @@ DO iElem=1,nElems
 
     prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
     ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2 * Cmu) * invG
-    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
+    ! dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
+    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * UPrim(OMG)**3 * SijGradU
     crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
     ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
