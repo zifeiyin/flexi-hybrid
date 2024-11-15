@@ -113,7 +113,7 @@ IF (doCalcBodyForcesDOF) THEN
   Fva = 0.
 
   WRITE(OutputFileName, '(A, "_", I4.4, ".csv")') trim(TIMESTAMP("bodyforce", t)), myRank 
-  OPEN(UNIT=OutputFileID, FILE=trim(OutputFileName), STATUS='NEW', ACTION='WRITE')
+  OPEN(UNIT=OutputFileID, FILE=trim(OutputFileName), STATUS='UNKNOWN', ACTION='WRITE')
 
   ! #if !PARABOLIC
   ! WRITE(OutputFileID, *) "x,y,z,px,py,pz"
