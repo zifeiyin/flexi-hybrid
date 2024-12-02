@@ -123,6 +123,7 @@ CALL addStrListEntry('IniSourceTerm','None'             ,0)
 CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
 
 CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
+CALL prms%CreateRealOption('ConstantHeatSource',     "Constant heat source")
 CALL prms%CreateRealOption('Fluctuation',            "Fluctation of the constant body force (-1 < f < 1)")
 
 END SUBROUTINE DefineParametersExactFunc
@@ -221,6 +222,7 @@ SELECT CASE (IniSourceTerm)
 CASE(0) ! None
 CASE(1) ! ConstantBodyForce
   ConstantBodyForce = GETREALARRAY('ConstantBodyForce', 3)
+  ConstantHeatSource = GETREAL("ConstantHeatSource", "0.0")
   Fluctuation = GETREAL('Fluctuation', '0.0')
 #if PP_dim==2
   IF(ConstantBodyForce(3).NE.0.) THEN
@@ -806,7 +808,7 @@ USE MOD_Equation_Vars    ,ONLY: s43,s23,Cmu,Comega1,Comega2,invSigmaG,invSigmaK
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
-USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,Fluctuation
+USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,ConstantHeatSource,Fluctuation
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -974,7 +976,7 @@ CASE(1) ! ConstantBodyForce
         bodyForce = ConstantBodyForce
       ENDIF
       Ut_src(MOMV,i,j,k) = bodyForce
-      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), bodyForce) / U(DENS,i,j,k,iElem)
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), bodyForce) / U(DENS,i,j,k,iElem) + ConstantHeatSource
     END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
