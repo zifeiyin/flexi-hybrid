@@ -137,7 +137,7 @@ USE MOD_PreProc
 USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
-USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,Fluctuation
+USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,ConstantHeatSource,Fluctuation
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -223,6 +223,7 @@ CASE(0) ! None
 CASE(1) ! ConstantBodyForce
   ConstantBodyForce = GETREALARRAY('ConstantBodyForce', 3)
   ConstantHeatSource = GETREAL("ConstantHeatSource", "0.0")
+  print*, "ConstantHeatSource = ",ConstantHeatSource
   Fluctuation = GETREAL('Fluctuation', '0.0')
 #if PP_dim==2
   IF(ConstantBodyForce(3).NE.0.) THEN
@@ -933,7 +934,11 @@ DO iElem=1,nElems
     dGidGi(i,j,k,iElem) = dGdG
 
     prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
-    dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
+    IF (UPrim(TKE).GE.0.0) THEN
+      dissK (1,i,j,k,iElem) = +(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
+    ELSE
+      dissK (1,i,j,k,iElem) = -(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
+    END IF
 
     ! prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
     prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS) / (2 * Cmu) * invG
