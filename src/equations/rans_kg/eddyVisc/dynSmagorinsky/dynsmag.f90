@@ -146,6 +146,7 @@ IF (file_exists) THEN
 
   DEALLOCATE(HSize)
   DEALLOCATE(yWall_local)
+  CALL CloseDataFile()
 ELSE 
   SWRITE(UNIT_stdOut, *) "WARNING: No walldistance file found! DDES shielding not working!"
   CALL CollectiveStop(__STAMP__,'Please use POSTI to compute wall distance first!')
