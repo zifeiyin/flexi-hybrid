@@ -203,6 +203,10 @@ CASE(PRM_RIEMANN_ROEL2)
   Riemann_pointer => Riemann_RoeL2
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   Riemann_pointer => Riemann_RoeEntropyFix
+CASE(PRM_RIEMANN_SLAU)
+  Riemann_pointer => Riemann_SLAU
+CASE(PRM_RIEMANN_SLAU2)
+  Riemann_pointer => Riemann_SLAU2
 CASE(PRM_RIEMANN_CH)
   Riemann_pointer => Riemann_CH
 CASE(PRM_RIEMANN_Average)
@@ -222,6 +226,10 @@ CASE(PRM_RIEMANN_ROEL2)
   Riemann_pointer => Riemann_RoeL2
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   RiemannBC_pointer => Riemann_RoeEntropyFix
+CASE(PRM_RIEMANN_SLAU)
+  Riemann_pointer => Riemann_SLAU
+CASE(PRM_RIEMANN_SLAU2)
+  Riemann_pointer => Riemann_SLAU2
 CASE(PRM_RIEMANN_CH)
   Riemann_pointer => Riemann_CH
 CASE(PRM_RIEMANN_Average)
