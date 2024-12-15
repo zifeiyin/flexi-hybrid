@@ -837,6 +837,8 @@ USE MOD_Mesh_Vars        ,ONLY: Elem_xGP
 USE MOD_Timedisc_Vars    ,ONLY: dt
 USE MOD_ExactFunc_Vars   ,ONLY: firstTimestep,tPrev,dtPrev,massFlowRef,massFlowPrev,dpdx,dpdxPrev,massFlowBC
 USE MOD_EddyVisc_Vars    ,ONLY: yWall
+USE MOD_EOS_Vars         ,ONLY: cp,Pr,kappa
+USE MOD_EddyVisc_Vars    ,ONLY: PrSGS
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -858,6 +860,8 @@ REAL                :: Sxz, Syz, Szz
 #endif
 REAL                :: dGdG
 REAL                :: bodyForce(3)
+REAL                :: lambda
+REAL                :: comp_f, comp_c, comp_t, comp_qx, comp_qy, comp_qz, comp_q, comp_u, comp_M, comp_utau, comp_Mtau, comp_Bq
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -875,6 +879,8 @@ DO iElem=1,nElems
 
     muEffG = (muS + invSigmaG * muTOrig)
 
+    lambda = muS*cp/Pr + muT*cp/PrSGS
+
 #if PP_dim==2
     ASSOCIATE( &
         ux => gradUx(LIFT_VEL1,i,j,k,iElem), uy => gradUy(LIFT_VEL1,i,j,k,iElem), &
@@ -889,6 +895,13 @@ DO iElem=1,nElems
     SijGradU = Sxx * ux + Sxy * uy + Sxy * vx + Syy * vy
 
     dGdG = gx * gx + gy * gy
+
+    comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
+    comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
+    ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2)
+    comp_q = SQRT(comp_qx**2 + comp_qy**2)
+    comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
+    comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
 
     END ASSOCIATE
 #else
@@ -913,8 +926,23 @@ DO iElem=1,nElems
 
     dGdG = gx * gx + gy * gy + gz * gz
 
+    comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
+    comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
+    comp_qz = lambda * gradUz(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxz + UPrim(VEL2) * Syz + UPrim(VEL3) * Szz)
+    ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2+gradUz(LIFT_TEMP,i,j,k,iElem)**2)
+    comp_q = SQRT(comp_qx**2 + comp_qy**2 + comp_qz**2)
+    comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
+    comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
+
     END ASSOCIATE
 #endif
+
+    comp_c    = SPEEDOFSOUND_H(UPrim(PRES),(1.0/UPrim(DENS)))
+    comp_M    = comp_u / comp_c
+    comp_utau = SQRT(comp_t / UPrim(DENS))
+    comp_Mtau = comp_utau / comp_c
+    comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
+    CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
 
     ! SijUij(i,j,k,iElem) = SijGradU
     ! SijUij(i,j,k,iElem) = 1 / (Cmu * gPos**2)
@@ -935,12 +963,12 @@ DO iElem=1,nElems
     END IF
     ! prodK (1,i,j,k,iElem) = MIN(20. * dissK (1,i,j,k,iElem), 2. * muT * SijGradU)
 
-    prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
-    ! prodG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) / (2 * Cmu) * invG
-    ! dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
-    dissG (1,i,j,k,iElem) = Comega1 * Cmu * UPrim(DENS) * UPrim(OMG)**3 * SijGradU
-    crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
-    ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
+    ! prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
+    prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS) / (2 * Cmu) * invG
+    ! dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
+    dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * UPrim(OMG)**3 * SijGradU
+    ! crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
+    crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
@@ -1108,5 +1136,24 @@ dtPrev       = dt
 !   ! print *, "Surf(massFlowBC) = ", Surf(massFlowBC) 
 ! END IF
 END SUBROUTINE CalcMassFlowRateForcing
+
+SUBROUTINE CalcCompf(f,M,Mtau,Bq)
+IMPLICIT NONE
+REAL,INTENT(OUT)    :: f
+REAL,INTENT(IN)     :: M
+REAL,INTENT(IN)     :: Mtau
+REAL,INTENT(IN)     :: Bq
+
+REAL                :: c1,c2,c3,c4,phi
+
+c1 = 60.0
+c2 = 5.0
+c3 = 15.0/4.0 * EXP(-M/10.0)
+c4 = -21.0/4.0 * EXP(-M/5.0)
+phi = TANH(3.0/4.0 * M)
+
+f = (1.0 - phi) * EXP(-c1 * Mtau**2 - c2 * Bq) + phi * EXP(c3 * Mtau + c4 * Bq)
+
+END SUBROUTINE CalcCompf
 
 END MODULE MOD_Exactfunc
