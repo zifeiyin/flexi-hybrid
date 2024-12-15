@@ -121,9 +121,12 @@ CALL prms%SetSection("SourceTerm")
 CALL prms%CreateIntFromStringOption('IniSourceTerm', "Source term function to be used for computing source term.", "None")
 CALL addStrListEntry('IniSourceTerm','None'             ,0)
 CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
+CALL addStrListEntry('IniSourceTerm','MassFlowRate'     ,2)
 
 CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
 CALL prms%CreateRealOption('Fluctuation',            "Fluctation of the constant body force (-1 < f < 1)")
+CALL prms%CreateRealOption('MassFlowRate',           "Mass flow rate at a given surface")
+CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massflow is computed")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -137,12 +140,15 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,Fluctuation
+USE MOD_Mesh_Vars,      ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
+CHARACTER(LEN=255)       :: massFlowBCName
+INTEGER                  :: i
 !==================================================================================================================================
 SWRITE(UNIT_stdOut,'(132("-"))')
 SWRITE(UNIT_stdOut,'(A)') ' INIT EXACT FUNCTION...'
@@ -227,6 +233,17 @@ CASE(1) ! ConstantBodyForce
     CALL CollectiveStop(__STAMP__,'You are computing in 2D! Please set ConstantBodyForce(3) = 0!')
   END IF
 #endif
+CASE(2) ! MassFlowRate
+  massFlowRef = GETREAL('MassFlowRate')
+  massFlowBCName = GETSTR('MassFlowSurface')
+  massFlowBC=-1
+  DO i=1,nBCs
+    IF(TRIM(BoundaryName(i)).EQ.TRIM(massFlowBCName)) THEN
+      massFlowBC=i
+      ! print *, "massFlowBC = ", i
+    END IF
+  END DO
+  IF(massFlowBC.EQ.-1) CALL Abort(__STAMP__,'No inflow BC found.')
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
 END SELECT
@@ -817,6 +834,9 @@ USE MOD_Viscosity        ,ONLY: muSuth
 USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,SijUij,dGidGi
 ! USE MOD_EddyVisc_Vars    ,ONLY: muSGS
 USE MOD_Mesh_Vars        ,ONLY: Elem_xGP
+USE MOD_Timedisc_Vars    ,ONLY: dt
+USE MOD_ExactFunc_Vars   ,ONLY: firstTimestep,tPrev,dtPrev,massFlowRef,massFlowPrev,dpdx,dpdxPrev,massFlowBC
+USE MOD_EddyVisc_Vars    ,ONLY: yWall
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -978,8 +998,115 @@ CASE(1) ! ConstantBodyForce
 #endif
 
   END DO
+CASE(2) ! MassFlowRate
+  CALL CalcMassFlowRateForcing(dt)
+  DO iElem=1,nElems
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut_src(:,i,j,k) = 0.
+      Ut_src(MOM1,i,j,k) = -dpdx
+      Ut_src(ENER,i,j,k) = -U(MOM1,i,j,k,iElem) * dpdx / U(DENS,i,j,k,iElem)
+    END DO; END DO; END DO ! i,j,k
+#if FV_ENABLED
+    IF (FV_Elems(iElem).GT.0) THEN ! FV elem
+    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,Ut_src(:,:,:,:),Ut_src2(:,:,:,:))
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src2(:,i,j,k)/sJ(i,j,k,iElem,1)
+      END DO; END DO; END DO ! i,j,k
+    ELSE
+      DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+        Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+      END DO; END DO; END DO ! i,j,k
+    END IF
+#else
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      Ut(:,i,j,k,iElem) = Ut(:,i,j,k,iElem)+Ut_src(:,i,j,k)/sJ(i,j,k,iElem,0)
+    END DO; END DO; END DO ! i,j,k
+#endif
+  END DO
 END SELECT
 
 END SUBROUTINE CalcSource
+
+SUBROUTINE CalcMassFlowRateForcing(dt)
+! MODULES
+USE MOD_PreProc
+USE MOD_Globals
+USE MOD_ExactFunc_Vars, ONLY: firstTimestep,tPrev,dtPrev,massFlowRef,massFlowPrev,dpdx,dpdxPrev,massFlowBC
+USE MOD_DG_Vars,        ONLY: U,U_master,U_slave
+USE MOD_Analyze_Vars,   ONLY: wGPSurf,wGPVol,Surf,Vol,writeData_dt,tWriteData
+USE MOD_Mesh_Vars,      ONLY: SurfElem,AnalyzeSide,nSides,nMPISides_YOUR,sJ
+USE MOD_Mesh_Vars,      ONLY: nElems
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(IN)                 :: dt                     !< current time step
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                         :: i,j,k,iElem,SideID
+REAL                            :: massFlow,massFlowGlobal,massFlowPeriodic,tmp
+#if USE_MPI
+REAL                            :: box(2)
+#endif
+!==================================================================================================================================
+massFlowGlobal=0.
+massFlowPeriodic=0.
+! Periodic hill testcase
+! 1. Get Massflux at the periodic inlet (hill crest)
+! DO SideID=1,nSides-nMPISides_YOUR
+DO SideID=1,nSides-nMPISides_YOUR
+  IF(AnalyzeSide(SideID).NE.massFlowBC) CYCLE
+  ! print *, "AnalyzeSide(SideID) == massFlowBC"
+  DO j=0,PP_N; DO i=0,PP_N
+    tmp     =0.5*wGPSurf(i,j)*SurfElem(i,j,0,SideID)
+    massFlowPeriodic=massFlowPeriodic+(U_master(2,i,j,SideID)+U_slave(2,i,j,SideID))*tmp
+  END DO; END DO
+END DO
+! print *, "massFlowPeriodic = ", massFlowPeriodic
+
+DO iElem=1,nElems
+  DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
+    massFlowGlobal = massFlowGlobal+U(MOM1,i,j,k,iElem)*wGPVol(i,j,k)/sJ(i,j,k,iElem,0)
+  END DO; END DO; END DO
+END DO
+! massFlowGlobal = 1.
+
+#if USE_MPI
+box(1) = massFlowGlobal; box(2) = massFlowPeriodic
+CALL MPI_ALLREDUCE(MPI_IN_PLACE,box,2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_FLEXI,iError)
+massFlowGlobal = box(1); massFlowPeriodic = box(2)
+#endif
+
+massFlowGlobal = massFlowGlobal/9. ! averaged mass flow over channel length
+! massFlowGlobal = massFlowPeriodic
+IF(firstTimestep)THEN
+  dtPrev=dt
+  massFlowPrev = massFlowRef
+  firstTimeStep=.FALSE.
+END IF
+
+massFlow = massFlowGlobal ! use global
+
+! 2. compute forcing term dp/dx
+! dpdx_n+1 = dpdx_n - (mRef - 2*m_n + m_n-1) / (surf*dt)
+! dpdx = dpdxPrev - 0.3*(massFlowRef - 2*massFlow + massFlowPrev) / (Surf(massFlowBC)*dt)
+dpdx = dpdxPrev - 0.3*(massFlowRef - 2*massFlow + massFlowPrev) / (4.5 * 2.035 * dt)
+
+! ! proposed by Lenormand:
+! !dpdx = dpdxPrev - (alpha*(massFlow-massFlowRef) + beta*(massFlowPrev - massFlowRef)) / (Surf(massFlowBC))
+! alpha=2.
+! beta =-0.2
+! massFlowPredictor = massFlow+dt/dtPrev*(massFlow-massFlowPrev)
+! dpdx = dpdxPrev + (alpha*(massFlowPredictor-massFlowRef) + beta*(massFlow - massFlowRef)) / (Surf(massFlowBC))
+
+massFlowPrev = massFlow
+dpdxPrev     = dpdx
+dtPrev       = dt
+
+! IF(MPIRoot) THEN
+!   write(*,'(A, E12.2, A, E12.2)') 'm = ', massFlow, ', f = ', dpdx
+!   ! print *, "nCores = ", massFlowGlobal
+!   ! print *, "Surf(massFlowBC) = ", Surf(massFlowBC) 
+! END IF
+END SUBROUTINE CalcMassFlowRateForcing
 
 END MODULE MOD_Exactfunc

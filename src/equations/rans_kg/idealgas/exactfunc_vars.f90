@@ -45,6 +45,16 @@ CHARACTER(LEN=255):: BCFile            !< parameter for BC
 INTEGER           :: BCFileID          !< parameter for BC
 INTEGER           :: BCLength
 REAL,ALLOCATABLE  :: BCData(:,:)
+
+LOGICAL :: firstTimestep=.TRUE.     !< marks whether timestep is first timestep
+REAL    :: tPrev       =0.          !< time of previous forcing computation
+REAL    :: dtPrev      =0.          !< dt since previous forcing computation
+REAL    :: massFlowRef =0.          !< reference mass flow for forcing
+REAL    :: massFlowPrev=0.          !< massflow at previous forcing computation
+REAL    :: dpdx        =0.          !< imposed pressure gradient
+REAL    :: dpdxPrev    =0.          !< previous imposed pressure gradient
+INTEGER :: massFlowBC  =0           !< index of BC at which massflow is computed
+
 #if PARABOLIC
 REAL              :: delta99_in        !< boundary layer thickness for Blasius solution
 REAL              :: x_in(2)           !< inflow position for Blasius solution
