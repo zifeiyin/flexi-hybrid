@@ -219,7 +219,8 @@ f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
-f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1  ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
+f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1-diffk*gradK1
+                                                        ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x+dk*k_x) q_x=-lambda*T_x
 f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
 f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
@@ -227,7 +228,8 @@ g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
-g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2  ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
+g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2-diffk*gradK2
+                                                        ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y+dk*k_y) q_y=-lambda*T_y
 g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
 g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
@@ -235,7 +237,8 @@ h(DENS) = 0.
 h(MOM1) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 h(MOM2) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 h(MOM3) = -tau_zz                                       ! F_euler-4/3*mu*w_z+2/3*mu*(u_x+v_y)
-h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3  ! F_euler-(tau_zx*u+tau_zy*v+tau_zz*w-q_z) q_z=-lambda*T_z
+h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3-diffk*gradK3
+                                                        ! F_euler-(tau_zx*u+tau_zy*v+tau_zz*w-q_z+dk*k_z) q_z=-lambda*T_z
 h(RHOK) = -diffK*gradK3                                 ! F_euler-(mu+muTOrig/sigmaK)*k_z
 h(RHOG) = -diffG*gradG3                                 ! F_euler-(mu+muTOrig/sigmaG)*g_z
 #else
@@ -250,7 +253,7 @@ f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = 0.
-f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1            ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x) q_x=-lambda*T_x
+f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1-diffk*gradK1 ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x+dk*k_x) q_x=-lambda*T_x
 f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
 f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
@@ -258,7 +261,7 @@ g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = 0.
-g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2            ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y) q_y=-lambda*T_y
+g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2-diffk*gradK2 ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y+dk*k_y) q_y=-lambda*T_y
 g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
 g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
