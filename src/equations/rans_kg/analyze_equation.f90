@@ -194,7 +194,7 @@ USE MOD_AnalyzeEquation_Vars
 USE MOD_CalcBodyForces,     ONLY: CalcBodyForces
 USE MOD_Mesh_Vars,          ONLY: BoundaryName,nBCs,BoundaryType
 USE MOD_Output,             ONLY: OutputToFile
-USE MOD_EddyVisc_Vars,      ONLY: eddyViscType 
+USE MOD_EddyVisc_Vars,      ONLY: eddyViscType
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -275,18 +275,18 @@ IF(MPIRoot)THEN
 END IF ! MPIRoot
 
 IF(MPIRoot.AND.doCalcTurbulence)THEN
-  IF ( eddyViscType == 4 ) THEN 
+  IF ( eddyViscType == 4 ) THEN
     WRITE(formatStr,'(A,I2,A)')'(A14,',4,'ES18.9)'
     WRITE(UNIT_stdOut,formatStr)' Max k,g,m,c:', kgnut(1), kgnut(3), kgnut(5), kgnut(7)
     WRITE(formatStr,'(A,I2,A)')'(A14,',4,'ES18.9)'
     WRITE(UNIT_stdOut,formatStr)' Min k,g,m,c:', kgnut(2), kgnut(4), kgnut(6), kgnut(8)
-  ELSE 
+  ELSE
     WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
     WRITE(UNIT_stdOut,formatStr)' Max k,g,mut:', kgnut(1), kgnut(3), kgnut(5)
     WRITE(formatStr,'(A,I2,A)')'(A14,',3,'ES18.9)'
     WRITE(UNIT_stdOut,formatStr)' Min k,g,mut:', kgnut(2), kgnut(4), kgnut(6)
-  ENDIF 
-ENDIF 
+  ENDIF
+ENDIF
 
 IF(MPIRoot.AND.doCalcTurbSource)THEN
   WRITE(formatStr,'(A,I2,A)')'(A14,',7,'ES18.9)'
@@ -623,10 +623,13 @@ kgnut( 4) = -MINVAL(U(RHOG,:,:,:,:)/U(DENS,:,:,:,:))
 kgnut( 5) =  MAXVAL(muSGS(1,:,:,:,:))
 kgnut( 6) = -MINVAL(muSGS(1,:,:,:,:))
 
-IF ( eddyViscType == 4 ) THEN 
+IF ( eddyViscType == 4 ) THEN
   kgnut( 7) =  MAXVAL(Cdes2(:,:,:,:))
   kgnut( 8) = -MINVAL(Cdes2(:,:,:,:))
-ENDIF 
+ELSE
+  kgnut( 7) = 0.0
+  kgnut( 8) = 0.0
+ENDIF
 
 kgnut( 9) =  MAXVAL(prodK(1,:,:,:,:))
 kgnut(10) = -MINVAL(prodK(1,:,:,:,:))
