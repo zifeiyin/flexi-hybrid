@@ -322,7 +322,7 @@ DO iElem = 1,nElems
     eta     = ( muS**3 / diss )**0.25  
     ratio   = Elem_hmx(iElem) / eta
     Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
-    Cdes2(i,j,k,iElem) = MAX( Cdes2(i,j,k,iElem)**2, Clim**2 )
+    Cdes2(i,j,k,iElem) = MAX( Cdes2(i,j,k,iElem), Clim**2 )
   END DO; END DO; END DO ! i,j,k
 END DO
 
