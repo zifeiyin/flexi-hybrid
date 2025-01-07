@@ -260,6 +260,20 @@ ELSE()
 ENDIF()
 
 # =========================================================================  
+# Local time stepping setting
+# =========================================================================
+OPTION(FLEXI_LOCALTIMESTEPPING "Enable local time stepping" OFF)
+
+IF(FLEXI_LOCALTIMESTEPPING)
+   ADD_DEFINITIONS(-DLTS_ENABLED)
+   IF(NOT(FLEXI_EQNSYSNAME STREQUAL "rans_kg"))
+      MESSAGE(SEND_ERROR "local time stepping is only developed for FLEXI_EQNSYSNAME=rans_kg.") 
+   ELSE() 
+      MESSAGE(STATUS"Local time stepping is enabled")
+   ENDIF()
+ENDIF()
+
+# =========================================================================  
 # Preconditioner for implicit
 # =========================================================================
 OPTION(FLEXI_USE_PRECONDITIONER "Use preconditioner for implicit" OFF)

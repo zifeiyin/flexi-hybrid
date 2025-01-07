@@ -24,6 +24,11 @@ PRIVATE
 INTERFACE SetTimeStep
   MODULE PROCEDURE SetTimeStep
 END INTERFACE
+#if LTS_ENABLED
+INTERFACE TimeStepByEulerLTS
+  MODULE PROCEDURE TimeStepByEulerLTS
+END INTERFACE
+#endif
 
 INTERFACE TimeStepByLSERKW2
   MODULE PROCEDURE TimeStepByLSERKW2
@@ -70,6 +75,12 @@ IF (ASSOCIATED(TimeStep)) CALL Abort(__STAMP__, &
    'TimeStep pointer is already associated! Dereference the pointer before associating it with a new time step routine!')
 
 SELECT CASE(TimeDiscType)
+#if LTS_ENABLED
+  CASE('EULERLTS')
+    TimeStep=>TimeStepByEulerLTS
+  CASE('LSERKW2LTS')
+    TimeStep=>TimeStepByLSERKW2LTS
+#endif
   CASE('LSERKW2')
     TimeStep=>TimeStepByLSERKW2
   CASE('LSERKK3')
@@ -82,6 +93,166 @@ END SELECT
 
 END SUBROUTINE SetTimeStep
 
+#if LTS_ENABLED
+!===================================================================================================================================
+!> Low-Storage Runge-Kutta integration: 2 register version
+!> This procedure takes the current time t, the time step dt and the solution at
+!> the current time U(t) and returns the solution at the next time level.
+!> RKA/b/c coefficients are low-storage coefficients, NOT the ones from butcher table.
+!===================================================================================================================================
+SUBROUTINE TimeStepByEulerLTS(t)
+! MODULES
+USE MOD_PreProc
+USE MOD_Vector
+USE MOD_DG            ,ONLY: DGTimeDerivative_weakForm
+USE MOD_DG_Vars       ,ONLY: U,Ut,nTotalU
+USE MOD_PruettDamping ,ONLY: TempFilterTimeDeriv
+USE MOD_TimeDisc_Vars ,ONLY: dt,Ut_tmp,RKA,RKb,RKc,nRKStages,CurrentStage
+USE MOD_TimeDisc_Vars ,ONLY: dt_LTS, localTimeStepSwitch
+USE MOD_Mesh_Vars     ,ONLY: nElems
+#if FV_ENABLED
+USE MOD_Indicator     ,ONLY: CalcIndicator
+#endif /*FV_ENABLED*/
+#if FV_ENABLED == 1
+USE MOD_FV_Switching  ,ONLY: FV_Switch
+USE MOD_FV_Vars       ,ONLY: FV_toDGinRK
+#endif /*FV_ENABLED==1*/
+#if PP_LIMITER
+USE MOD_PPLimiter     ,ONLY: PPLimiter
+USE MOD_Filter_Vars   ,ONLY: DoPPLimiter
+#endif /*PP_LIMITER*/
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(INOUT)  :: t                                     !< current simulation time
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER  :: iElem
+INTEGER  :: nLocalU
+!===================================================================================================================================
+nLocalU = nTotalU/nElems
+    
+CurrentStage = 1
+
+! Update gradients
+CALL DGTimeDerivative_weakForm(t)
+
+IF (localTimeStepSwitch) THEN
+  DO iElem=1,nElems
+    U(:,:,:,:,iElem) = U(:,:,:,:,iElem) - Ut(:,:,:,:,iElem) * dt_LTS(iElem)
+  ENDDO 
+ELSE
+  ! first step where dt_LTS has not been allocated
+  CALL VAXPBY(nTotalU,U,Ut,   ConstIn =-dt) 
+ENDIF 
+
+#if FV_ENABLED
+  ! Time needs to be evaluated at the next step because time integration was already performed
+  ASSOCIATE(tFV => MERGE(t+dt,t,.TRUE.))
+  CALL CalcIndicator(U,tFV)
+  END ASSOCIATE
+#endif /*FV_ENABLED*/
+#if FV_ENABLED == 1
+  ! NOTE: Apply switch and update FV_Elems
+  CALL FV_Switch(U,Ut,AllowToDG=.TRUE.)
+#endif /*FV_ENABLED==1*/
+#if PP_LIMITER
+  IF(DoPPLimiter) CALL PPLimiter()
+#endif /*PP_LIMITER*/
+
+END SUBROUTINE TimeStepByEulerLTS
+
+!===================================================================================================================================
+!> Low-Storage Runge-Kutta integration: 2 register version, for Local time stepping
+!> This procedure takes the current time t, the time step dt and the solution at
+!> the current time U(t) and returns the solution at the next time level.
+!> RKA/b/c coefficients are low-storage coefficients, NOT the ones from butcher table.
+!===================================================================================================================================
+SUBROUTINE TimeStepByLSERKW2LTS(t)
+! MODULES
+USE MOD_PreProc
+USE MOD_Vector
+USE MOD_DG            ,ONLY: DGTimeDerivative_weakForm
+USE MOD_DG_Vars       ,ONLY: U,Ut,nTotalU
+USE MOD_PruettDamping ,ONLY: TempFilterTimeDeriv
+USE MOD_TimeDisc_Vars ,ONLY: dt,Ut_tmp,RKA,RKb,RKc,nRKStages,CurrentStage
+USE MOD_TimeDisc_Vars ,ONLY: dt_LTS, localTimeStepSwitch
+USE MOD_Mesh_Vars     ,ONLY: nElems
+#if FV_ENABLED
+USE MOD_Indicator     ,ONLY: CalcIndicator
+#endif /*FV_ENABLED*/
+#if FV_ENABLED == 1
+USE MOD_FV_Switching  ,ONLY: FV_Switch
+USE MOD_FV_Vars       ,ONLY: FV_toDGinRK
+#endif /*FV_ENABLED==1*/
+#if PP_LIMITER
+USE MOD_PPLimiter     ,ONLY: PPLimiter
+USE MOD_Filter_Vars   ,ONLY: DoPPLimiter
+#endif /*PP_LIMITER*/
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+REAL,INTENT(INOUT)  :: t                                     !< current simulation time
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL     :: b_dt(1:nRKStages)
+REAL     :: local_b_dt
+REAL     :: tStage
+INTEGER  :: iStage
+INTEGER  :: iElem
+INTEGER  :: nLocalU
+!===================================================================================================================================
+  
+! Premultiply with dt
+b_dt = RKb*dt
+
+DO iStage = 1,nRKStages
+  ! NOTE: perform timestep in rk
+  CurrentStage = iStage
+  IF (CurrentStage.EQ.1) THEN; tStage = t
+  ELSE                       ; tStage = t+RKc(CurrentStage)*dt
+  END IF
+
+  ! Update gradients
+  CALL DGTimeDerivative_weakForm(tStage)
+
+  IF (iStage.EQ.1) THEN
+    CALL VCopy(nTotalU,Ut_tmp,Ut)                        !Ut_tmp = Ut
+  ELSE
+    CALL VAXPBY(nTotalU,Ut_tmp,Ut,ConstOut=-RKA(iStage)) !Ut_tmp = Ut - Ut_tmp*RKA (iStage)
+  END IF
+  CALL VAXPBY(nTotalU,U,Ut_tmp,   ConstIn =b_dt(iStage)) !U       = U + Ut_tmp*b_dt(iStage)
+
+  IF (localTimeStepSwitch) THEN
+    DO iElem=1,nElems
+      local_b_dt = dt_LTS(iElem) * RKb(iStage)
+      U(:,:,:,:,iElem) = U(:,:,:,:,iElem) + Ut_tmp(:,:,:,:,iElem) * local_b_dt
+    ENDDO 
+  ELSE
+    ! first step where dt_LTS has not been allocated
+    CALL VAXPBY(nTotalU,U,Ut_tmp,   ConstIn =b_dt(iStage)) !U       = U + Ut_tmp*b_dt(iStage)
+  ENDIF 
+  
+#if FV_ENABLED
+  ! Time needs to be evaluated at the next step because time integration was already performed
+  ASSOCIATE(tFV => MERGE(t+dt,t,iStage.EQ.nRKStages))
+  CALL CalcIndicator(U,tFV)
+  END ASSOCIATE
+#endif /*FV_ENABLED*/
+#if FV_ENABLED == 1
+  ! NOTE: Apply switch and update FV_Elems
+  CALL FV_Switch(U,Ut_tmp,AllowToDG=(iStage.EQ.nRKStages .OR. FV_toDGinRK))
+#endif /*FV_ENABLED==1*/
+#if PP_LIMITER
+  IF(DoPPLimiter) CALL PPLimiter()
+#endif /*PP_LIMITER*/
+END DO
+  
+END SUBROUTINE TimeStepByLSERKW2LTS
+
+#endif /* LTS */
 
 !===================================================================================================================================
 !> Low-Storage Runge-Kutta integration: 2 register version

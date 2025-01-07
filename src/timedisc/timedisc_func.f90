@@ -104,6 +104,9 @@ USE MOD_ReadInTools         ,ONLY: GETREAL,GETINT,GETSTR
 USE MOD_StringTools         ,ONLY: LowCase,StripSpaces
 USE MOD_TimeDisc_Vars       ,ONLY: CFLScale
 USE MOD_TimeDisc_Vars       ,ONLY: dtElem,dt,tend,tStart,dt_dynmin,dt_kill
+#if LTS_ENABLED
+USE MOD_TimeDisc_Vars       ,ONLY: dt_LTS,localTimeStepSwitch
+#endif 
 USE MOD_TimeDisc_Vars       ,ONLY: Ut_tmp,UPrev,S2
 USE MOD_TimeDisc_Vars       ,ONLY: maxIter,nCalcTimeStepMax
 USE MOD_TimeDisc_Vars       ,ONLY: SetTimeDiscCoefs,TimeDiscName,TimeDiscMethod,TimeDiscType,TimeDiscInitIsDone
@@ -143,6 +146,18 @@ CALL SetTimeDiscCoefs(TimeDiscMethod)
 CALL SetTimeStep(TimeDiscType)
 
 SELECT CASE(TimeDiscType)
+#if LTS_ENABLED
+  CASE('EULERLTS')
+    ALLOCATE(dt_LTS(nElems))
+    dt_LTS =HUGE(1.)
+    localTimeStepSwitch=.TRUE.
+    ALLOCATE(Ut_tmp(1:1,0:1,1:1,1:1,1:1)) !this is a dummy one 
+  CASE('LSERKW2LTS')
+    ALLOCATE(dt_LTS(nElems))
+    dt_LTS =HUGE(1.)
+    localTimeStepSwitch=.TRUE.
+    ALLOCATE(Ut_tmp(1:PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,1:nElems)) 
+#endif /*LTS*/
   CASE('LSERKW2')
     ALLOCATE(Ut_tmp(1:PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,1:nElems))
   CASE('LSERKK3')
@@ -197,6 +212,9 @@ SUBROUTINE InitTimeStep()
 ! MODULES
 USE MOD_Globals
 USE MOD_TimeDisc_Vars       ,ONLY: t,tAnalyze,tEnd,dt,dt_min,dt_minOld
+#if LTS_ENABLED
+USE MOD_TimeDisc_Vars       ,ONLY: dt_LTS,dtElem,localTimeStepSwitch
+#endif
 USE MOD_TimeDisc_Vars       ,ONLY: ViscousTimeStep,CalcTimeStart,nCalcTimeStep
 USE MOD_TimeDisc_Vars       ,ONLY: doAnalyze,doFinalize
 ! IMPLICIT VARIABLE HANDLING
@@ -207,11 +225,16 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 INTEGER                      :: errType
 !===================================================================================================================================
-dt                 = EvalInitialTimeStep(errType)
-dt_min(DT_MIN)     = dt
-dt_min(DT_ANALYZE) = tAnalyze-t             ! Time to next analysis, put in extra variable so number does not change due to numerical errors
-dt_min(DT_END)     = tEnd    -t             ! Do the same for end time
-dt                 = MINVAL(dt_min)
+    dt                 = EvalInitialTimeStep(errType) 
+    dt_min(DT_MIN)     = dt
+    dt_min(DT_ANALYZE) = tAnalyze-t             ! Time to next analysis, put in extra variable so number does not change due to numerical errors
+    dt_min(DT_END)     = tEnd    -t             ! Do the same for end time
+    dt                 = MINVAL(dt_min)  
+#if LTS_ENABLED
+  IF (localTimeStepSwitch) THEN
+    dt_LTS             = dtElem *  dt / dt_min(DT_MIN)
+  ENDIF
+#endif
 
 IF (dt.EQ.dt_min(DT_ANALYZE))       doAnalyze  = .TRUE.
 IF (dt.EQ.dt_min(DT_END    )) THEN; doAnalyze  = .TRUE.; doFinalize = .TRUE.; END IF
@@ -243,6 +266,10 @@ SUBROUTINE UpdateTimeStep()
 USE MOD_Globals
 USE MOD_Analyze_Vars        ,ONLY: tWriteData
 USE MOD_HDF5_Output         ,ONLY: WriteState
+#if LTS_ENABLED
+USE MOD_Mesh_Vars           ,ONLY: nElems
+USE MOD_TimeDisc_Vars       ,ONLY: dt_LTS, dtElem,localTimeStepSwitch
+#endif /*LTS*/
 USE MOD_Mesh_Vars           ,ONLY: MeshFile
 USE MOD_TimeDisc_Vars       ,ONLY: t,tAnalyze,tEnd,dt,dt_min,dt_minOld
 USE MOD_TimeDisc_Vars       ,ONLY: nCalcTimeStep,nCalcTimeStepMax
@@ -262,7 +289,7 @@ IF (nCalcTimeStep.GE.1) THEN
   RETURN
 END IF
 
-dt_min(DT_MIN)     = EvalTimeStep(errType)
+dt_min(DT_MIN)     = EvalTimeStep(errType)     
 dt_min(DT_ANALYZE) = tAnalyze-t             ! Time to next analysis, put in extra variable so number does not change due to numerical errors
 dt_min(DT_END)     = tEnd    -t             ! Do the same for end time
 dt                 = MINVAL(dt_min)
@@ -270,6 +297,12 @@ dt                 = MINVAL(dt_min)
 IF (dt.EQ.dt_min(DT_ANALYZE))       doAnalyze  = .TRUE.
 IF (dt.EQ.dt_min(DT_END    )) THEN; doAnalyze  = .TRUE.; doFinalize = .TRUE.; END IF
 dt                 = MINVAL(dt_min,MASK=dt_min.GT.0)
+
+#if LTS_ENABLED
+IF (localTimeStepSwitch) THEN
+  dt_LTS             = dtElem 
+ENDIF
+#endif /*LTS*/
 
 nCalcTimeStep = MIN(FLOOR(ABS(LOG10(ABS(dt_minOld/dt-1.)**2.*100.+EPSILON(0.)))),nCalcTimeStepMax) - 1
 dt_minOld     = dt
@@ -592,6 +625,9 @@ IMPLICIT NONE
 !==================================================================================================================================
 TimeDiscInitIsDone = .FALSE.
 SDEALLOCATE(dtElem)
+#if LTS_ENABLED
+SDEALLOCATE(dt_LTS)
+#endif
 SDEALLOCATE(Ut_tmp)
 SDEALLOCATE(S2)
 SDEALLOCATE(UPrev)
