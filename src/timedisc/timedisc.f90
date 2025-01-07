@@ -47,6 +47,9 @@ USE MOD_Equation_Vars       ,ONLY: StrVarNames
 USE MOD_HDF5_Output         ,ONLY: WriteState
 USE MOD_IO_HDF5             ,ONLY:
 USE MOD_Mesh_Vars           ,ONLY: MeshFile,nGlobalElems
+#if LTS_ENABLED
+USE MOD_Mesh_Vars           ,ONLY: nElems
+#endif
 USE MOD_Output              ,ONLY: Visualize,PrintStatusLine
 USE MOD_Overintegration     ,ONLY: Overintegration
 USE MOD_Overintegration_Vars,ONLY: OverintegrationType
@@ -60,6 +63,9 @@ USE MOD_TimeStep            ,ONLY: TimeStep
 USE MOD_TestCase_Vars       ,ONLY: doTCSource
 USE MOD_TimeDisc_Vars       ,ONLY: iter,iter_analyze,maxIter
 USE MOD_TimeDisc_Vars       ,ONLY: t,tStart,tEnd,dt,tAnalyze
+#if LTS_ENABLED
+USE MOD_TimeDisc_Vars       ,ONLY: dt_LTS, localTimeStepSwitch
+#endif
 USE MOD_TimeDisc_Vars       ,ONLY: TimeDiscType
 USE MOD_TimeDisc_Vars       ,ONLY: doAnalyze,doFinalize,writeCounter,nCalcTimestep
 USE MOD_TimeDisc_Vars       ,ONLY: time_start
@@ -100,6 +106,11 @@ SWRITE(UNIT_stdOut,'(A13,ES16.7)')'#DOFs/Proc : ',REAL(nGlobalElems*(PP_N+1)**PP
 
 ! Fill correct initial time
 t = MERGE(RestartTime,tStart,DoRestart)
+#if LTS_ENABLED
+IF (localTimeStepSwitch) THEN
+dt_LTS           = 0.
+ENDIF
+#endif /*LTS*/
 
 ! NOTE: Set initial variables
 ! t is set in init solution

@@ -30,6 +30,10 @@ END INTERFACE
 !----------------------------------------------------------------------------------------------------------------------------------
 REAL              ::time_start                         !< start time of the timedisc
 REAL             :: t  = 0.                            !< current physical time
+#if LTS_ENABLED
+LOGICAL          :: localTimeStepSwitch=.FALSE.
+REAL,ALLOCATABLE :: dt_LTS(:)                          !< current local time step
+#endif      
 REAL             :: dt = 0.                            !< current timestep
 REAL             :: dt_old                             !< last timestep
 REAL             :: dt_dynmin                          !< minimal allowed timestep
@@ -131,6 +135,12 @@ CASE('ketchesonrk4-20','ketchesonrk4-18')
   TimeDiscType='LSERKK3'
 CASE('eulerimplicit','cranknicolson2-2','esdirk2-3','esdirk3-4','esdirk4-6')
   TimeDiscType='ESDIRK'
+#if LTS_ENABLED
+CASE('ltsstandardrk3-3')
+  TimeDiscType='LSERKW2LTS'
+CASE('ltseuler')
+  TimeDiscType='EULERLTS'
+#endif
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,&
                       'Unknown method of time discretization: '//TRIM(TimeDiscMethod))
@@ -138,6 +148,73 @@ END SELECT
 
 
 SELECT CASE (TimeDiscMethod)
+#if LTS_ENABLED
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! Low-storage Runge-Kutta 3, 3 stages, for the use of LTS, need to simply to Euler in the future
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CASE('ltseuler')
+
+  TimeDiscName = 'LTS Euler'
+  nRKStages=1
+#if PARABOLIC
+  RelativeDFL=1.
+#endif
+  fullBoundaryOrder=.TRUE.
+
+#if (PP_NodeType==1 || (PP_NodeType==2 && defined(EXACT_MM)))
+  CFLScaleAlpha(1:15) = &
+  (/ 1.2285, 1.0485, 0.9101, 0.8066, 0.7268, 0.6626, 0.6109, 0.5670, 0.5299, 0.4973, 0.4703, 0.4455, 0.4230, 0.4039, 0.3859 /)
+#elif (PP_NodeType==2 && !defined(EXACT_MM))
+  IF (OverintegrationType.GT.0) THEN
+    ! Overintegration with Gauss-Lobatto nodes results in a projection DG formulation, i.e. we have to use the Gauss nodes timestep
+    CFLScaleAlpha(1:15) = &
+    (/ 1.2285, 1.0485, 0.9101, 0.8066, 0.7268, 0.6626, 0.6109, 0.5670, 0.5299, 0.4973, 0.4703, 0.4455, 0.4230, 0.4039, 0.3859 /)
+  ELSE
+    CFLScaleAlpha(1:15) = &
+    (/ 3.1871, 2.2444, 1.7797, 1.5075, 1.3230, 1.1857, 1.0800, 0.9945, 0.9247, 0.8651, 0.8134, 0.7695, 0.7301, 0.6952, 0.6649 /)
+  ENDIF
+#endif /*PP_NodeType*/
+#if FV_ENABLED
+  CFLScaleFV = 1.2285
+#endif /*FV*/
+
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+! Low-storage Runge-Kutta 3, 3 stages, Kopriva,Algorithm 42, LTS version
+!~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CASE('ltsstandardrk3-3')
+
+  TimeDiscName = 'Local Time Stepping Standard RK3-3'
+  nRKStages=3
+#if PARABOLIC
+  RelativeDFL=1.
+#endif
+  fullBoundaryOrder=.TRUE.
+
+#if (PP_NodeType==1 || (PP_NodeType==2 && defined(EXACT_MM)))
+  CFLScaleAlpha(1:15) = &
+  (/ 1.2285, 1.0485, 0.9101, 0.8066, 0.7268, 0.6626, 0.6109, 0.5670, 0.5299, 0.4973, 0.4703, 0.4455, 0.4230, 0.4039, 0.3859 /)
+#elif (PP_NodeType==2 && !defined(EXACT_MM))
+  IF (OverintegrationType.GT.0) THEN
+    ! Overintegration with Gauss-Lobatto nodes results in a projection DG formulation, i.e. we have to use the Gauss nodes timestep
+    CFLScaleAlpha(1:15) = &
+    (/ 1.2285, 1.0485, 0.9101, 0.8066, 0.7268, 0.6626, 0.6109, 0.5670, 0.5299, 0.4973, 0.4703, 0.4455, 0.4230, 0.4039, 0.3859 /)
+  ELSE
+    CFLScaleAlpha(1:15) = &
+    (/ 3.1871, 2.2444, 1.7797, 1.5075, 1.3230, 1.1857, 1.0800, 0.9945, 0.9247, 0.8651, 0.8134, 0.7695, 0.7301, 0.6952, 0.6649 /)
+  ENDIF
+#endif /*PP_NodeType*/
+#if FV_ENABLED
+  CFLScaleFV = 1.2285
+#endif /*FV*/
+
+  ALLOCATE(RKA(2:nRKStages),RKb(1:nRKStages),RKc(2:nRKStages))
+  RKA(2:nRKStages) = (/ 5./9.,153./128. /)
+  RKb(1:nRKStages) = (/ 1./3., 15./16., 8./15. /)
+  RKc(2:nRKStages) = (/ 1./3., 0.75 /)
+
+
+#endif /* LTS version */
+
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! Low-storage Runge-Kutta 3, 3 stages, Kopriva,Algorithm 42
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
