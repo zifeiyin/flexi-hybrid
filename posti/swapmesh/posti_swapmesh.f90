@@ -44,7 +44,7 @@ USE MOD_MPI,                     ONLY: InitMPIvars,FinalizeMPI
 USE MOD_SwapMesh,                ONLY: InitSwapmesh,ReadOldStateFile,WriteNewStateFile,FinalizeSwapMesh
 USE MOD_InterpolateSolution,     ONLY: InterpolateSolution
 #if FV_ENABLED
-USE MOD_FV_Basis,                ONLY: InitFV_Basis,FinalizeFV_Basis
+USE MOD_FV_Basis,                ONLY: DefineParametersFV_Basis,InitFV_Basis,FinalizeFV_Basis
 #endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -62,6 +62,9 @@ CALL ParseCommandlineArguments()
 ! Define parameters needed
 CALL DefineParametersMPI()
 CALL DefineParametersIO_HDF5()
+#if FV_ENABLED
+CALL DefineParametersFV_Basis()
+#endif
 
 CALL prms%SetSection("swapMesh")
 CALL prms%CreateStringOption(   "MeshFileOld"        , "Old mesh file (if different than the one found in the state file)")
