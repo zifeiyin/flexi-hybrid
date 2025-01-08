@@ -82,7 +82,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=27
+nMaxVarAvg=33
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -111,6 +111,12 @@ VarNamesAvgList(24) ='fd'
 VarNamesAvgList(25) ='CDes'
 VarNamesAvgList(26) ='MagS'
 VarNamesAvgList(27) ='dGdG'
+VarNamesAvgList(28) ='RhoUU'
+VarNamesAvgList(29) ='RhoVV'
+VarNamesAvgList(30) ='RhoWW'
+VarNamesAvgList(31) ='RhoUV'
+VarNamesAvgList(32) ='RhoUW'
+VarNamesAvgList(33) ='RhoVW'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -519,6 +525,30 @@ DO iElem=1,nElems
 
   IF(CalcAvg(27))THEN ! 'dGdG'
     tmpVars(iAvg(27),:,:,:)=dGidGi(:,:,:,iElem)
+  END IF
+
+  IF(CalcAvg(28))THEN ! 'RhoUU'
+    tmpVars(iAvg(28),:,:,:)=Uloc(MOM1,:,:,:)*prim(VEL1,:,:,:)
+  END IF
+
+  IF(CalcAvg(29))THEN ! 'RhoVV'
+    tmpVars(iAvg(29),:,:,:)=Uloc(MOM2,:,:,:)*prim(VEL2,:,:,:)
+  END IF
+
+  IF(CalcAvg(30))THEN ! 'RhoWW'
+    tmpVars(iAvg(30),:,:,:)=Uloc(MOM3,:,:,:)*prim(VEL3,:,:,:)
+  END IF
+
+  IF(CalcAvg(31))THEN ! 'RhoUV'
+    tmpVars(iAvg(31),:,:,:)=Uloc(MOM1,:,:,:)*prim(VEL2,:,:,:)
+  END IF
+
+  IF(CalcAvg(32))THEN ! 'RhoUV'
+    tmpVars(iAvg(32),:,:,:)=Uloc(MOM1,:,:,:)*prim(VEL3,:,:,:)
+  END IF
+
+  IF(CalcAvg(33))THEN ! 'RhoUV'
+    tmpVars(iAvg(33),:,:,:)=Uloc(MOM2,:,:,:)*prim(VEL3,:,:,:)
   END IF
 
   UAvg(:,:,:,:,iElem)= UAvg (:,:,:,:,iElem) + tmpVars(1:nVarAvg,:,:,:)*dtStep
