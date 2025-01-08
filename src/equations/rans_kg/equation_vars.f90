@@ -56,7 +56,7 @@ REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
   (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','DensityK','DensityG'/) !< conservative variable names
 CHARACTER(LEN=255),DIMENSION(8),PARAMETER :: StrVarNamesPrim=&
-  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','TKE','OMG'/) !< primitive variable names
+  (/ CHARACTER(LEN=255) :: 'Density','VelocityX','VelocityY','VelocityZ','Pressure','Temperature','turbK','turbOmega'/) !< primitive variable names
 
 LOGICAL           :: EquationInitIsDone=.FALSE.
 !==================================================================================================================================
