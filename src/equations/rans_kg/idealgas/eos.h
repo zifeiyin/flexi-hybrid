@@ -50,7 +50,8 @@
 #define TOTAL_TEMPERATURE_H(T,Mach)    (T*(1+0.5*(kappa-1)*Mach**2))
 #define TOTAL_PRESSURE_H(p,Mach)       (p/((1+0.5*(kappa-1)*Mach**2)**(-kappa/(kappa-1.))))
 #define BETA_RIEMANN_H()               (SQRT(0.5*kappaM1/kappa))
-#define ROEC_RIEMANN_H(RoeH,Roek,RoeVel) (SQRT(kappaM1*(RoeH-Roek-0.5*DOT_PRODUCT(RoeVel,RoeVel))))
+#define ROEC_RIEMANN_H(RoeH,RoeVel)    (SQRT(kappaM1*(RoeH-0.5*DOT_PRODUCT(RoeVel,RoeVel))))
+#define ALPHA2_RIEMANN_H(RoeH,RoeVel,Roec,Delta_U) (kappaM1/(Roec*Roec) * (Delta_U(1)*(RoeH-RoeVel(1)*RoeVel(1)) - Delta_U(6) + RoeVel(1)*Delta_U(2)))
 
 ! routines to compute physical quantities from conservative variables or extended variables
 ! conservative
@@ -78,6 +79,7 @@
 #define TOTALENERGY_HE(UE)             (UE(EXT_ENER)*UE(EXT_SRHO))
 #define TOTALENTHALPY_HE(UE)           ((UE(EXT_ENER)+UE(EXT_PRES))*UE(EXT_SRHO))
 #define TEMPERATURE_HE(UE)             (UE(EXT_PRES)*UE(EXT_SRHO)/R)
+#define TOTALENTHALPY_NS_HE(UE)        ((UE(EXT_ENER)+UE(EXT_PRES)-UE(EXT_RHOK))*UE(EXT_SRHO))
 #if DECOUPLE==0
 #define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV))+UE(EXT_DENS)*UE(EXT_TKE))
 #else

@@ -712,7 +712,7 @@ RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R+SqrtRho_L*H_L) * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
 Roek      = (SqrtRho_R*U_RR(EXT_TKE)+SqrtRho_L*U_LL(EXT_TKE)) * sSqrtRho
-Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
+Roec      = ROEC_RIEMANN_H(RoeH-Roek,RoeVel)
 RoeDens   = SQRT(U_LL(EXT_DENS)*U_RR(EXT_DENS))
 ! Roe+Pike version of Roe Riemann solver
 
@@ -801,21 +801,24 @@ USE MOD_SplitFlux ,ONLY: SplitDGSurface_pointer
 IMPLICIT NONE
 !---------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
-REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR !> extended solution vector on the left/right side of the interface
-REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R   !> advection fluxes on the left/right side of the interface
-REAL,DIMENSION(PP_nVar),INTENT(OUT):: F         !< resulting Riemann flux
+                                               !> extended solution vector on the left/right side of the interface
+REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR
+                                               !> advection fluxes on the left/right side of the interface
+REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R
+REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
 !---------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                    :: H_L,H_R
 REAL                    :: SqrtRho_L,SqrtRho_R,sSqrtRho
-REAL                    :: RoeVel(3),RoeH,Roec,absVel,Roek,Roeg,RoeKE,tmp
+REAL                    :: RoeVel(3),RoeH,Roec,absVel
 REAL                    :: Ma_loc ! local Mach-Number
-REAL,DIMENSION(PP_nVar) :: a,r1,r2,r3,r4,r5,r6,r7 ! Roe eigenvectors
-REAL                    :: Alpha1,Alpha2,Alpha3,Alpha4,Alpha5,Alpha6,Alpha7,Delta_U(PP_nVar)
+REAL,DIMENSION(5)       :: a,r1,r2,r3,r4,r5  ! Roe eigenvectors
+REAL                    :: Alpha1,Alpha2,Alpha3,Alpha4,Alpha5,Delta_U(5+1)
+REAL                    :: lambdaMax
 !=================================================================================================================================
 ! Roe flux
-H_L       = TOTALENTHALPY_HE(U_LL)
-H_R       = TOTALENTHALPY_HE(U_RR)
+H_L       = TOTALENTHALPY_NS_HE(U_LL)
+H_R       = TOTALENTHALPY_NS_HE(U_RR)
 SqrtRho_L = SQRT(U_LL(EXT_DENS))
 SqrtRho_R = SQRT(U_RR(EXT_DENS))
 
@@ -824,59 +827,56 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
 RoeH      = (SqrtRho_R*H_R+SqrtRho_L*H_L) * sSqrtRho
-Roek      = (SqrtRho_R*U_RR(EXT_TKE)+SqrtRho_L*U_LL(EXT_TKE)) * sSqrtRho
-Roeg      = (SqrtRho_R*U_RR(EXT_OMG)+SqrtRho_L*U_LL(EXT_OMG)) * sSqrtRho
-Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
-RoeKE     = 0.5 * absVel
+Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
 
 ! mean eigenvalues and eigenvectors
-a  = (/ RoeVel(1)-Roec, RoeVel(1), RoeVel(1), RoeVel(1), RoeVel(1),           RoeVel(1), RoeVel(1)+Roec /)
-
-r1 = (/ 1.,             a(1),      RoeVel(2), RoeVel(3), RoeH-RoeVel(1)*Roec, RoeK,      Roeg           /)
-r2 = (/ 1.,             RoeVel(1), RoeVel(2), RoeVel(3), 0.5*absVel,          0.,        0.             /)
-r3 = (/ 0.,             0.,        1.,        0.,        RoeVel(2),           0.,        0.             /)
-r4 = (/ 0.,             0.,        0.,        1.,        RoeVel(3),           0.,        0.             /)
-r5 = (/ 0.,             0.,        0.,        0.,        0.,                  1.,        0.             /)
-r6 = (/ 0.,             0.,        0.,        0.,        0.,                  0.,        1.             /)
-r7 = (/ 1.,             a(7),      RoeVel(2), RoeVel(3), RoeH+RoeVel(1)*Roec, Roek,      Roeg           /)
+a  = (/ RoeVel(1)-Roec, RoeVel(1), RoeVel(1), RoeVel(1), RoeVel(1)+Roec      /)
+r1 = (/ 1.,             a(1),      RoeVel(2), RoeVel(3), RoeH-RoeVel(1)*Roec /)
+r2 = (/ 1.,             RoeVel(1), RoeVel(2), RoeVel(3), 0.5*absVel          /)
+r3 = (/ 0.,             0.,        1.,        0.,        RoeVel(2)           /)
+r4 = (/ 0.,             0.,        0.,        1.,        RoeVel(3)           /)
+r5 = (/ 1.,             a(5),      RoeVel(2), RoeVel(3), RoeH+RoeVel(1)*Roec /)
 
 ! calculate differences
-Delta_U(CONS) = U_RR(EXT_CONS) - U_LL(EXT_CONS)
+Delta_U(1:5) = U_RR(1:5) - U_LL(1:5)
+Delta_U(5)    = Delta_U(5) - (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+Delta_U(DELTA_U6)   = Delta_U(DELTA_U5)-(Delta_U(DELTA_U3)-RoeVel(2)*Delta_U(DELTA_U1))*RoeVel(2) - &
+                      (Delta_U(DELTA_U4)-RoeVel(3)*Delta_U(DELTA_U1))*RoeVel(3)
 
 ! low Mach-Number fix
-Ma_loc = MIN(1.0, SQRT(absVel)/Roec)
-Delta_U(2:4) = Delta_U(2:4) * Ma_loc
+Ma_loc = SQRT(absVel)/(Roec*SQRT(kappa))
+Delta_U(DELTA_UV) = Delta_U(DELTA_UV) * Ma_loc
 
 ! calculate factors
-tmp    = RoeVel(1) * Delta_U(2) + RoeVel(2) * Delta_U(3) + RoeVel(3) * Delta_U(4)
-Alpha3 = Delta_U(3) - RoeVel(2) * Delta_U(1)
-Alpha4 = Delta_U(4) - RoeVel(3) * Delta_U(1)
-Alpha2 = ((RoeH - absVel) * Delta_U(1) + tmp - Delta_U(5)) / (RoeH - RoeKE)
-Alpha5 = Roek / (RoeH - RoeKE) * (-RoeKE * Delta_U(1) + tmp - Delta_U(5)) + Delta_U(6)
-Alpha6 = Roeg / (RoeH - RoeKE) * (-RoeKE * Delta_U(1) + tmp - Delta_U(5)) + Delta_U(7)
-Alpha1 = 0.5 * (RoeVel(1) / Roec * Delta_U(1) - Delta_U(2) / Roec + (RoeKE * Delta_U(1) - tmp + Delta_U(5)) / (RoeH - RoeKE))
-Alpha7 = Delta_U(1) - Alpha1 - Alpha2
+Alpha3 = Delta_U(DELTA_U3) - RoeVel(2)*Delta_U(DELTA_U1)
+Alpha4 = Delta_U(DELTA_U4) - RoeVel(3)*Delta_U(DELTA_U1)
+Alpha2 = ALPHA2_RIEMANN_H(RoeH,RoeVel,Roec,Delta_U)
+Alpha1 = 0.5/Roec * (Delta_U(DELTA_U1)*(RoeVel(1)+Roec) - Delta_U(DELTA_U2) - Roec*Alpha2)
+Alpha5 = Delta_U(DELTA_U1) - Alpha1 - Alpha2
+
+lambdaMax = MAX(ABS(U_LL(EXT_VEL1)), ABS(U_RR(EXT_VEL1)))
 
 #ifndef SPLIT_DG
-F = 0.5 * (F_L + F_R - &
-    Alpha1 * ABS(a(1)) * r1 - &
-    Alpha2 * ABS(a(2)) * r2 - &
-    Alpha3 * ABS(a(3)) * r3 - &
-    Alpha4 * ABS(a(4)) * r4 - &
-    Alpha5 * ABS(a(5)) * r5 - &
-    Alpha6 * ABS(a(6)) * r6 - &
-    Alpha7 * ABS(a(7)) * r7)
+! assemble Roe flux
+F(1:5)=0.5*((F_L(1:5)+F_R(1:5)) - &
+       Alpha1*ABS(a(1))*r1 - &
+       Alpha2*ABS(a(2))*r2 - &
+       Alpha3*ABS(a(3))*r3 - &
+       Alpha4*ABS(a(4))*r4 - &
+       Alpha5*ABS(a(5))*r5)
 #else
+! get split flux
 CALL SplitDGSurface_pointer(U_LL,U_RR,F)
-F = F - 0.5 * ( &
-    Alpha1 * ABS(a(1)) * r1 + &
-    Alpha2 * ABS(a(2)) * r2 + &
-    Alpha3 * ABS(a(3)) * r3 + &
-    Alpha4 * ABS(a(4)) * r4 + &
-    Alpha5 * ABS(a(5)) * r5 + &
-    Alpha6 * ABS(a(6)) * r6 + &
-    Alpha7 * ABS(a(7)) * r7)
+! assemble Roe flux
+F(1:5) = F(1:5) - 0.5 * (Alpha1*ABS(a(1))*r1 + &
+                         Alpha2*ABS(a(2))*r2 + &
+                         Alpha3*ABS(a(3))*r3 + &
+                         Alpha4*ABS(a(4))*r4 + &
+                         Alpha5*ABS(a(5))*r5)
 #endif /*SPLIT_DG*/
+F(ENER) = F(ENER) - 0.5 * lambdaMax * (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+F(RHOK) = F(RHOK) - 0.5 * lambdaMax * (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+F(RHOG) = F(RHOG) - 0.5 * lambdaMax * (U_RR(EXT_RHOG) - U_LL(EXT_RHOG))
 END SUBROUTINE Riemann_RoeL2
 
 !=================================================================================================================================
@@ -910,7 +910,7 @@ RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L)            * sSqrtRho
 Roek      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE))  * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
+Roec      = ROEC_RIEMANN_H(RoeH-Roek,RoeVel)
 ! HLL flux
 ! Basic Davis estimate for wave speed
 !Ssl = U_LL(EXT_VEL1) - c_L
@@ -962,7 +962,7 @@ RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R            + SqrtRho_L*H_L)            * sSqrtRho
 Roek      = (SqrtRho_R*U_RR(EXT_TKE)  + SqrtRho_L*U_LL(EXT_TKE))  * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roec      = ROEC_RIEMANN_H(RoeH,Roek,RoeVel)
+Roec      = ROEC_RIEMANN_H(RoeH-Roek,RoeVel)
 ! HLLE flux (positively conservative)
 beta=BETA_RIEMANN_H()
 SsL=MIN(RoeVel(1)-Roec,U_LL(EXT_VEL1) - beta*SPEEDOFSOUND_HE(U_LL), 0.)
