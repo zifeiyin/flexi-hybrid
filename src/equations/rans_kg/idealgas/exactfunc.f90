@@ -954,21 +954,24 @@ DO iElem=1,nElems
       SijUij(i,j,k,iElem) = muS * (+(gradUy(LIFT_VEL1,i,j,k,iElem)+gradUx(LIFT_VEL2,i,j,k,iElem)))
     END IF
 
-    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
+    ! prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
     ! dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
     IF (UPrim(TKE) .GE. 0.0) THEN
       dissK (1,i,j,k,iElem) = +(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
     ELSE
       dissK (1,i,j,k,iElem) = -(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
     END IF
-    ! prodK (1,i,j,k,iElem) = MIN(20. * dissK (1,i,j,k,iElem), 2. * muT * SijGradU)
+    prodK (1,i,j,k,iElem) = MIN(20. * ABS(dissK (1,i,j,k,iElem)), 2. * muT * SijGradU)
 
-    ! prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
-    prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS) / (2 * Cmu) * invG
+    IF (UPrim(OMG).GE.0.0) THEN
+      prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
+    ELSE
+      prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS) / (2 * Cmu) * invG
+    END IF
     ! dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
     dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * UPrim(OMG)**3 * SijGradU
-    ! crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
-    crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
+    crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
+    ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
