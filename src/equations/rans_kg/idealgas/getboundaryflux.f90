@@ -35,6 +35,8 @@
 !>  * 25  : Subsonic outflow BC
 !>  INFLOW BCs:
 !>  * 27  : Subsonic inflow BC, WARNING: REFSTATE is different: Tt,alpha,beta,<empty>,pT (4th entry ignored), angles in DEG
+!>  CUSTOM INFLOW BCs:
+!>  * 30  : Add synthetic random Fourier modes onto ref state
 !==================================================================================================================================
 MODULE MOD_GetBoundaryFlux
 ! MODULES
@@ -102,7 +104,9 @@ USE MOD_Interpolation_Vars,ONLY: InterpolationInitIsDone
 USE MOD_Mesh_Vars         ,ONLY: MeshInitIsDone,nBCSides,BC,BoundaryType,nBCs,Face_xGP
 #if PARABOLIC
 USE MOD_Exactfunc_Vars    ,ONLY: delta99_in,x_in,BlasiusInitDone
+USE MOD_EOS_Vars          ,ONLY: mu0
 #endif
+USE MOD_Exactfunc_Vars    ,ONLY: activateFourier,uHat,omegaHat,psiHat,kHat,sigmaHat,nFourierModes
 USE MOD_EOS               ,ONLY: ConsToPrim
 USE MOD_ExactFunc         ,ONLY: ExactFunc
 ! IMPLICIT VARIABLE HANDLING
@@ -117,6 +121,10 @@ INTEGER :: MaxBCState,MaxBCStateGlobal
 LOGICAL :: readBCdone
 REAL    :: talpha,tbeta
 INTEGER :: p,q
+REAL    :: etaL, Lt, kMin, kEta, kEner, dkLog, deltaKi, Eki, kWave
+REAL    :: synTKE, synG
+REAL    :: thetaN, phiN, alphaN, tmpMean, tmpU1, tmpU2
+REAL    :: rannum(6)
 !==================================================================================================================================
 IF((.NOT.InterpolationInitIsDone).AND.(.NOT.MeshInitIsDone).AND.(.NOT.EquationInitIsDone))THEN
    CALL CollectiveStop(__STAMP__,&
@@ -131,8 +139,13 @@ DO iSide=1,nBCSides
   ! Check for max. Refstate used if current BC requires Refstate
   IF((locType.EQ. 2).OR.(locType.EQ. 4).OR. &
      (locType.EQ.23).OR.(locType.EQ.24).OR. &
-     (locType.EQ.25).OR.(locType.EQ.27)     ) MaxBCState = MAX(MaxBCState,locState)
+     (locType.EQ.25).OR.(locType.EQ.27).OR. &
+     (locType.EQ.30)                        ) MaxBCState = MAX(MaxBCState,locState)
 
+  IF (locType.EQ.30) THEN
+    activateFourier = .TRUE.
+  ENDIF 
+    
   ! If required, check if Refstate available
   IF (locState.LT.1) THEN
     SELECT CASE (locType)
@@ -146,6 +159,8 @@ DO iSide=1,nBCSides
       CALL Abort(__STAMP__,'No inflow refstate (Tt,alpha,beta,<empty>,pT,x,x) in refstate defined for BC_TYPE',locType)
     CASE(121,22)
       CALL Abort(__STAMP__,'No exactfunc defined for BC_TYPE',locType) ! Technically not a missing refstate but exactfunc
+    CASE(30)
+      CALL Abort(__STAMP__,'No REFSTATE (rho,x,x,x,p,x,x) defined to provide the mean flow for BC_TYPE',locType)
     END SELECT
   END IF
 #if FV_RECONSTRUCT
@@ -158,10 +173,15 @@ DO iSide=1,nBCSides
     END ASSOCIATE
   END IF
 #endif
+
 END DO
 MaxBCStateGLobal=MaxBCState
 #if USE_MPI
 CALL MPI_ALLREDUCE(MPI_IN_PLACE,MaxBCStateGlobal,1,MPI_INTEGER,MPI_MAX,MPI_COMM_FLEXI,iError)
+#endif /*USE_MPI*/
+
+#if USE_MPI
+CALL MPI_ALLREDUCE(MPI_IN_PLACE,activateFourier,1,MPI_LOGICAL,MPI_LOR,MPI_COMM_FLEXI,iError)
 #endif /*USE_MPI*/
 
 ! Sanity check for BCs
@@ -169,6 +189,113 @@ IF(MaxBCState.GT.nRefState)THEN
   CALL Abort(__STAMP__,&
     'ERROR: Boundary RefState not defined! (MaxBCState,nRefState):',MaxBCState,REAL(nRefState))
 END IF
+
+! initialize memory and assign the data for the synthetic fourier methods
+IF (activateFourier) THEN
+  SWRITE(UNIT_stdOut,'(132("-"))')
+  SWRITE(UNIT_stdOut,'(A)') ' INIT Synthetic Random Fourier Modes...'
+
+  ALLOCATE(uHat(nFourierModes))
+  ALLOCATE(omegaHat(nFourierModes))
+  ALLOCATE(psiHat(nFourierModes))
+  ALLOCATE(kHat(3,nFourierModes))
+  ALLOCATE(sigmaHat(3,nFourierModes))
+
+  etaL   = 0.0
+  Lt     = 0.0
+  synTKE = 0.0
+  synG   = 0.0
+  DO iSide=1,nBCs
+    locType =BoundaryType(iSide,BC_TYPE)
+    locState=BoundaryType(iSide,BC_STATE)
+    IF ( locType.EQ.30) THEN 
+      !initialize the spectrum information
+      synTKE = RefStatePrim(TKE,locState)
+      synG   = RefStatePrim(OMG,locState)
+      etaL  = (mu0/RefStatePrim(DENS,locState))**0.75 * synG**0.5 / synTKE**0.25
+      Lt    = 0.09 * SQRT(synTKE) * synG**2.0
+      RefStatePrim(TKE,locState) = 1.e-8
+    ENDIF
+  ENDDO
+  ! communicate between processors
+#if USE_MPI
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE,Lt,    1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_FLEXI,iError)
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE,etaL,  1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_FLEXI,iError)
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE,synTKE,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_FLEXI,iError)
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE,synG,  1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_FLEXI,iError)
+#endif /* MPI */
+
+  PRINT*, "Kolmogorov scale = ", etaL, ", integral scale = ", Lt
+  IF ( etaL.GE.Lt ) THEN 
+    PRINT*, "eta = ", etaL, ", Lt = ", Lt
+    CALL Abort(__STAMP__,'ERROR: Integral length scale smaller than Kolmogorov scale')
+  ENDIF
+  
+#if USE_MPI
+  IF(MPIRoot)THEN
+#endif /* MPI */
+    kEner = 0.747 / Lt
+    kMin  = kEner / 16.0
+    kEta  = 6.28 / etaL 
+    dkLog = ( LOG10(kEta) - LOG10(kMin) ) / ( nFourierModes - 1.0 ) 
+
+    DO i=1,nFourierModes
+      kWave = 10.0**( LOG10(kMin) + (i-0.5) * dkLog )
+      deltaKi = 10.0**( LOG10(kMin) + (i+0.5) * dkLog ) - 10.0**( LOG10(kMin) + (i-0.5) * dkLog )
+
+      Eki = 1.453 * 2.0 / 3.0 * synTKE * (kWave/kEner)**4.0 * EXP( -2.0*(kWave/kEta)**2.0 ) 
+      EKi = EKi / ( kEner * ( 1.0 + (kWave/kEner)**2.0 )**(17.0/6.0) ) 
+
+      uHat(i) = SQRT( Eki * deltaKi )
+
+      ! initialize the random parameters
+      CALL RANDOM_NUMBER(rannum(1:6))
+      thetaN    = ACOS(1.0 - 2.0 * rannum(1) ) ;
+      phiN      = 6.28 * rannum(2) ;
+      alphaN    = 6.28 * rannum(3) ;
+      psiHat(i) = 6.28 * rannum(4) ;
+
+      tmpMean = SQRT(2.0 / 3.0 * synTKE) * kWave ;
+
+      ! omega[mu, sigma^2]
+      tmpU1 = rannum(5)
+      tmpU2 = rannum(6)
+      omegaHat(i) = tmpMean + tmpMean*sqrt(-2.0*log(tmpU1))*cos(6.28*tmpU2);        
+
+      ! initialize the random vectors
+      kHat(1,i) = kWave * sin( thetaN ) * cos( phiN ) ;
+      kHat(2,i) = kWave * sin( thetaN ) * sin( phiN ) ;
+      kHat(3,i) = kWave * cos( thetaN ) ;        
+
+      sigmaHat(1,i)  = cos( alphaN ) ;
+      sigmaHat(2,i)  = sin( alphaN ) ;
+      sigmaHat(3,i)  = 0.0 ;
+
+      ! rotate theta about Y axis
+      tmpU1 = sigmaHat(3,i) ;
+      tmpU2 = sigmaHat(1,i) ;
+      sigmaHat(3,i)  = tmpU1 * cos( thetaN ) - tmpU2 * sin( thetaN ) ;
+      sigmaHat(1,i)  = tmpU1 * sin( thetaN ) + tmpU2 * cos( thetaN ) ;
+
+      !rotate phi about Z axis
+      tmpU1 = sigmaHat(1,i) ;
+      tmpU2 = sigmaHat(2,i) ;
+      sigmaHat(1,i)  = tmpU1 * cos( phiN ) - tmpU2 * sin( phiN ) ;
+      sigmaHat(2,i)  = tmpU1 * sin( phiN ) + tmpU2 * cos( phiN ) ;
+      
+    ENDDO
+#if USE_MPI
+  ENDIF
+  ! for other boundaries that does not have the boundary 30
+  CALL MPI_BCAST(uHat,    nFourierModes,  MPI_DOUBLE_PRECISION,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_BCAST(omegaHat,nFourierModes,  MPI_DOUBLE_PRECISION,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_BCAST(psiHat,  nFourierModes,  MPI_DOUBLE_PRECISION,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_BCAST(kHat,    nFourierModes*3,MPI_DOUBLE_PRECISION,0,MPI_COMM_FLEXI,iError)
+  CALL MPI_BCAST(sigmaHat,nFourierModes*3,MPI_DOUBLE_PRECISION,0,MPI_COMM_FLEXI,iError)
+#endif /*MPI*/
+SWRITE(UNIT_stdOut,'(A)')' INIT Synthetic Random Fourier Modes DONE!'
+SWRITE(UNIT_stdOut,'(132("-"))')
+ENDIF
 
 #if PARABOLIC
 ! Check for Blasius BCs and read parameters if this has not happened in the equation init
@@ -261,6 +388,7 @@ USE MOD_EOS          ,ONLY: PRESSURE_RIEMANN
 USE MOD_EOS_Vars     ,ONLY: sKappaM1,Kappa,KappaM1,R
 USE MOD_ExactFunc    ,ONLY: ExactFunc
 USE MOD_Equation_Vars,ONLY: IniExactFunc,BCDataPrim,RefStatePrim
+USE MOD_Exactfunc_Vars,ONLY: activateFourier,uHat,omegaHat,psiHat,kHat,sigmaHat,nFourierModes
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -278,9 +406,11 @@ REAL,INTENT(OUT)        :: UPrim_boundary(PRIM,0:Nloc,0:ZDIM(Nloc)) !< resulting
 ! LOCAL VARIABLES
 INTEGER                 :: p,q
 INTEGER                 :: BCType,BCState
+INTEGER                 :: iWave
 REAL,DIMENSION(PP_nVar) :: Cons
 REAL                    :: Ma,MaOut,c,cb,pt,pb ! for BCType==23,24,25.27
 REAL                    :: U,Tb,Tt,tmp1,tmp2,tmp3,A,Rplus,nv(3) ! for BCType==27
+REAL                    :: newCrd(3), phaseAngle  ! for BCtype==30
 !===================================================================================================================================
 BCType  = Boundarytype(BC(SideID),BC_TYPE)
 BCState = Boundarytype(BC(SideID),BC_STATE)
@@ -308,6 +438,48 @@ CASE(22)  ! Dirichlet-type: BCState specifies exactfunc to be used
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     CALL ExactFunc(BCState,t,Face_xGP(:,p,q),Cons)
     CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
+  END DO; END DO
+
+CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
+  DO q=0,ZDIM(Nloc); DO p=0,Nloc
+    UPrim_boundary(DENS,p,q)        = RefStatePrim(DENS,BCState)
+    UPrim_boundary(VEL1,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),NormVec( :,p,q))
+    UPrim_boundary(VEL2,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),TangVec1(:,p,q))
+    UPrim_boundary(VEL3,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),TangVec2(:,p,q))
+    UPrim_boundary(PRES:OMG,p,q)    = RefStatePrim(PRES:OMG,BCState)
+    UPrim_Boundary(TKE,p,q)         = 1.e-8
+  
+    !compute total pressure before synthetic
+    c  = SQRT(kappa*UPrim_boundary(PRES,p,q)/UPrim_boundary(DENS,p,q))
+    Ma = SQRT(DOT_PRODUCT(UPrim_Boundary(VELV,p,q),UPrim_Boundary(VELV,p,q)))/c
+    pt = UPrim_boundary(PRES,p,q)*((1+0.5*(kappa-1)*Ma*Ma)**(kappa*sKappaM1)) 
+    Tt = UPrim_boundary(TEMP,p,q)*(1+0.5*(kappa-1)*Ma*Ma)
+
+    IF (activateFourier) THEN 
+    ! adding perturbations
+      newCrd(1:3) = Face_xGP(1:3,p,q) - t * UPrim_boundary(VEL1:VEL3,p,q)
+      DO iWave=1,nFourierModes 
+        phaseAngle  = DOT_PRODUCT(newCrd(1:3), kHat(1:3,iWave)) + psiHat(iWave) + omegaHat(iWave)*t 
+        nv = 2.0 * uHat(iWave) * COS(phaseAngle) * sigmaHat(1:3,iWave)
+        UPrim_boundary(VEL1,p,q) = UPrim_boundary(VEL1,p,q) + DOT_PRODUCT(nv,NormVec( :,p,q))
+        UPrim_boundary(VEL2,p,q) = UPrim_boundary(VEL2,p,q) + DOT_PRODUCT(nv,TangVec1(:,p,q))
+        UPrim_boundary(VEL3,p,q) = UPrim_boundary(VEL3,p,q) + DOT_PRODUCT(nv,TangVec2(:,p,q))
+      ENDDO
+
+      ! compute new mach number, assuming c did not change much
+      Ma = SQRT(DOT_PRODUCT(UPrim_Boundary(VELV,p,q),UPrim_Boundary(VELV,p,q)))/c
+
+      ! use isentropic relation
+      UPrim_boundary(PRES,p,q) = pt/((1+0.5*(kappa-1)*Ma*Ma)**(kappa*sKappaM1)) 
+      UPrim_boundary(TEMP,p,q) = Tt/( 1+0.5*(kappa-1)*Ma*Ma)
+      UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(TEMP,p,q))
+
+      ! rotate state back to physical system
+      UPrim_boundary(VELV,p,q) = UPrim_boundary(VEL1,p,q)*NormVec( :,p,q) &
+                               + UPrim_boundary(VEL2,p,q)*TangVec1(:,p,q) &
+                               + UPrim_boundary(VEL3,p,q)*TangVec2(:,p,q)
+
+    ENDIF
   END DO; END DO
 
 CASE(3,4,9,91,23,24,25,27)
@@ -626,6 +798,29 @@ ELSE
     Flux = Flux + Fd_Face_loc
 #endif /*PARABOLIC*/
 
+CASE(30) ! Riemann-Type BCs
+  DO q=0,ZDIM(Nloc); DO p=0,Nloc
+    CALL PrimToCons(UPrim_master(:,p,q),  UCons_master(:,p,q))
+    !PRINT*, "prime master = ", UPrim_master(:,p,q)
+
+    CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
+    !PRINT*, "prime boundary = ", UPrim_boundary(:,p,q)
+
+  END DO; END DO ! p,q=0,PP_N
+  CALL Riemann(Nloc,Flux,UCons_master,UCons_boundary,UPrim_master,UPrim_boundary, &
+      NormVec,TangVec1,TangVec2,doBC=.TRUE.)
+#if PARABOLIC
+  CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
+       gradUx_master,gradUy_master,gradUz_master,&
+       gradUx_master,gradUy_master,gradUz_master,&
+       NormVec&
+#if EDDYVISCOSITY
+      ,muSGS_master(:,:,:,SideID),muSGS_master(:,:,:,SideID)&
+#endif
+  )
+  Flux = Flux + Fd_Face_loc
+#endif /*PARABOLIC*/
+
   CASE(3,4,9,91) ! Walls
 #if EDDYVISCOSITY
     muSGS_master(:,:,:,SideID)=0.
@@ -932,7 +1127,9 @@ ELSE
                         NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
   CASE(2,12,121,22,23,24,25,27) ! Riemann solver based BCs
-      Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
+    Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
+  CASE(30) 
+    Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
   CASE(3,4) ! No-slip wall BCs
     DO q=0,PP_NZ; DO p=0,PP_N
 #if PP_OPTLIFT == 0
@@ -1082,7 +1279,8 @@ END SUBROUTINE ReadBCFlow
 !==================================================================================================================================
 SUBROUTINE FinalizeBC()
 ! MODULES
-USE MOD_Equation_Vars,ONLY: BCData,BCDataPrim,nBCByType,BCSideID
+USE MOD_Equation_Vars   ,ONLY: BCData,BCDataPrim,nBCByType,BCSideID
+USE MOD_Exactfunc_Vars  ,ONLY: activateFourier,uHat,omegaHat,psiHat,kHat,sigmaHat
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -1093,6 +1291,13 @@ SDEALLOCATE(BCData)
 SDEALLOCATE(BCDataPrim)
 SDEALLOCATE(nBCByType)
 SDEALLOCATE(BCSideID)
+IF (activateFourier) THEN
+  SDEALLOCATE(uHat)
+  SDEALLOCATE(omegaHat)
+  SDEALLOCATE(psiHat)
+  SDEALLOCATE(kHat)
+  SDEALLOCATE(sigmaHat)
+ENDIF
 END SUBROUTINE FinalizeBC
 
 END MODULE MOD_GetBoundaryFlux

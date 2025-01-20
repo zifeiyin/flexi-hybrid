@@ -61,6 +61,14 @@ REAL              :: x_in(2)           !< inflow position for Blasius solution
 LOGICAL           :: BlasiusInitDone = .FALSE. !< Flag indicating that the parameters for Blasius have been read (they can be read
                                                !< both in exact func init and in BC init)
 #endif
+
+LOGICAL           :: activateFourier = .FALSE.
+INTEGER,PARAMETER :: nFourierModes   = 600
+REAL,ALLOCATABLE  :: uHat(:)
+REAL,ALLOCATABLE  :: omegaHat(:)
+REAL,ALLOCATABLE  :: psiHat(:)
+REAL,ALLOCATABLE  :: kHat(:,:)
+REAL,ALLOCATABLE  :: sigmaHat(:,:)
 !==================================================================================================================================
 
 END MODULE MOD_Exactfunc_Vars
