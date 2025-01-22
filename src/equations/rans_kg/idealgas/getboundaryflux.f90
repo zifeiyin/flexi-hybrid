@@ -214,7 +214,6 @@ IF (activateFourier) THEN
       synG   = RefStatePrim(OMG,locState)
       etaL  = (mu0/RefStatePrim(DENS,locState))**0.75 * synG**0.5 / synTKE**0.25
       Lt    = 0.09 * SQRT(synTKE) * synG**2.0
-      RefStatePrim(TKE,locState) = 1.e-8
     ENDIF
   ENDDO
   ! communicate between processors
@@ -228,6 +227,7 @@ IF (activateFourier) THEN
   PRINT*, "Kolmogorov scale = ", etaL, ", integral scale = ", Lt
   IF ( etaL.GE.Lt ) THEN 
     PRINT*, "eta = ", etaL, ", Lt = ", Lt
+    PRINT*, "TKE = ", synTKE, ", omega = ", 1.0/(0.09*synG*synG)
     CALL Abort(__STAMP__,'ERROR: Integral length scale smaller than Kolmogorov scale')
   ENDIF
   
