@@ -421,23 +421,34 @@ CASE(2) ! Exact function or refstate
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL ExactFunc(IniExactFunc,t,Face_xGP(:,p,q),Cons)
       CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
+      CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
     END DO; END DO
   ELSE
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       UPrim_boundary(:,p,q) = RefStatePrim(:,BCState)
+      CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
     END DO; END DO
   END IF
 
 CASE(12)  ! Dirichlet-type: BCState from readin state
-  UPrim_boundary(:,:,:) = BCDataPrim(:,:,:,SideID)
+  ! UPrim_boundary(:,:,:) = BCDataPrim(:,:,:,SideID)
+  DO q=0,ZDIM(Nloc); DO p=0,Nloc
+    UPrim_boundary(:,p,q) = BCDataPrim(:,p,q,SideID)
+    CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
+  END DO; END DO
 
 CASE(121) ! Dirichlet-type:BCState from exact function computed once at the beginning of the simulation
-  UPrim_boundary(:,:,:) = BCDataPrim(:,:,:,SideID)
+  ! UPrim_boundary(:,:,:) = BCDataPrim(:,:,:,SideID)
+  DO q=0,ZDIM(Nloc); DO p=0,Nloc
+    UPrim_boundary(:,p,q) = BCDataPrim(:,p,q,SideID)
+    CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
+  END DO; END DO
 
 CASE(22)  ! Dirichlet-type: BCState specifies exactfunc to be used
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     CALL ExactFunc(BCState,t,Face_xGP(:,p,q),Cons)
     CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
+    CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
   END DO; END DO
 
 CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
@@ -696,6 +707,54 @@ END SELECT ! BCType
 
 END SUBROUTINE GetBoundaryState
 
+
+SUBROUTINE RiemannInvariantBoundary(UPrim_inner,UPrim_outer,NormVec)
+USE MOD_EOS_Vars, ONLY: sKappaM1,Kappa,KappaM1,R
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+REAL,INTENT(IN)             :: UPrim_inner(PP_nVarPrim)
+REAL,INTENT(INOUT)          :: UPrim_outer(PP_nVarPrim)
+REAL,INTENT(IN)             :: NormVec(3)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                        :: ci,co,Vi,Vo,Mi,Mo,Rplus,Rminus,Ub,cb,sb
+!-----------------------------------------------------------------------------------------------------------------------------------
+ci = SQRT(kappa * UPrim_inner(PRES) / UPrim_inner(DENS))
+co = SQRT(kappa * UPrim_outer(PRES) / UPrim_outer(DENS))
+Vi = DOT_PRODUCT(UPrim_inner(VELV), NormVec(:))
+Vo = DOT_PRODUCT(UPrim_outer(VELV), Normvec(:))
+Mi = Vi / ci
+Mo = Vo / co
+IF (Mi .GE. 1.0) THEN
+  Rminus = Vi - 2.0 * sKappaM1 * ci
+ELSE
+  Rminus = Vo - 2.0 * sKappaM1 * co
+END IF
+IF (Mo .LE. -1.0) THEN
+  Rplus = Vo + 2.0 * sKappaM1 * co
+ELSE
+  Rplus = Vi + 2.0 * sKappaM1 * ci
+END IF
+Ub = 0.5 * (Rplus + Rminus)
+cb = 0.25 * kappaM1 * (Rplus - Rminus)
+IF (Ub .GE. 0.0) THEN
+  sb = ci**2 / (kappa * UPrim_inner(DENS)**kappaM1)
+  UPrim_outer(VELV) = UPrim_inner(VELV) - (Ub - Vi) * NormVec(:)
+  UPrim_outer(TKE)  = UPrim_inner(TKE)
+  UPrim_outer(OMG)  = UPrim_inner(OMG)
+ELSE
+  sb = co**2 / (kappa * UPrim_outer(DENS)**kappaM1)
+  UPrim_outer(VELV) = UPrim_outer(VELV) - (Ub - Vo) * NormVec(:)
+  ! UPrim_outer(TKE)  = UPrim_outer(TKE)
+  ! UPrim_outer(OMG)  = UPrim_outer(OMG)
+END IF
+UPrim_outer(DENS) = (cb**2 / (kappa * sb))**sKappaM1
+UPrim_outer(PRES) = UPrim_outer(DENS) * cb**2 / kappa
+UPrim_outer(TEMP) = UPrim_outer(PRES) / (R * UPrim_outer(DENS))
+END SUBROUTINE RiemannInvariantBoundary
+  
 
 !==================================================================================================================================
 !> Computes the boundary fluxes for a given face (defined by SideID).
