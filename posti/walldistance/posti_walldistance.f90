@@ -42,7 +42,7 @@ USE MOD_Walldistance,            ONLY: InitWalldistance,FinalizeWalldistance,Cal
 USE MOD_Interpolation,           ONLY: DefineParametersInterpolation,FinalizeInterpolation
 #if FV_ENABLED
 USE MOD_FV,                ONLY:DefineParametersFV,InitFV,FinalizeFV
-USE MOD_FV_Basis,          ONLY:InitFV_Basis,FinalizeFV_Basis
+USE MOD_FV_Basis,          ONLY:DefineParametersFV_Basis,InitFV_Basis,FinalizeFV_Basis
 #endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -61,6 +61,9 @@ CALL DefineParametersInterpolation()
 CALL DefineParametersMPI()
 CALL DefineParametersIO_HDF5()
 CALL DefineParametersMesh()
+#if FV_ENABLED
+CALL DefineParametersFV_Basis()
+#endif
 
 CALL prms%SetSection("walldistance")
 CALL prms%CreateIntOption("NSuper" , "Polynomial degree used for supersampling on the surface in the coarse search.")
