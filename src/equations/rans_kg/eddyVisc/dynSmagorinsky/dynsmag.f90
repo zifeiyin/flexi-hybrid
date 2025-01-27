@@ -83,9 +83,9 @@ END IF
 SWRITE(UNIT_StdOut,'(132("-"))')
 SWRITE(UNIT_stdOut,'(A)') ' INIT Dynamic Smagorinsky...'
 
-#if FV_ENABLED
-CALL CollectiveStop(__STAMP__,"The Dynamic Smagorinsky model is not tested for FV yet!.")
-#endif
+!#if FV_ENABLED
+!CALL CollectiveStop(__STAMP__,"The Dynamic Smagorinsky model is not tested for FV yet!.")
+!#endif
 
 ! Allocate necessary arrays
 ALLOCATE(yWall(0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
