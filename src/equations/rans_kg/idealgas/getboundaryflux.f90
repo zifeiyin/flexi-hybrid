@@ -33,6 +33,7 @@
 !>  * 23  : Outflow BC where the second entry of the refstate specifies the desired Mach number at the outflow
 !>  * 24  : Pressure outflow BC (pressure specified by refstate)
 !>  * 25  : Subsonic outflow BC
+!>  * 26  : Pressure outflow BC (pressure specified by refstate), without backflow
 !>  INFLOW BCs:
 !>  * 27  : Subsonic inflow BC, WARNING: REFSTATE is different: Tt,alpha,beta,<empty>,pT (4th entry ignored), angles in DEG
 !>  CUSTOM INFLOW BCs:
@@ -139,8 +140,8 @@ DO iSide=1,nBCSides
   ! Check for max. Refstate used if current BC requires Refstate
   IF((locType.EQ. 2).OR.(locType.EQ. 4).OR. &
      (locType.EQ.23).OR.(locType.EQ.24).OR. &
-     (locType.EQ.25).OR.(locType.EQ.27).OR. &
-     (locType.EQ.30)                        ) MaxBCState = MAX(MaxBCState,locState)
+     (locType.EQ.25).OR.(locType.EQ.26).OR. &
+     (locType.EQ.27).OR.(locType.EQ.30)     ) MaxBCState = MAX(MaxBCState,locState)
 
   IF (locType.EQ.30) THEN
     activateFourier = .TRUE.
@@ -153,7 +154,7 @@ DO iSide=1,nBCSides
       CALL Abort(__STAMP__,'No refstate (rho,x,x,x,p,x,x) defined to compute temperature from density and pressure for BC_TYPE',locType)
     CASE(23)
       CALL Abort(__STAMP__,'No outflow Mach number in refstate (x,Ma,x,x,x,x,x) defined for BC_TYPE',locType)
-    CASE(24,25)
+    CASE(24,25,26)
       CALL Abort(__STAMP__,'No outflow pressure in refstate (x,x,x,x,p,x,x) defined for BC_TYPE',locType)
     CASE(27)
       CALL Abort(__STAMP__,'No inflow refstate (Tt,alpha,beta,<empty>,pT,x,x) in refstate defined for BC_TYPE',locType)
@@ -408,7 +409,7 @@ INTEGER                 :: p,q
 INTEGER                 :: BCType,BCState
 INTEGER                 :: iWave
 REAL,DIMENSION(PP_nVar) :: Cons
-REAL                    :: Ma,MaOut,c,cb,pt,pb ! for BCType==23,24,25.27
+REAL                    :: Ma,MaOut,c,cb,pt,pb ! for BCType==23,24,25,26,27
 REAL                    :: U,Tb,Tt,tmp1,tmp2,tmp3,A,Rplus,nv(3) ! for BCType==27
 REAL                    :: newCrd(3), phaseAngle  ! for BCtype==30
 !===================================================================================================================================
@@ -493,7 +494,7 @@ CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
     ENDIF
   END DO; END DO
 
-CASE(3,4,9,91,23,24,25,27)
+CASE(3,4,9,91,23,24,25,26,27)
   ! Initialize boundary state with rotated inner state
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     ! transform state into normal system
@@ -635,6 +636,34 @@ CASE(3,4,9,91,23,24,25,27)
         UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
         UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
       ENDIF 
+    END DO; END DO !p,q
+
+  CASE(26) ! Pressure outflow BC, without backflow
+    DO q=0,ZDIM(Nloc); DO p=0,Nloc
+      ! check if sub- or supersonic
+      c  = SQRT(kappa*UPrim_boundary(PRES,p,q)/UPrim_boundary(DENS,p,q)) ! (19) local speed of sound from inside
+      Ma = UPrim_Boundary(VEL1,p,q)/c                                    ! (20) Mach number based on (inner) side-normal component
+      ! (25) set pressure depending on subsonic or supersonic case
+      IF(Ma<1) THEN ! subsonic
+        ! (26) Set boundary state
+        pb = RefStatePrim(5,BCState)                        ! Pressure prescribed at boundary by user
+        UPrim_boundary(DENS,p,q) = kappa*pb/(c*c)           ! Density based on inner speed of sound and boundary pressure
+        UPrim_boundary(VELV,p,q) = UPrim_boundary(VELV,p,q) ! Velocity from inner state
+        UPrim_boundary(PRES,p,q) = pb                       ! Pressure
+        ! set temperature via ideal gas equation, consistent to density and pressure
+        UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
+        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN 
+          UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
+          UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
+        ENDIF 
+      ELSE
+        ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
+        !             Hence, nothing to do here!
+      ENDIF
+      ! remove backflow
+      IF (UPrim_boundary(VEL1,p,q)<0.) THEN
+        UPrim_boundary(VEL1,p,q) = 0.
+      END IF
     END DO; END DO !p,q
 
   CASE(27) ! Subsonic inflow BC
@@ -838,7 +867,7 @@ ELSE
       NormVec,TangVec1,TangVec2,Face_xGP)
 
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,25,27) ! Riemann-Type BCs
+  CASE(2,12,121,22,23,24,25,26,27) ! Riemann-Type BCs
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL PrimToCons(UPrim_master(:,p,q),  UCons_master(:,p,q))
       CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
@@ -1131,7 +1160,7 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
       NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,3,4,9,91,12,121,22,23,24,25,27)
+  CASE(2,3,4,9,91,12,121,22,23,24,25,26,27)
     DO q=0,PP_NZ; DO p=0,PP_N
       gradU(:,p,q) = (UPrim_master(:,p,q) - UPrim_boundary(:,p,q)) * sdx_Face(p,q,3)
     END DO; END DO ! p,q=0,PP_N
@@ -1185,7 +1214,7 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
                         NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,25,27) ! Riemann solver based BCs
+  CASE(2,12,121,22,23,24,25,26,27) ! Riemann solver based BCs
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
   CASE(30) 
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
