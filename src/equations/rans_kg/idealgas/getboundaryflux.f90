@@ -716,6 +716,8 @@ CASE(3,4,9,91,23,24,25,26,27)
       UPrim_boundary(VEL3,p,q) = U*DOT_PRODUCT(nv(:),Tangvec2(:,p,q)) ! correctly into global coordinates below
       UPrim_boundary(PRES,p,q) = pb
       UPrim_boundary(TEMP,p,q) = Tb
+      UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
+      UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
     END DO; END DO !p,q
   END SELECT
 
