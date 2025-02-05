@@ -677,7 +677,7 @@ PPURE SUBROUTINE Riemann_RoeEntropyFix(F_L,F_R,U_LL,U_RR,F)
 ! MODULES
 USE MOD_EOS_Vars      ,ONLY: Kappa,KappaM1
 #ifdef SPLIT_DG
-USE MOD_SplitFlux ,ONLY: SplitDGSurface_pointer
+USE MOD_SplitFlux     ,ONLY: SplitDGSurface_pointer
 #endif /*SPLIT_DG*/
 IMPLICIT NONE
 !---------------------------------------------------------------------------------------------------------------------------------
@@ -693,16 +693,15 @@ INTEGER                 :: iVar
 REAL                    :: c_L,c_R
 REAL                    :: H_L,H_R
 REAL                    :: SqrtRho_L,SqrtRho_R,sSqrtRho,absVel
-REAL                    :: RoeVel(3),RoeH,Roec,RoeDens,Roek
+REAL                    :: RoeVel(3),RoeH,Roec,RoeDens
 REAL,DIMENSION(5)       :: r1,r2,r3,r4,r5,a,al,ar,Delta_U,Alpha  ! Roe eigenvectors
 REAL                    :: tmp,da
-REAL                    :: LambdaMax
-REAL                    :: lmfix
+REAL                    :: Ma_loc,cl,cr,lambdaMax
 !=================================================================================================================================
 c_L       = SPEEDOFSOUND_HE(U_LL)
 c_R       = SPEEDOFSOUND_HE(U_RR)
-H_L       = TOTALENTHALPY_HE(U_LL)
-H_R       = TOTALENTHALPY_HE(U_RR)
+H_L       = TOTALENTHALPY_NS_HE(U_LL)
+H_R       = TOTALENTHALPY_NS_HE(U_RR)
 SqrtRho_L = SQRT(U_LL(EXT_DENS))
 SqrtRho_R = SQRT(U_RR(EXT_DENS))
 
@@ -711,8 +710,7 @@ sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
 RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
 RoeH      = (SqrtRho_R*H_R+SqrtRho_L*H_L) * sSqrtRho
 absVel    = DOT_PRODUCT(RoeVel,RoeVel)
-Roek      = (SqrtRho_R*U_RR(EXT_TKE)+SqrtRho_L*U_LL(EXT_TKE)) * sSqrtRho
-Roec      = ROEC_RIEMANN_H(RoeH-Roek,RoeVel)
+Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
 RoeDens   = SQRT(U_LL(EXT_DENS)*U_RR(EXT_DENS))
 ! Roe+Pike version of Roe Riemann solver
 
@@ -720,6 +718,10 @@ RoeDens   = SQRT(U_LL(EXT_DENS)*U_RR(EXT_DENS))
 Delta_U(DELTA_U1)   = U_RR(EXT_DENS) - U_LL(EXT_DENS)
 Delta_U(DELTA_UV)   = U_RR(EXT_VELV) - U_LL(EXT_VELV)
 Delta_U(DELTA_U5)   = U_RR(EXT_PRES) - U_LL(EXT_PRES)
+
+! low Mach-Number fix
+Ma_loc = MIN(SQRT(absVel)/(Roec*SQRT(kappa)),1.0)
+Delta_U(DELTA_UV) = Delta_U(DELTA_UV) * Ma_loc
 
 ! mean eigenvalues and eigenvectors
 a  = (/ RoeVel(1)-Roec, RoeVel(1), RoeVel(1), RoeVel(1), RoeVel(1)+Roec      /)
@@ -731,12 +733,11 @@ r5 = (/ 1.,             a(5),      RoeVel(2), RoeVel(3), RoeH+RoeVel(1)*Roec /)
 
 ! calculate wave strenghts
 tmp      = 0.5/(Roec*Roec)
-lmfix    = MIN(1.0, (ABS(RoeVel(1)) + SQRT(DOT_PRODUCT(RoeVel(2:3), RoeVel(2:3)))) / Roec)
-Alpha(1) = tmp*(Delta_U(DELTA_U5)-RoeDens*Roec*lmfix*Delta_U(DELTA_U2))
+Alpha(1) = tmp*(Delta_U(DELTA_U5)-RoeDens*Roec*Delta_U(DELTA_U2))
 Alpha(2) = Delta_U(DELTA_U1) - Delta_U(DELTA_U5)*2.*tmp
 Alpha(3) = RoeDens*Delta_U(DELTA_U3)
 Alpha(4) = RoeDens*Delta_U(DELTA_U4)
-Alpha(5) = tmp*(Delta_U(DELTA_U5)+RoeDens*Roec*lmfix*Delta_U(DELTA_U2))
+Alpha(5) = tmp*(Delta_U(DELTA_U5)+RoeDens*Roec*Delta_U(DELTA_U2))
 
 ! Harten+Hyman entropy fix (apply only for acoustic waves, don't fix r)
 
@@ -764,29 +765,27 @@ DO iVar=1,5
   END IF
 END DO
 
+cl = SQRT(kappa * U_LL(EXT_PRES) / U_LL(EXT_DENS))
+cr = SQRT(kappa * U_RR(EXT_PRES) / U_RR(EXT_DENS))
+lambdaMax = MAX(ABS(U_LL(EXT_VEL1)) + cl, ABS(U_RR(EXT_VEL1)) + cr)
+
 #ifndef SPLIT_DG
-! assemble Roe flux
-F(1:5)=0.5*((F_L(1:5)+F_R(1:5)) - &
-               Alpha(1)*a(1)*r1 - &
-               Alpha(2)*a(2)*r2 - &
-               Alpha(3)*a(3)*r3 - &
-               Alpha(4)*a(4)*r4 - &
-               Alpha(5)*a(5)*r5)
-F(RHOK:RHOG)=0.5*(F_L(RHOK:RHOG)+F_R(RHOK:RHOG))
+F = 0.5 * (F_L + F_R)
 #else
-! get split flux
 CALL SplitDGSurface_pointer(U_LL,U_RR,F)
-! for KG or PI flux eigenvalues have to be altered to ensure consistent KE dissipation
+#endif
 ! assemble Roe flux
-F(1:5)= F(1:5) - 0.5*(Alpha(1)*a(1)*r1 + &
-                      Alpha(2)*a(2)*r2 + &
-                      Alpha(3)*a(3)*r3 + &
-                      Alpha(4)*a(4)*r4 + &
-                      Alpha(5)*a(5)*r5)
-#endif /*SPLIT_DG*/
-LambdaMax = MAX(ABS(U_RR(EXT_VEL1)),ABS(U_LL(EXT_VEL1))) + MAX(SPEEDOFSOUND_HE(U_LL),SPEEDOFSOUND_HE(U_RR))
-F(RHOK:RHOG) = F(RHOK:RHOG) - 0.5 * LambdaMax * (U_RR(RHOK:RHOG) - U_LL(RHOK:RHOG))
+F(1:5) = F(1:5) - 0.5 * ( &
+    Alpha(1) * a(1) * r1 + &
+    Alpha(2) * a(2) * r2 + &
+    Alpha(3) * a(3) * r3 + &
+    Alpha(4) * a(4) * r4 + &
+    Alpha(5) * a(5) * r5)
+F(ENER) = F(ENER) - 0.5 * lambdaMax * (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+F(RHOK) = F(RHOK) - 0.5 * lambdaMax * (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+F(RHOG) = F(RHOG) - 0.5 * lambdaMax * (U_RR(EXT_RHOG) - U_LL(EXT_RHOG))
 END SUBROUTINE Riemann_RoeEntropyFix
+
 
 !=================================================================================================================================
 !> low mach number Roe's approximate Riemann solver according to Oßwald(2015)
@@ -814,7 +813,7 @@ REAL                    :: RoeVel(3),RoeH,Roec,absVel
 REAL                    :: Ma_loc ! local Mach-Number
 REAL,DIMENSION(5)       :: a,r1,r2,r3,r4,r5  ! Roe eigenvectors
 REAL                    :: Alpha1,Alpha2,Alpha3,Alpha4,Alpha5,Delta_U(5+1)
-REAL                    :: lambdaMax
+REAL                    :: cl,cr,lambdaMax
 !=================================================================================================================================
 ! Roe flux
 H_L       = TOTALENTHALPY_NS_HE(U_LL)
@@ -844,7 +843,7 @@ Delta_U(DELTA_U6)   = Delta_U(DELTA_U5)-(Delta_U(DELTA_U3)-RoeVel(2)*Delta_U(DEL
                       (Delta_U(DELTA_U4)-RoeVel(3)*Delta_U(DELTA_U1))*RoeVel(3)
 
 ! low Mach-Number fix
-Ma_loc = SQRT(absVel)/(Roec*SQRT(kappa))
+Ma_loc = MIN(SQRT(absVel)/(Roec*SQRT(kappa)),1.0)
 Delta_U(DELTA_UV) = Delta_U(DELTA_UV) * Ma_loc
 
 ! calculate factors
@@ -854,15 +853,18 @@ Alpha2 = ALPHA2_RIEMANN_H(RoeH,RoeVel,Roec,Delta_U)
 Alpha1 = 0.5/Roec * (Delta_U(DELTA_U1)*(RoeVel(1)+Roec) - Delta_U(DELTA_U2) - Roec*Alpha2)
 Alpha5 = Delta_U(DELTA_U1) - Alpha1 - Alpha2
 
-lambdaMax = MAX(ABS(U_LL(EXT_VEL1)), ABS(U_RR(EXT_VEL1)))
+cl = SQRT(kappa * U_LL(EXT_PRES) / U_LL(EXT_DENS))
+cr = SQRT(kappa * U_RR(EXT_PRES) / U_RR(EXT_DENS))
+lambdaMax = MAX(ABS(U_LL(EXT_VEL1)) + cl, ABS(U_RR(EXT_VEL1)) + cr)
 
 #ifndef SPLIT_DG
 ! assemble Roe flux
-F(1:5)=0.5*((F_L(1:5)+F_R(1:5)) - &
-       Alpha1*ABS(a(1))*r1 - &
-       Alpha2*ABS(a(2))*r2 - &
-       Alpha3*ABS(a(3))*r3 - &
-       Alpha4*ABS(a(4))*r4 - &
+F = 0.5 * (F_L + F_R)
+F(1:5)=F(1:5) - 0.5 * ( &
+       Alpha1*ABS(a(1))*r1 + &
+       Alpha2*ABS(a(2))*r2 + &
+       Alpha3*ABS(a(3))*r3 + &
+       Alpha4*ABS(a(4))*r4 + &
        Alpha5*ABS(a(5))*r5)
 #else
 ! get split flux
