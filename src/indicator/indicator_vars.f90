@@ -41,5 +41,7 @@ REAL                   :: sdT_FV                      !< Precomputed variable fo
 REAL                   :: SobelFilterMatrix(1:2,1:3,1:3)
 REAL,ALLOCATABLE       :: VdmGaussEqui(:,:)
 #endif
+INTEGER                :: nSingularPoints
+REAL,ALLOCATABLE       :: singularPoints(:,:)
 !==================================================================================================================================
 END MODULE MOD_Indicator_Vars

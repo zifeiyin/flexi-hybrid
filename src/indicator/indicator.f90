@@ -107,6 +107,7 @@ CALL prms%CreateIntOption('nModes',        "Number of highest modes to be checke
 CALL prms%CreateLogicalOption('FVBoundaries',  "Use FV discretization in element that contains a side of a certain BC_TYPE", '.FALSE.')
 CALL prms%CreateIntOption    ('FVBoundaryType',"BC_TYPE that should be discretized with FV."//&
                                                "Set it to BC_TYPE, setting 0 will apply FV to all BC Sides",multiple=.TRUE.)
+CALL prms%CreateRealArrayOption('FVSingularPoint', "For elem whose DoF falls into the cylinder given by (xs, ys, radius), it is switched to FV",multiple=.TRUE.)
 END SUBROUTINE DefineParametersIndicator
 
 
@@ -118,7 +119,7 @@ SUBROUTINE InitIndicator()
 USE MOD_Preproc
 USE MOD_Globals
 USE MOD_Indicator_Vars
-USE MOD_ReadInTools         ,ONLY: GETINT,GETREAL,GETINTFROMSTR,GETLOGICAL,CountOption
+USE MOD_ReadInTools         ,ONLY: GETINT,GETREAL,GETINTFROMSTR,GETLOGICAL,CountOption,GETREALARRAY
 USE MOD_Mesh_Vars           ,ONLY: nElems
 USE MOD_IO_HDF5             ,ONLY: AddToElemData,ElementOut
 USE MOD_Overintegration_Vars,ONLY: NUnder
@@ -133,6 +134,7 @@ INTEGER                                  :: nModes_In
 #if FV_ENABLED == 1
 INTEGER                                  :: iBC,nFVBoundaryType
 #endif
+INTEGER                                  :: i
 !==================================================================================================================================
 IF(IndicatorInitIsDone)THEN
   CALL CollectiveStop(__STAMP__,&
@@ -211,6 +213,14 @@ DO iBC=1,nFVBoundaryType
 END DO
 #endif /* FV_ENABLED == 1 */
 
+nSingularPoints = CountOption('FVSingularPoint')
+IF (nSingularPoints.GT.0) THEN
+  ALLOCATE(singularPoints(3,nSingularPoints))
+  DO i=1,nSingularPoints
+    singularPoints(:,i) = GETREALARRAY('FVSingularPoint',3)
+  END DO
+END IF
+
 IndicatorInitIsDone=.TRUE.
 SWRITE(UNIT_stdOut,'(A)')' INIT INDICATOR DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
@@ -224,7 +234,7 @@ SUBROUTINE CalcIndicator(U,t)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Indicator_Vars   ,ONLY: IndicatorType,IndValue,IndStartTime
+USE MOD_Indicator_Vars   ,ONLY: IndicatorType,IndValue,IndStartTime,nSingularPoints,singularPoints
 USE MOD_Mesh_Vars        ,ONLY: offsetElem,Elem_xGP,nElems
 #if PARABOLIC && ((EQNSYSNR == 2) || (EQNSYSNR == 4))
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
@@ -251,7 +261,7 @@ REAL,INTENT(INOUT),TARGET :: U(1:PP_nVar,0:PP_N,0:PP_N,0:PP_NZ,1:nElems)   !< So
 REAL,INTENT(IN)           :: t                                            !< Simulation time
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-INTEGER                   :: iElem
+INTEGER                   :: iElem,i,j,k,iSP
 #if FV_ENABLED == 1
 REAL,POINTER              :: U_P(:,:,:,:)
 REAL,TARGET               :: U_DG(1:PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
@@ -344,6 +354,20 @@ CASE DEFAULT ! unknown Indicator Type
   CALL Abort(__STAMP__,&
     "Unknown IndicatorType!")
 END SELECT
+
+IF (nSingularPoints.GT.0) THEN
+  DO iElem = 1,nElems
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      DO iSP=1,nSingularPoints
+        IF (SQRT( &
+          (Elem_xGP(1,i,j,k,iElem) - singularPoints(1,iSP))**2 + &
+          (Elem_xGP(2,i,j,k,iElem) - singularPoints(2,iSP))**2) .LE. singularPoints(3,iSP)) THEN
+          IndValue(iElem) = 100.0
+        END IF
+      END DO
+    END DO; END DO; END DO ! i,j,k=0,PP_N
+  END DO
+END IF
 
 #if FV_ENABLED == 1
 ! obtain indicator value for elements that contain domain boundaries
