@@ -862,6 +862,7 @@ REAL                :: dGdG
 REAL                :: bodyForce(3)
 REAL                :: lambda
 REAL                :: comp_f, comp_c, comp_t, comp_qx, comp_qy, comp_qz, comp_q, comp_u, comp_M, comp_utau, comp_Mtau, comp_Bq
+REAL                :: dkdg, wilcox06_cross
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -896,6 +897,8 @@ DO iElem=1,nElems
 
     dGdG = gx * gx + gy * gy
 
+    dkdg = kx * gx + ky * gy
+
     comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
     comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
     ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2)
@@ -925,6 +928,8 @@ DO iElem=1,nElems
         Sxz * wx + Syz * wy + Szz * wz
 
     dGdG = gx * gx + gy * gy + gz * gz
+
+    dkdg = kx * gx + ky * gy + kz * gz
 
     comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
     comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
@@ -973,8 +978,16 @@ DO iElem=1,nElems
     crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
     ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
+    ! cross diffusion term in Wilcox 2006
+    ! wilcox06_cross = 0.0
+    IF (dkdg .GE. 0.0) THEN
+      wilcox06_cross = 0.0
+    ELSE
+      wilcox06_cross = 0.125 * (Cmu * gPos**2) * dkdg
+    END IF
+
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
-    Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem)
+    Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem) + wilcox06_cross
   END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED
