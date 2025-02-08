@@ -347,7 +347,7 @@ USE MOD_Analyze_Vars ,ONLY: WriteData_dt
 USE MOD_AnalyzeEquation_Vars
 USE MOD_EddyVisc_Vars,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,fd,Cdes2,SijUij,dGidGi
 #if FV_ENABLED
-USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm
+USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm,FV_sVdm
 USE MOD_ChangeBasisByDim,ONLY:ChangeBasisVolume
 #endif
 ! IMPLICIT VARIABLE HANDLING
@@ -385,11 +385,20 @@ IF(ANY(CalcAvg(6:nMaxVarAvg))) getPrims=.TRUE.
 DO iElem=1,nElems
 
 #if FV_ENABLED
-  IF(FV_Elems(iElem).EQ.0) THEN ! DG Element
-    CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,U(:,:,:,:,iElem),UFV)
-    Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => UFV
-  ELSE ! already FV
-    Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => U(:,:,:,:,iElem)
+  IF(TimeAvgInFV) THEN
+    IF(FV_Elems(iElem).EQ.0) THEN ! DG Element
+      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_Vdm,U(:,:,:,:,iElem),UFV)
+      Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => UFV
+    ELSE ! already FV
+      Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => U(:,:,:,:,iElem)
+    END IF
+  ELSE
+    IF(FV_Elems(iElem).GT.0) THEN ! FV Element
+      CALL ChangeBasisVolume(PP_nVar,PP_N,PP_N,FV_sVdm,U(:,:,:,:,iElem),UFV)
+      Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => UFV
+    ELSE ! already DG
+      Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => U(:,:,:,:,iElem)
+    END IF
   END IF
 #else
     Uloc(CONS,0:PP_N,0:PP_N,0:PP_NZ) => U(:,:,:,:,iElem)
@@ -595,7 +604,15 @@ IF(Finalize)THEN
   IF(nVarAvg .GT.0) UAvg =UAvg /dtAvg
   IF(nVarFluc.GT.0) UFluc=UFluc/dtAvg
   tFuture=t+WriteData_dt
+#if FV_ENABLED
+  IF (TimeAvgInFV) THEN
+    FV_Elems_loc=FV_ENABLED
+  ELSE
+    FV_Elems_loc=0
+  END IF
+#else
   FV_Elems_loc=FV_ENABLED
+#endif
   CALL WriteTimeAverage(MeshFile,t,dtAvg,FV_Elems_loc,(/PP_N+1,PP_N+1,PP_NZ+1/),&
                         nVarAvg ,VarNamesAvgOut ,UAvg ,&
                         nVarFluc,VarNamesFlucOut,UFluc,&

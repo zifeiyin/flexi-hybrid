@@ -73,6 +73,9 @@ CALL prms%CreateStringOption( 'VarNameAvg'       , "Names of variables to be tim
 CALL prms%CreateStringOption( 'VarNameFluc'      , "Names of variables for which Flucs (time-averaged&
                                                    & square of the variable) should be computed.&
                                                    & Required for computing actual fluctuations."      , multiple=.TRUE.)
+#if FV_ENABLED                                                 
+CALL prms%CreateLogicalOption('TimeAvgInFV'      , "Set true to write timeavg in FV basis"            , '.TRUE.')
+#endif
 END SUBROUTINE DefineParametersAnalyzeEquation
 
 
@@ -109,6 +112,9 @@ doWriteMeanFlux     = GETLOGICAL('WriteMeanFlux')
 doWriteWallVelocity = GETLOGICAL('WriteWallVelocity')
 doWriteTotalStates  = GETLOGICAL('WriteTotalStates')
 doCalcTimeAverage   = GETLOGICAL('CalcTimeAverage')
+#if FV_ENABLED
+TimeAvgInFV         = GETLOGICAL('TimeAvgInFV')
+#endif
 
 ! Generate wallmap
 ALLOCATE(isWall(nBCs))

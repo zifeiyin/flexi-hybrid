@@ -65,5 +65,9 @@ CHARACTER(LEN=255),ALLOCATABLE :: VarNamesAvgOut(:)       !< time averaged varia
 CHARACTER(LEN=255),ALLOCATABLE :: VarNamesFlucOut(:)      !< fluctuation variable names
 REAL                 :: dtAvg                             !< sum of timesteps
 REAL                 :: dtOld                             !< dt from previous iteration
+
+#if FV_ENABLED
+LOGICAL              :: TimeAvgInFV                       !< timeavg in fv basis
+#endif
 !==================================================================================================================================
 END MODULE MOD_AnalyzeEquation_Vars
