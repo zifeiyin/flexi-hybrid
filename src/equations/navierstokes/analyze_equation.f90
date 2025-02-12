@@ -112,9 +112,6 @@ doWriteMeanFlux     = GETLOGICAL('WriteMeanFlux')
 doWriteWallVelocity = GETLOGICAL('WriteWallVelocity')
 doWriteTotalStates  = GETLOGICAL('WriteTotalStates')
 doCalcTimeAverage   = GETLOGICAL('CalcTimeAverage')
-#if FV_ENABLED
-TimeAvgInFV         = GETLOGICAL('TimeAvgInFV')
-#endif
 
 ! Generate wallmap
 ALLOCATE(isWall(nBCs))
