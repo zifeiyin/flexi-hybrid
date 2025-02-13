@@ -67,6 +67,7 @@ CALL prms%CreateLogicalOption('CalcTotalStates'  , "Set true to compute total st
 CALL prms%CreateLogicalOption('CalcTimeAverage'  , "Set true to compute time averages"                , '.FALSE.')
 CALL prms%CreateLogicalOption('CalcTurbulence'   , "Set true to compute upper and lower turbulence"   , '.TRUE.')
 CALL prms%CreateLogicalOption('CalcTurbSource'   , "Set true to compute upper and lower turb sources" , '.FALSE.')
+CALL prms%CreateLogicalOption('CalcWallFluxes'   , "Set true to compute wall fluxes"                  , '.FALSE.')
 CALL prms%CreateLogicalOption('WriteBodyForces'  , "Set true to write bodyforces to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteBulkState'   , "Set true to write bulk state to file"             , '.TRUE.')
 CALL prms%CreateLogicalOption('WriteMeanFlux'    , "Set true to write mean flux to file"              , '.TRUE.')
@@ -112,6 +113,7 @@ doCalcWallVelocity  = GETLOGICAL('CalcWallVelocity')
 doCalcTotalStates   = GETLOGICAL('CalcTotalStates')
 doCalcTurbulence    = GETLOGICAL('CalcTurbulence')
 doCalcTurbSource    = GETLOGICAL('CalcTurbSource')
+doCalcWallFluxes    = GETLOGICAL('CalcWallFluxes')
 doWriteBodyForces   = GETLOGICAL('WriteBodyForces')
 doWriteBulkState    = GETLOGICAL('WriteBulkState')
 doWriteMeanFlux     = GETLOGICAL('WriteMeanFlux')
@@ -197,7 +199,7 @@ USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Analyze_Vars
 USE MOD_AnalyzeEquation_Vars
-USE MOD_CalcBodyForces,     ONLY: CalcBodyForces
+USE MOD_CalcBodyForces,     ONLY: CalcBodyForces,CalcWallFluxes
 USE MOD_Mesh_Vars,          ONLY: BoundaryName,nBCs,BoundaryType
 USE MOD_Output,             ONLY: OutputToFile
 USE MOD_EddyVisc_Vars,      ONLY: eddyViscType
@@ -299,6 +301,10 @@ IF(MPIRoot.AND.doCalcTurbSource)THEN
   WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(9:21:2)
   WRITE(formatStr,'(A,I2,A)')'(A14,',7,'ES18.9)'
   WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(10:22:2)
+END IF
+
+IF (doCalcWallFluxes) THEN
+  CALL CalcWallFluxes()
 END IF
 
 END SUBROUTINE AnalyzeEquation

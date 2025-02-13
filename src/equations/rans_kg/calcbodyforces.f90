@@ -26,7 +26,11 @@ INTERFACE CalcBodyForces
   MODULE PROCEDURE CalcBodyForces
 END INTERFACE
 
-PUBLIC :: CalcBodyForces
+INTERFACE CalcWallFluxes
+  MODULE PROCEDURE CalcWallFluxes
+END INTERFACE
+
+PUBLIC :: CalcBodyForces, CalcWallFluxes
 !==================================================================================================================================
 
 CONTAINS
@@ -112,7 +116,7 @@ IF (doCalcBodyForcesDOF) THEN
   Fpa = 0.
   Fva = 0.
 
-  WRITE(OutputFileName, '(A, "_", I4.4, ".csv")') trim(TIMESTAMP("bodyforce", t)), myRank 
+  WRITE(OutputFileName, '(A, "_", I4.4, ".csv")') trim(TIMESTAMP("bodyforce", t)), myRank
   OPEN(UNIT=OutputFileID, FILE=trim(OutputFileName), STATUS='UNKNOWN', ACTION='WRITE')
 
   ! #if !PARABOLIC
@@ -308,5 +312,117 @@ END DO; END DO
 
 END SUBROUTINE CalcViscousForceDOF
 #endif /*PARABOLIC*/
+
+!==================================================================================================================================
+!> Control routine for CalcWallFluxes
+!==================================================================================================================================
+SUBROUTINE CalcWallFluxes()
+! MODULES
+USE MOD_Globals
+USE MOD_Preproc
+USE MOD_DG_Vars,         ONLY:UPrim_master
+USE MOD_Lifting_Vars,    ONLY:gradUx_master,gradUy_master,gradUz_master
+USE MOD_Mesh_Vars,       ONLY:NormVec,SurfElem,nBCSides,BC,nBCs,Face_xGP
+USE MOD_AnalyzeEquation_Vars,ONLY:isWall
+USE MOD_TimeDisc_Vars,   ONLY:t
+USE MOD_EOS_Vars,        ONLY: cp,Pr
+USE MOD_Viscosity
+USE MOD_Output_Vars,     ONLY: ProjectName
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER                        :: nWallDoFs,iWallDoF
+INTEGER                        :: SideID,iBC
+REAL,ALLOCATABLE               :: WallFluxes(:,:),AllWallFluxes(:,:)
+INTEGER                        :: i,j
+REAL                           :: UPrim(PP_nVarPrim),gradU(PP_nVarLifting,3),gradV(3,3),gradT(3),tau(3,3)
+REAL                           :: divV,muS,lambda
+INTEGER                        :: OutputFileID
+CHARACTER(LEN=64)              :: OutputFileName
+CHARACTER(LEN=64)              :: FormatStr
+INTEGER                        :: nAllWallDoFs
+#if USE_MPI
+INTEGER,ALLOCATABLE            :: nNodeWallDoFs(:),nOffSetWallDoFs(:)
+#endif
+!==================================================================================================================================
+nWallDoFs = 0
+DO SideID=1,nBCSides
+  iBC = BC(SideID)
+  IF (isWall(iBC)) THEN
+    nWallDoFs = nWallDoFs + (1 + PP_N) * (1 + PP_NZ)
+  END IF
+END DO
+! x, y, z, S, nx, ny, nz, p, q, tx, ty, tz
+ALLOCATE(WallFluxes(12,nWallDoFs))
+iWallDoF = 0
+DO SideID=1,nBCSides
+  iBC = BC(SideID)
+  IF (.NOT.isWall(iBC)) CYCLE
+  DO j=0,PP_NZ; DO i=0,PP_N
+    iWallDoF = iWallDoF + 1
+    UPrim = UPrim_master(:,i,j,SideID)
+    gradU(:,1) = gradUx_master(:,i,j,SideID)
+    gradU(:,2) = gradUy_master(:,i,j,SideID)
+    gradU(:,3) = gradUz_master(:,i,j,SideID)
+    gradV = gradU(LIFT_VELV,:)
+    gradT = gradU(LIFT_TEMP,:)
+    divV = gradV(1,1) + gradV(2,2) + gradV(3,3)
+    muS = VISCOSITY_PRIM(UPrim)
+    lambda = THERMAL_CONDUCTIVITY_H(muS)
+    tau = gradV + TRANSPOSE(gradV)
+    tau(1,1) = tau(1,1) - (2.0/3.0) * divV
+    tau(2,2) = tau(2,2) - (2.0/3.0) * divV
+    tau(3,3) = tau(3,3) - (2.0/3.0) * divV
+    WallFluxes(1:3,   iWallDoF) = Face_xGP(:,i,j,0,SideID)
+    WallFluxes(4,     iWallDoF) = SurfElem(i,j,0,SideID)
+    WallFluxes(5:7,   iWallDoF) = NormVec(:,i,j,0,SideID)
+    WallFluxes(8,     iWallDoF) = UPrim(PRES)
+    WallFluxes(9,     iWallDoF) = -lambda * DOT_PRODUCT(NormVec(:,i,j,0,SideID), gradT)
+    WallFluxes(10:12, iWallDoF) = -muS * MATMUL(NormVec(:,i,j,0,SideID), tau)
+  END DO; END DO
+END DO
+#if USE_MPI
+IF (MPIRoot) THEN
+  ALLOCATE(nNodeWallDoFs(nProcessors))
+  ALLOCATE(nOffsetWallDoFs(nProcessors))
+END IF
+CALL MPI_GATHER(nWallDoFs,     1, MPI_INTEGER, &
+                nNodeWallDoFs, 1, MPI_INTEGER, 0, MPI_COMM_FLEXI, iError)
+IF (MPIRoot) THEN
+  nAllWallDoFs = SUM(nNodeWallDoFs)
+  ALLOCATE(AllWallFluxes(12,nAllWallDoFs))
+  nOffSetWallDoFs(1) = 0
+  DO i=2,nProcessors
+    nOffSetWallDoFs(i) = nOffSetWallDoFs(i-1) + 12 * nNodeWallDoFs(i-1)
+  END DO
+  ! array is of size (n, 12)
+  nNodeWallDoFs = 12 * nNodeWallDoFs
+END IF
+CALL MPI_GATHERV(WallFluxes,    12 * nWallDoFs,                 MPI_DOUBLE_PRECISION, &
+                 AllWallFluxes, nNodeWallDoFs, nOffSetWallDoFs, MPI_DOUBLE_PRECISION, &
+                 0, MPI_COMM_FLEXI, iError)
+#else
+nAllWallDoFs = nWallDoFs
+ALLOCATE(AllWallFluxes(12,nAllWallDoFs))
+AllWallFluxes = WallFluxes
+#endif
+
+IF (MPIRoot) THEN
+  OutputFileName = TRIM(TIMESTAMP(TRIM(ProjectName)//'_WallFluxes',t))//'.csv'
+  OPEN(UNIT=OutputFileID, FILE=OutputFileName, STATUS='UNKNOWN', ACTION='WRITE')
+  WRITE(OutputFileID, '(A)') "x, y, z, S, nx, ny, nz, p, q, tx, ty, tz"
+  DO i=1,nAllWallDoFs
+    WRITE(OutputFileID, '(E23.14E5, 11(",",1X,E23.14E5))') AllWallFluxes(:,i)
+  END DO
+  CLOSE(OutputFileID)
+END IF
+
+SDEALLOCATE(WallFluxes)
+SDEALLOCATE(AllWallFluxes)
+#if USE_MPI
+SDEALLOCATE(nNodeWallDoFs)
+SDEALLOCATE(nOffsetWallDoFs)
+#endif
+END SUBROUTINE CalcWallFluxes
 
 END MODULE MOD_CalcBodyForces

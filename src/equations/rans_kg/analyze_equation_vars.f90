@@ -35,6 +35,7 @@ LOGICAL              :: doCalcTotalStates   =.FALSE.      !< marks if total stat
 LOGICAL              :: doCalcWallVelocity  =.FALSE.      !< marks if wall velocity shall be computed
 LOGICAL              :: doCalcTurbulence    =.FALSE.      !< marks if upper and lower bounds of turbulence quantities are computed
 LOGICAL              :: doCalcTurbSource    =.FALSE.      !< marks if upper and lower bounds of turbulence sources are computed
+LOGICAL              :: doCalcWallFluxes    =.FALSE.      !< marks if wall fluxes are computed
 LOGICAL              :: doWriteBodyForces   =.FALSE.      !< marks if body forces at walls shall be written to a file
 LOGICAL              :: doWriteBulkState    =.FALSE.      !< marks if bulk state shall be written to a file
 LOGICAL              :: doWriteMeanFlux     =.FALSE.      !< marks if mean flux shall be written to a file
