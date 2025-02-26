@@ -322,7 +322,7 @@ USE MOD_Globals
 USE MOD_Preproc
 USE MOD_DG_Vars,         ONLY:UPrim_master
 USE MOD_Lifting_Vars,    ONLY:gradUx_master,gradUy_master,gradUz_master
-USE MOD_Mesh_Vars,       ONLY:NormVec,SurfElem,nBCSides,BC,nBCs,Face_xGP
+USE MOD_Mesh_Vars,       ONLY:NormVec,SurfElem,nBCSides,BC,nBCs,Face_xGP,BoundaryName
 USE MOD_AnalyzeEquation_Vars,ONLY:isWall
 USE MOD_TimeDisc_Vars,   ONLY:t
 USE MOD_EOS_Vars,        ONLY: cp,Pr
@@ -337,9 +337,8 @@ REAL,ALLOCATABLE               :: WallFluxes(:,:),AllWallFluxes(:,:)
 INTEGER                        :: i,j
 REAL                           :: UPrim(PP_nVarPrim),gradU(PP_nVarLifting,3),gradV(3,3),gradT(3),tau(3,3)
 REAL                           :: divV,muS,lambda
-INTEGER                        :: OutputFileID
-CHARACTER(LEN=64)              :: OutputFileName
-CHARACTER(LEN=64)              :: FormatStr
+INTEGER                        :: OutputFileID(nBCs)
+CHARACTER(LEN=64)              :: OutputFileName(nBCs)
 INTEGER                        :: nAllWallDoFs
 #if USE_MPI
 INTEGER,ALLOCATABLE            :: nNodeWallDoFs(:),nOffSetWallDoFs(:)
@@ -352,8 +351,8 @@ DO SideID=1,nBCSides
     nWallDoFs = nWallDoFs + (1 + PP_N) * (1 + PP_NZ)
   END IF
 END DO
-! x, y, z, S, nx, ny, nz, p, q, tx, ty, tz
-ALLOCATE(WallFluxes(12,nWallDoFs))
+! x, y, z, S, nx, ny, nz, p, q, tx, ty, tz, iBC
+ALLOCATE(WallFluxes(13,nWallDoFs))
 iWallDoF = 0
 DO SideID=1,nBCSides
   iBC = BC(SideID)
@@ -379,6 +378,7 @@ DO SideID=1,nBCSides
     WallFluxes(8,     iWallDoF) = UPrim(PRES)
     WallFluxes(9,     iWallDoF) = -lambda * DOT_PRODUCT(NormVec(:,i,j,0,SideID), gradT)
     WallFluxes(10:12, iWallDoF) = -muS * MATMUL(NormVec(:,i,j,0,SideID), tau)
+    WallFluxes(13,    iWallDoF) = iBC
   END DO; END DO
 END DO
 #if USE_MPI
@@ -390,31 +390,39 @@ CALL MPI_GATHER(nWallDoFs,     1, MPI_INTEGER, &
                 nNodeWallDoFs, 1, MPI_INTEGER, 0, MPI_COMM_FLEXI, iError)
 IF (MPIRoot) THEN
   nAllWallDoFs = SUM(nNodeWallDoFs)
-  ALLOCATE(AllWallFluxes(12,nAllWallDoFs))
+  ALLOCATE(AllWallFluxes(13,nAllWallDoFs))
   nOffSetWallDoFs(1) = 0
   DO i=2,nProcessors
-    nOffSetWallDoFs(i) = nOffSetWallDoFs(i-1) + 12 * nNodeWallDoFs(i-1)
+    nOffSetWallDoFs(i) = nOffSetWallDoFs(i-1) + 13 * nNodeWallDoFs(i-1)
   END DO
-  ! array is of size (n, 12)
-  nNodeWallDoFs = 12 * nNodeWallDoFs
+  ! array is of size (n, 13)
+  nNodeWallDoFs = 13 * nNodeWallDoFs
 END IF
-CALL MPI_GATHERV(WallFluxes,    12 * nWallDoFs,                 MPI_DOUBLE_PRECISION, &
+CALL MPI_GATHERV(WallFluxes,    13 * nWallDoFs,                 MPI_DOUBLE_PRECISION, &
                  AllWallFluxes, nNodeWallDoFs, nOffSetWallDoFs, MPI_DOUBLE_PRECISION, &
                  0, MPI_COMM_FLEXI, iError)
 #else
 nAllWallDoFs = nWallDoFs
-ALLOCATE(AllWallFluxes(12,nAllWallDoFs))
+ALLOCATE(AllWallFluxes(13,nAllWallDoFs))
 AllWallFluxes = WallFluxes
 #endif
 
 IF (MPIRoot) THEN
-  OutputFileName = TRIM(TIMESTAMP(TRIM(ProjectName)//'_WallFluxes',t))//'.csv'
-  OPEN(UNIT=OutputFileID, FILE=OutputFileName, STATUS='UNKNOWN', ACTION='WRITE')
-  WRITE(OutputFileID, '(A)') "x, y, z, S, nx, ny, nz, p, q, tx, ty, tz"
-  DO i=1,nAllWallDoFs
-    WRITE(OutputFileID, '(E23.14E5, 11(",",1X,E23.14E5))') AllWallFluxes(:,i)
+  DO iBC=1,nBCs
+    OutputFileName(iBC) = TRIM(TIMESTAMP(TRIM(ProjectName)//'_WallFluxes_'//TRIM(BoundaryName(iBC)),t))//'.csv'
+    IF (isWall(iBC)) THEN
+      OPEN(newunit=OutputFileID(iBC), FILE=OutputFileName(iBC), STATUS='UNKNOWN', ACTION='WRITE')
+      WRITE(OutputFileID(iBC), '(A)') "x, y, z, S, nx, ny, nz, p, q, tx, ty, tz"
+    END IF
   END DO
-  CLOSE(OutputFileID)
+  DO i=1,nAllWallDoFs
+    WRITE(OutputFileID(nint(AllWallFluxes(13,i))), '(E23.14E5, 11(",",1X,E23.14E5))') AllWallFluxes(1:12,i)
+  END DO
+  DO iBC=1,nBCs
+    IF (isWall(iBC)) THEN
+      CLOSE(OutputFileID(iBC))
+    END IF
+  END DO
 END IF
 
 SDEALLOCATE(WallFluxes)
