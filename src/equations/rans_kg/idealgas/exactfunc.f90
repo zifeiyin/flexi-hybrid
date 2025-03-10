@@ -942,12 +942,16 @@ DO iElem=1,nElems
     END ASSOCIATE
 #endif
 
+#if PP_VISC != 0
     comp_c    = SPEEDOFSOUND_H(UPrim(PRES),(1.0/UPrim(DENS)))
     comp_M    = comp_u / comp_c
     comp_utau = SQRT(comp_t / UPrim(DENS))
     comp_Mtau = comp_utau / comp_c
     comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
     CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
+#else
+    comp_f = 1.0
+#endif
 
     ! SijUij(i,j,k,iElem) = SijGradU
     ! SijUij(i,j,k,iElem) = 1 / (Cmu * gPos**2)
