@@ -983,7 +983,7 @@ DO iElem=1,nElems
     IF (dkdg .GE. 0.0) THEN
       wilcox06_cross = 0.0
     ELSE
-      wilcox06_cross = 0.125 * (Cmu * gPos**2) * dkdg
+      wilcox06_cross = 0.125 * UPrim(DENS) * (Cmu * gPos**2) * dkdg
     END IF
 
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
