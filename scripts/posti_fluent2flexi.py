@@ -20,7 +20,7 @@ def vandermonde(input, output):
 def Ngeo_to_N_vdm(Ngeo, N):
     x0 = np.array([-1 + i * 2 / Ngeo for i in range(Ngeo + 1)])
     x1 = np.array([np.cos(i / Ngeo * np.pi) for i in range(Ngeo + 1)])
-    x2 = np.array([np.cos(i / Ngeo * np.pi) for i in range(N + 1)])
+    x2 = np.array([np.cos(i / N * np.pi) for i in range(N + 1)])
     x3, _ = scipy.special.roots_legendre(N + 1)
     A1 = vandermonde(x0, x1)
     A2 = vandermonde(x1, x2)
