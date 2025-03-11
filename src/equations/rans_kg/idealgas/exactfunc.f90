@@ -128,6 +128,10 @@ CALL prms%CreateRealOption('Fluctuation',            "Fluctation of the constant
 CALL prms%CreateRealOption('MassFlowRate',           "Mass flow rate at a given surface")
 CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massflow is computed")
 
+! options for variations of turbulence models
+CALL prms%CreateLogicalOption('danisDurbinCorrection', "danis durbin correction", 'F')
+CALL prms%CreateLogicalOption('crossDiffusionTerm'   , "cross diffusion term in wilcox 06", 'F')
+
 END SUBROUTINE DefineParametersExactFunc
 
 !==================================================================================================================================
@@ -140,7 +144,8 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,Fluctuation
-USE MOD_Mesh_Vars,      ONLY: nBCs,BoundaryName
+USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm
+USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -247,6 +252,15 @@ CASE(2) ! MassFlowRate
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
 END SELECT
+
+danisDurbinCorrection = GETLOGICAL('danisDurbinCorrection')
+IF (danisDurbinCorrection) THEN
+  SWRITE(UNIT_stdOut,'(A)')' Danis & Durbin correct term is ACTIVATED!'
+ENDIF
+crossDiffusionTerm    = GETLOGICAL('crossDiffusionTerm')
+IF (crossDiffusionTerm) THEN
+  SWRITE(UNIT_stdOut,'(A)')' Cross diffusion term of wilcox 06 is ACTIVATED!'
+ENDIF
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
 SWRITE(UNIT_stdOut,'(132("-"))')
@@ -824,6 +838,7 @@ USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
 USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,Fluctuation
+USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -899,12 +914,13 @@ DO iElem=1,nElems
 
     dkdg = kx * gx + ky * gy
 
-    comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
-    comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
-    ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2)
-    comp_q = SQRT(comp_qx**2 + comp_qy**2)
-    comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
-    comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
+    IF (danisDurbinCorrection) THEN 
+      comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
+      comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
+      comp_q = SQRT(comp_qx**2 + comp_qy**2)
+      comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
+      comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
+    ENDIF 
 
     END ASSOCIATE
 #else
@@ -931,27 +947,27 @@ DO iElem=1,nElems
 
     dkdg = kx * gx + ky * gy + kz * gz
 
-    comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
-    comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
-    comp_qz = lambda * gradUz(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxz + UPrim(VEL2) * Syz + UPrim(VEL3) * Szz)
-    ! comp_q = lambda * SQRT(gradUx(LIFT_TEMP,i,j,k,iElem)**2+gradUy(LIFT_TEMP,i,j,k,iElem)**2+gradUz(LIFT_TEMP,i,j,k,iElem)**2)
-    comp_q = SQRT(comp_qx**2 + comp_qy**2 + comp_qz**2)
-    comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
-    comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
-
+    IF (danisDurbinCorrection) THEN 
+      comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
+      comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
+      comp_qz = lambda * gradUz(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxz + UPrim(VEL2) * Syz + UPrim(VEL3) * Szz)
+      comp_q = SQRT(comp_qx**2 + comp_qy**2 + comp_qz**2)
+      comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
+      comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
+    ENDIF 
     END ASSOCIATE
 #endif
 
-#if PP_VISC != 0
-    comp_c    = SPEEDOFSOUND_H(UPrim(PRES),(1.0/UPrim(DENS)))
-    comp_M    = comp_u / comp_c
-    comp_utau = SQRT(comp_t / UPrim(DENS))
-    comp_Mtau = comp_utau / comp_c
-    comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
-    CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
-#else
-    comp_f = 1.0
-#endif
+    IF (danisDurbinCorrection) THEN  
+      comp_c    = SPEEDOFSOUND_H(UPrim(PRES),(1.0/UPrim(DENS)))
+      comp_M    = comp_u / comp_c
+      comp_utau = SQRT(comp_t / UPrim(DENS))
+      comp_Mtau = comp_utau / comp_c
+      comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
+      CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
+    ELSE 
+      comp_f = 1.0
+    ENDIF 
 
     ! SijUij(i,j,k,iElem) = SijGradU
     ! SijUij(i,j,k,iElem) = 1 / (Cmu * gPos**2)
@@ -983,10 +999,8 @@ DO iElem=1,nElems
     ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
 
     ! cross diffusion term in Wilcox 2006
-    ! wilcox06_cross = 0.0
-    IF (dkdg .GE. 0.0) THEN
-      wilcox06_cross = 0.0
-    ELSE
+    wilcox06_cross = 0.0
+    IF ((crossDiffusionTerm) .AND. (dkdg .LT. 0.0)) THEN 
       wilcox06_cross = 0.125 * UPrim(DENS) * (Cmu * gPos**2) * dkdg
     END IF
 

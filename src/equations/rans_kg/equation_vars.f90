@@ -52,6 +52,9 @@ REAL,PARAMETER       :: COmega2 = 0.075 !< aka beta
 REAL,PARAMETER       :: invSigmaK = 0.5 !< inverse of sigmaK = 2
 REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
 
+LOGICAL              :: danisDurbinCorrection = .FALSE.!< danis durbin correction
+LOGICAL              :: crossDiffusionTerm    = .FALSE.!< cross diffusion term 
+
 
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
   (/ CHARACTER(LEN=255) :: 'Density','MomentumX','MomentumY','MomentumZ','EnergyStagnationDensity','DensityK','DensityG'/) !< conservative variable names
