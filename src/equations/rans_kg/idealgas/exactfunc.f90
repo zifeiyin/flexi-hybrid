@@ -132,6 +132,8 @@ CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massfl
 CALL prms%CreateLogicalOption('danisDurbinCorrection', "danis durbin correction", 'F')
 CALL prms%CreateLogicalOption('crossDiffusionTerm'   , "cross diffusion term in wilcox 06", 'F')
 
+CALL prms%CreateLogicalOption('RiemannInvariantBC', "use Riemann invariant BC for weak Dirichlet BCs", 'F')
+
 END SUBROUTINE DefineParametersExactFunc
 
 !==================================================================================================================================
@@ -144,7 +146,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,Fluctuation
-USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm
+USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC
 USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -260,6 +262,11 @@ ENDIF
 crossDiffusionTerm    = GETLOGICAL('crossDiffusionTerm')
 IF (crossDiffusionTerm) THEN
   SWRITE(UNIT_stdOut,'(A)')' Cross diffusion term of wilcox 06 is ACTIVATED!'
+ENDIF
+
+RiemannInvariantBC    = GETLOGICAL('RiemannInvariantBC')
+IF (crossDiffusionTerm) THEN
+  SWRITE(UNIT_stdOut,'(A)')' Riemann invariant BC is ACTIVATED!'
 ENDIF
 
 SWRITE(UNIT_stdOut,'(A)')' INIT EXACT FUNCTION DONE!'
