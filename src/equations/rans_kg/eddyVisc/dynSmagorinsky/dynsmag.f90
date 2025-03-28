@@ -74,7 +74,7 @@ INTEGER             :: N_testFilter
 INTEGER             :: HSize_proc(4)
 CHARACTER(LEN=255)  :: FileName
 REAL                :: CellVol
-REAL,ALLOCATABLE    :: yWall_local(:,:,:,:)   
+REAL,ALLOCATABLE    :: yWall_local(:,:,:,:)
 !===================================================================================================================================
 IF(((.NOT.InterpolationInitIsDone).AND.(.NOT.MeshInitIsDone)).OR.DynSmagorinskyInitIsDone)THEN
   CALL CollectiveStop(__STAMP__,&
@@ -147,7 +147,7 @@ IF (file_exists) THEN
   DEALLOCATE(HSize)
   DEALLOCATE(yWall_local)
   CALL CloseDataFile()
-ELSE 
+ELSE
   SWRITE(UNIT_stdOut, *) "WARNING: No walldistance file found! DDES shielding not working!"
   CALL CollectiveStop(__STAMP__,'Please use POSTI to compute wall distance first!')
 ENDIF
@@ -168,7 +168,7 @@ ELSE
   END DO !iElem
 ENDIF
 
-! Build integration weights 
+! Build integration weights
 DO iElem=1,nElems
   IntElem(:,:,:,iElem) = 1./sJ(:,:,:,iElem,0)
   DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
@@ -200,7 +200,7 @@ PPURE SUBROUTINE DynSmagorinsky_Point(gradUx,gradUy,gradUz,UPrim,Cdes2,y,Delta,h
 ! MODULES
 USE MOD_Equation_Vars,  ONLY: Cmu, sqrt6
 USE MOD_EddyVisc_Vars,  ONLY: CDES0
-USE MOD_VISCOSITY 
+USE MOD_VISCOSITY
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -215,7 +215,7 @@ REAL                          ,INTENT(OUT) :: muSGS                    !> pointw
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                    :: sRho
-REAL                                    :: magS 
+REAL                                    :: magS
 REAL                                    :: kPos, gPos, muTOrig, muTLim
 REAL                                    :: lLES, lRANS, lDDES, rd
 REAL                                    :: dUdU
@@ -231,7 +231,7 @@ magS = SQRT( &
     2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) + &
     (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2)
 dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 &
-      + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 
+      + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2
 #else
 magS = SQRT( &
     2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) + &
@@ -335,7 +335,7 @@ SUBROUTINE Compute_Cd(U_in)
 ! MODULES
 USE MOD_Globals
 USE MOD_PreProc
-USE MOD_Equation_Vars,  ONLY: Cmu
+USE MOD_Equation_Vars ,ONLY: Cmu
 USE MOD_EddyVisc_Vars ,ONLY: Cdes2,DeltaRatio,DeltaS,FilterMat_testFilter
 USE MOD_EddyVisc_Vars ,ONLY: doFilterDir,IntElem
 USE MOD_Lifting_Vars  ,ONLY: gradUx,gradUy,gradUz
@@ -352,7 +352,7 @@ REAL,INTENT(IN)  :: U_in(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems) !< Conservative vo
 INTEGER                                      :: i,j,k,l,m,iElem
 REAL,DIMENSION(3,3,0:PP_N,0:PP_N,0:PP_N)     :: S_lm, M_lm, L_lm, gradV
 REAL,DIMENSION(  3,0:PP_N,0:PP_N,0:PP_N)     :: V,V_filtered
-REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: omega, omega_filtered
+REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: g, g_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: MM ,ML ,divV
 REAL                                         :: MMa,MLa
 !===============================================================================================================================
@@ -361,6 +361,7 @@ DO iElem=1,nElems
   V(1,:,:,:) = U_in(MOM1,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
   V(2,:,:,:) = U_in(MOM2,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
   V(3,:,:,:) = U_in(MOM3,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  g(  :,:,:) = U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
 
   ! Store gradients in matrix for readability and filtering
   gradV(1:3,1,:,:,:) = gradUx(VELV,:,:,:,iElem)
@@ -373,72 +374,43 @@ DO iElem=1,nElems
   V_Filtered = V
   CALL Filter_Selective(3,FilterMat_testFilter,V_filtered,doFilterDir(:,iElem))
 
+  g_filtered(:,:,:) = g(:,:,:)
+  CALL Filter_Selective(1,FilterMat_testFilter,g_filtered(:,:,:),doFilterDir(:,iElem))
+
   !              _ _   __
   ! Compute L = -u*u + uu
   DO l=1,3
     DO m=1,3
-      L_lm(l,m,:,:,:) = V(l,:,:,:)*V(m,:,:,:) ! uu
-    END DO                                                                               ! __
-    CALL Filter_Selective(3,FilterMat_testFilter,L_lm(l,1:3,:,:,:),doFilterDir(:,iElem)) ! uu
+      L_lm(l,m,:,:,:) = g(:,:,:)**2 * V(l,:,:,:)*V(m,:,:,:) ! gguu
+    END DO                                                                               ! ____
+    CALL Filter_Selective(3,FilterMat_testFilter,L_lm(l,1:3,:,:,:),doFilterDir(:,iElem)) ! gguu
   END DO
   DO l=1,3
-    DO m=1,3                                                                      !     __   _ _
-      L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - V_filtered(l,:,:,:)*V_filtered(m,:,:,:) ! L = uu - u*u
+    DO m=1,3                                                                                           !     ____   _ _ _ _
+      L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - g_filtered(:,:,:)**2*V_filtered(l,:,:,:)*V_filtered(m,:,:,:) ! L = gguu - g*g*u*u
     END DO
   END DO
 
-  !             _____            _ _   ____
-  ! Compute M=-(Delta/Delta)**2* w S +  w S
+  !             _____            _   _
+  ! Compute M=-(Delta/Delta)**2* S + S
 
   ! Compute S
   DO m=1,3; DO l=1,3
     S_lm(l,m,:,:,:) = 0.5*(gradV(l,m,:,:,:)+gradV(m,l,:,:,:))
   END DO; END DO
 
-  ! Compute omega
-  omega(:,:,:) = 1. / (Cmu * MAX(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem),1.e-16)**2 )
-
   ! Correct for compressibility
   S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
   S_lm(2,2,:,:,:) = S_lm(2,2,:,:,:) - divV(:,:,:)
   S_lm(3,3,:,:,:) = S_lm(3,3,:,:,:) - divV(:,:,:)
 
-  ! Save first term  |S|S
+  ! Save term S
   DO m=1,3
     DO l=1,3
-      M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * omega(:,:,:)*S_lm(l,m,:,:,:) ! |S|S
-    END DO ! l                                                                             ____
-    CALL Filter_Selective(3,FilterMat_testFilter,M_lm(1:3,m,:,:,:),doFilterDir(:,iElem))  ! |S|S
+      M_lm(l,m,:,:,:) = (1.0 - DeltaRatio(iElem)) * DeltaS(iElem)**2 * S_lm(l,m,:,:,:) ! (d**2 - D**2) S
+    END DO ! l                                                                                           _
+    CALL Filter_Selective(3,FilterMat_testFilter,M_lm(1:3,m,:,:,:),doFilterDir(:,iElem)) ! (d**2 - D**2) S
   END DO ! m
-
-  ! Filter gradients
-  ! ATTENTION: Overwrite gradients with filtered version
-  CALL Filter_Selective(3,FilterMat_testFilter,gradV(:,1,:,:,:),doFilterDir(:,iElem))
-  CALL Filter_Selective(3,FilterMat_testFilter,gradV(:,2,:,:,:),doFilterDir(:,iElem))
-  CALL Filter_Selective(3,FilterMat_testFilter,gradV(:,3,:,:,:),doFilterDir(:,iElem))
-
-  !         _
-  ! Compute S
-  DO m=1,3; DO l=1,3
-    S_lm(l,m,:,:,:) = 0.5*(gradV(l,m,:,:,:)+gradV(m,l,:,:,:))
-  END DO; END DO ! l,m
-  divV(:,:,:) = 1./3.*(gradV(1,1,:,:,:)+gradV(2,2,:,:,:)+gradV(3,3,:,:,:))
-
-  ! filter omega
-  omega_filtered(:,:,:) = omega(:,:,:)
-  CALL Filter_Selective(1,FilterMat_testFilter,omega_filtered(:,:,:),doFilterDir(:,iElem))
-  !          _
-
-  ! Correct for compressibility
-  S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
-  S_lm(2,2,:,:,:) = S_lm(2,2,:,:,:) - divV(:,:,:)
-  S_lm(3,3,:,:,:) = S_lm(3,3,:,:,:) - divV(:,:,:)
-
-  !             ____    _____              _ _
-  ! Compute M = |w|S - (Delta/Delta)**2 * |w|S
-  DO m=1,3; DO l=1,3
-    M_lm(l,m,:,:,:) = M_lm(l,m,:,:,:) - DeltaRatio(iElem) * DeltaS(iElem)**2 * omega_filtered(:,:,:)*S_lm(l,m,:,:,:)
-  END DO; END DO ! l,m
 
   ! contract with M_lm according to least square approach of Lilly
   MM=0.
@@ -456,7 +428,7 @@ DO iElem=1,nElems
     MMa = MMa + MM(i,j,k)*IntElem(i,j,k,iElem)
     MLa = MLa + ML(i,j,k)*IntElem(i,j,k,iElem)
   END DO; END DO; END DO ! i,j,k
-  Cdes2(:,:,:,iElem) = 0.5*MLa/MMa
+  Cdes2(:,:,:,iElem) = 0.5*Cmu*MLa/MMa
 
 END DO
 END SUBROUTINE Compute_Cd
