@@ -54,6 +54,7 @@ REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
 
 LOGICAL              :: danisDurbinCorrection = .FALSE.!< danis durbin correction
 LOGICAL              :: crossDiffusionTerm    = .FALSE.!< cross diffusion term 
+LOGICAL              :: RiemannInvariantBC    = .FALSE.!< Riemann invariant BC
 
 
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&
