@@ -265,7 +265,7 @@ IF (crossDiffusionTerm) THEN
 ENDIF
 
 RiemannInvariantBC    = GETLOGICAL('RiemannInvariantBC')
-IF (crossDiffusionTerm) THEN
+IF (RiemannInvariantBC) THEN
   SWRITE(UNIT_stdOut,'(A)')' Riemann invariant BC is ACTIVATED!'
 ENDIF
 
