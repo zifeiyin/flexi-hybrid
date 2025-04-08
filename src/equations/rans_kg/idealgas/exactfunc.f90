@@ -124,6 +124,7 @@ CALL addStrListEntry('IniSourceTerm','ConstantBodyForce',1)
 CALL addStrListEntry('IniSourceTerm','MassFlowRate'     ,2)
 
 CALL prms%CreateRealArrayOption('ConstantBodyForce', "Constant body force to be added, IniSourceTerm==ConstantBodyForce")
+CALL prms%CreateRealOption('ConstantBodyHeat',       "Constant body heat to be added, IniSourceTerm==ConstantBodyForce")
 CALL prms%CreateRealOption('Fluctuation',            "Fluctation of the constant body force (-1 < f < 1)")
 CALL prms%CreateRealOption('MassFlowRate',           "Mass flow rate at a given surface")
 CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massflow is computed")
@@ -145,7 +146,7 @@ USE MOD_PreProc
 USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
-USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,Fluctuation
+USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
 USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC
 USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
@@ -234,6 +235,7 @@ SELECT CASE (IniSourceTerm)
 CASE(0) ! None
 CASE(1) ! ConstantBodyForce
   ConstantBodyForce = GETREALARRAY('ConstantBodyForce', 3)
+  ConstantBodyHeat  = GETREAL('ConstantBodyHeat', '0')
   Fluctuation = GETREAL('Fluctuation', '0.0')
 #if PP_dim==2
   IF(ConstantBodyForce(3).NE.0.) THEN
@@ -844,7 +846,7 @@ USE MOD_Equation_Vars    ,ONLY: s43,s23,Cmu,Comega1,Comega2,invSigmaG,invSigmaK
 USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
-USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,Fluctuation
+USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
 USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
@@ -1046,7 +1048,7 @@ CASE(1) ! ConstantBodyForce
         bodyForce = ConstantBodyForce
       ENDIF
       Ut_src(MOMV,i,j,k) = bodyForce
-      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), bodyForce) / U(DENS,i,j,k,iElem)
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), bodyForce) / U(DENS,i,j,k,iElem) + ConstantBodyHeat
     END DO; END DO; END DO ! i,j,k
 
 #if FV_ENABLED

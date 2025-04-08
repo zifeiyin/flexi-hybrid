@@ -33,6 +33,7 @@ CHARACTER(LEN=255):: BCStateFile       !< file containing the reference solution
 
 INTEGER           :: IniSourceTerm     !< number identifying the used source term
 REAL              :: ConstantBodyForce(3) !< Constant body force to be added, IniSourceTerm==1
+REAL              :: ConstantBodyHeat  !< Constant body heat to be added, IniSourceTerm==1
 REAL              :: Fluctuation       !< Fluctuation of the constant body force
 
 ! Boundary condition arrays
