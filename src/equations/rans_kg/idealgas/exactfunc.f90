@@ -854,6 +854,8 @@ USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
 #endif
 #if PP_VISC == 1
 USE MOD_Viscosity        ,ONLY: muSuth
+#elif PP_VISC == 2
+USE MOD_EOS_Vars         ,ONLY: ExpoSuth
 #endif
 USE MOD_EddyVisc_Vars    ,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,SijUij,dGidGi
 ! USE MOD_EddyVisc_Vars    ,ONLY: muSGS
