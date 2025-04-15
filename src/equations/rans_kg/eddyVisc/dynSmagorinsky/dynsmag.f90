@@ -282,7 +282,7 @@ INTEGER             :: i,j,k,iElem
 !===================================================================================================================================
 ! Compute Dynamic Smagorinsky Coefficients
 CALL Compute_Cd(U)
-CALL Apply_Clim()
+CALL Apply_Clim(U)
 
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -297,7 +297,7 @@ END SUBROUTINE DynSmagorinsky_Volume
 !===============================================================================================================================
 !> Compute the lower bound for the dynamic coefficient
 !===============================================================================================================================
-SUBROUTINE Apply_Clim()
+SUBROUTINE Apply_Clim(U_in)
 ! MODULES
 USE MOD_PreProc
 USE MOD_Equation_Vars,     ONLY: Cmu
@@ -306,8 +306,10 @@ USE MOD_EddyVisc_Vars,     ONLY: CDES0, Cdes2
 USE MOD_DG_Vars,           ONLY: UPrim
 USE MOD_VISCOSITY
 IMPLICIT NONE
-!-----------------------------------------------------------------------------------------------------------------------------------
-!-----------------------------------------------------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+REAL,INTENT(IN)  :: U_in(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems) !< Conservative volume solution
+!-------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER             :: i,j,k,iElem
 REAL                :: eta, ratio, diss, Clim
@@ -315,10 +317,16 @@ REAL                :: nuS
 !===================================================================================================================================
 
 ! Limit Dynamic Smagorinsky Coefficients
+! if UPrim(TKE) = UPrim(OMG) = 1e-16, then diss is too large, will activate Clim in the wrong way
+! thus, we need to use U(RHOG), and U(RHOK) to help define dissipation
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     nuS     = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem)) / UPrim(DENS,i,j,k,iElem)
-    diss    = MAX( UPrim(TKE,i,j,k,iElem) / UPrim(OMG,i,j,k,iElem)**2 , 1.e-16)
+    IF ( U_in(RHOG,i,j,k,iElem) .lt. 0.0 ) THEN 
+      diss  = 1.e-16
+    ELSE
+      diss  = MAX( U_in(RHOK,i,j,k,iElem) * U_in(DENS,i,j,k,iElem) /  MAX(U_in(RHOG,i,j,k,iElem)**2, 1.e-24 ), 1.e-16 ) 
+    ENDIF 
     eta     = ( nuS**3 / diss )**0.25
     ratio   = Elem_hmx(iElem) / eta
     Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
