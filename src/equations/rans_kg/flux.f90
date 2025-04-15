@@ -166,6 +166,7 @@ PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
 )
 ! MODULES
 USE MOD_Equation_Vars,ONLY: s23,s43,Cmu,invSigmaK,invSigmaG
+USE MOD_Equation_Vars,ONLY: rhokContribution
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
 #if EDDYVISCOSITY
@@ -183,7 +184,7 @@ REAL                          ,INTENT(IN)  :: muSGS                 !< SGS visco
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                :: muS,lambda,muTOrig,diffK,diffG
-REAL                :: tau_xx,tau_yy,tau_xy
+REAL                :: tau_xx,tau_yy,tau_xy, s23rhok
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
 #endif
@@ -214,6 +215,12 @@ tau_zz = muS * (-s23 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2) + s43 * gradU
 tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
 tau_xz = muS * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
 tau_yz = muS * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
+IF (rhokContribution) THEN
+  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
+  tau_xx = tau_xx - s23rhok
+  tau_yy = tau_yy - s23rhok
+  tau_zz = tau_zz - s23rhok
+ENDIF
 
 f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)

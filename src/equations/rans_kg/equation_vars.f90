@@ -53,6 +53,7 @@ REAL,PARAMETER       :: COmega2 = 0.075 !< aka beta
 REAL,PARAMETER       :: invSigmaK = 0.5 !< inverse of sigmaK = 2
 REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
 
+LOGICAL              :: rhokContribution      = .TRUE.!< rhok contribution in Reynolds stress, might be needed in compressible flow
 LOGICAL              :: danisDurbinCorrection = .FALSE.!< danis durbin correction
 LOGICAL              :: crossDiffusionTerm    = .FALSE.!< cross diffusion term 
 LOGICAL              :: RiemannInvariantBC    = .FALSE.!< Riemann invariant BC

@@ -130,6 +130,7 @@ CALL prms%CreateRealOption('MassFlowRate',           "Mass flow rate at a given 
 CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massflow is computed")
 
 ! options for variations of turbulence models
+CALL prms%CreateLogicalOption('rhokContribution', "rho*k contribution in the Reynolds stress", 'T')
 CALL prms%CreateLogicalOption('danisDurbinCorrection', "danis durbin correction", 'F')
 CALL prms%CreateLogicalOption('crossDiffusionTerm'   , "cross diffusion term in wilcox 06", 'F')
 
@@ -147,7 +148,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC
+USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC, rhokContribution
 USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -256,6 +257,11 @@ CASE(2) ! MassFlowRate
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
 END SELECT
+
+rhokContribution = GETLOGICAL('rhokContribution')
+IF (.NOT.rhokContribution) THEN
+  SWRITE(UNIT_stdOut,'(A)')' Neglecting rho*k contribution in the Reynolds stress!'
+ENDIF
 
 danisDurbinCorrection = GETLOGICAL('danisDurbinCorrection')
 IF (danisDurbinCorrection) THEN
