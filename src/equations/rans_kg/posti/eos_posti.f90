@@ -233,6 +233,8 @@ USE MOD_PreProc
 USE MOD_EOS_Posti_Vars
 USE MOD_EOS_Vars
 USE MOD_StringTools     ,ONLY: LowCase,KEYVALUE
+USE MOD_Equation_Vars
+USE MOD_EddyVisc_Vars
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------!
@@ -318,7 +320,7 @@ SELECT CASE(DepName_low)
   CASE("densityk")
     UCalc(:,iVarCalc) = UCalc(:,iDens)*UCalc(:,iTKE)
   CASE("densityg")
-    UCalc(:,iVarCalc) = UCalc(:,iDens)*UCalc(:,iOMG)                    
+    UCalc(:,iVarCalc) = UCalc(:,iDens)*UCalc(:,iOMG)
   CASE("velocityx")
     UCalc(:,iVarCalc) = UCalc(:,iMom1) / UCalc(:,iDens)
   CASE("velocityy")
@@ -398,6 +400,13 @@ SELECT CASE(DepName_low)
     UCalc(:,iVarCalc) = FillQcriterion(nVal,gradUx,gradUy,gradUz)
   CASE("schlieren")
     UCalc(:,iVarCalc) = LOG10(SQRT(gradUx(LIFT_DENS,:)**2 + gradUy(LIFT_DENS,:)**2 + gradUz(LIFT_DENS,:)**2)+1.0)
+  ! NOTE(Shimushu): lower case here
+  CASE("musgs")
+    UCalc(:,iVarCalc) = RESHAPE(muSGS, (/PRODUCT(nVal)/))
+  CASE("fd")
+    UCalc(:,iVarCalc) = RESHAPE(fd, (/PRODUCT(nVal)/))
+  CASE("cdes2")
+    UCalc(:,iVarCalc) = RESHAPE(cdes2, (/PRODUCT(nVal)/))
 #endif
 END SELECT
 IF (withVectors) THEN
