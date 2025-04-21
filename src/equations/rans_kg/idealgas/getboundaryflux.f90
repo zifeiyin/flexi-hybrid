@@ -740,7 +740,8 @@ END SUBROUTINE GetBoundaryState
 
 
 SUBROUTINE RiemannInvariantBoundary(UPrim_inner,UPrim_outer,NormVec)
-USE MOD_EOS_Vars, ONLY: sKappaM1,Kappa,KappaM1,R
+USE MOD_EOS_Vars,      ONLY: sKappaM1,Kappa,KappaM1,R
+USE MOD_Equation_Vars, ONLY: RiemannInvariantBC
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -752,6 +753,7 @@ REAL,INTENT(IN)             :: NormVec(3)
 ! LOCAL VARIABLES
 REAL                        :: ci,co,Vi,Vo,Mi,Mo,Rplus,Rminus,Ub,cb,sb
 !-----------------------------------------------------------------------------------------------------------------------------------
+IF (.NOT.RiemannInvariantBC) RETURN
 ci = SQRT(kappa * UPrim_inner(PRES) / UPrim_inner(DENS))
 co = SQRT(kappa * UPrim_outer(PRES) / UPrim_outer(DENS))
 Vi = DOT_PRODUCT(UPrim_inner(VELV), NormVec(:))
