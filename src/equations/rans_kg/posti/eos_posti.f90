@@ -402,11 +402,14 @@ SELECT CASE(DepName_low)
     UCalc(:,iVarCalc) = LOG10(SQRT(gradUx(LIFT_DENS,:)**2 + gradUy(LIFT_DENS,:)**2 + gradUz(LIFT_DENS,:)**2)+1.0)
   ! NOTE(Shimushu): lower case here
   CASE("musgs")
-    UCalc(:,iVarCalc) = RESHAPE(muSGS, (/PRODUCT(nVal)/))
+    CALL FillField(UCalc(:,iVarCalc), muSGS(1,:,:,:,:), nVal)
+    ! UCalc(:,iVarCalc) = RESHAPE(muSGS, (/PRODUCT(nVal)/))
   CASE("fd")
-    UCalc(:,iVarCalc) = RESHAPE(fd, (/PRODUCT(nVal)/))
+    CALL FillField(UCalc(:,iVarCalc), fd, nVal)
+    ! UCalc(:,iVarCalc) = RESHAPE(fd, (/PRODUCT(nVal)/))
   CASE("cdes2")
-    UCalc(:,iVarCalc) = RESHAPE(cdes2, (/PRODUCT(nVal)/))
+    CALL FillField(UCalc(:,iVarCalc), cdes2, nVal)
+    ! UCalc(:,iVarCalc) = RESHAPE(cdes2, (/PRODUCT(nVal)/))
 #endif
 END SELECT
 IF (withVectors) THEN
@@ -788,6 +791,139 @@ DO iSide=1,nBCSides
 END DO ! iSide = 1,nBCSides
 
 END SUBROUTINE FillNonDimensionalGridSpacing
+#endif
+
+SUBROUTINE FillField(dest, src, nVal)
+! MODULES
+#if FV_ENABLED
+USE MOD_FV_Vars      ,ONLY: FV_Elems
+#endif
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
+! INPUT / OUTPUT VARIABLES
+REAL,INTENT(OUT)   :: dest(:)
+REAL,INTENT(IN)    :: src (:,:,:,:)
+INTEGER,INTENT(IN) :: nVal(4)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: nElems_fv
+!===================================================================================================================================
+#if !FV_ENABLED
+CALL FillDGField(dest, src, nVal)
+#else
+nElems_fv = SUM(FV_Elems)
+IF (nElems_fv.EQ.nVal(4)) THEN
+  CALL FillFVField(dest, src, nVal)
+ELSE
+  CALL FillDGField(dest, src, nVal)
+END IF
+#endif
+END SUBROUTINE FillField
+
+SUBROUTINE FillDGField(dest, src, nVal)
+! MODULES
+USE MOD_PreProc      ,ONLY: PP_N
+USE MOD_Mesh_Vars    ,ONLY: nElems
+USE MOD_ChangeBasis  ,ONLY: ChangeBasis3D
+USE MOD_Interpolation,ONLY: GetVandermonde
+USE MOD_Interpolation_Vars,ONLY: NodeType
+#if FV_ENABLED
+USE MOD_FV_Vars      ,ONLY: FV_Elems
+#endif
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
+! INPUT / OUTPUT VARIABLES
+REAL,INTENT(OUT)   :: dest(:)
+REAL,INTENT(IN)    :: src (:,:,:,:)
+INTEGER,INTENT(IN) :: nVal(4)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: iElem,NCalc
+INTEGER            :: nDOFs,iBegin,iEnd
+REAL,ALLOCATABLE   :: buffer(:,:,:)
+REAL,ALLOCATABLE   :: Vdm(:,:)
+!===================================================================================================================================
+NCalc = nVal(1) - 1
+ALLOCATE(buffer(0:NCalc,0:NCalc,0:ZDIM(NCalc)))
+ALLOCATE(Vdm(0:NCalc,0:PP_N))
+
+CALL GetVandermonde(PP_N,NodeType,NCalc,NodeType,Vdm,modal=.FALSE.)
+
+nDOFs  = (1+NCalc)**PP_dim
+iBegin = 1
+iEnd   = nDOFs
+
+DO iElem = 1,nElems
+#if FV_ENABLED
+  IF (FV_Elems(iElem) .EQ. 0) THEN
+#endif
+    IF (NCalc.NE.PP_N) THEN
+      CALL ChangeBasis3D(PP_N, NCalc, Vdm, src(:,:,:,iElem), buffer)
+      dest(iBegin:iEnd) = RESHAPE(buffer, (/nDOFs/))
+    ELSE
+      dest(iBegin:iEnd) = RESHAPE(src(:,:,:,iElem), (/nDOFs/))
+    END IF
+    ! dest(iBegin:iEnd) = RESHAPE(buffer, (/nDOFs/))
+    iBegin = iBegin + nDOFs
+    iEnd   = iEnd   + nDOFs
+#if FV_ENABLED
+  END IF
+#endif
+END DO
+
+SDEALLOCATE(buffer)
+SDEALLOCATE(Vdm)
+END SUBROUTINE FillDGField
+
+#if FV_ENABLED
+SUBROUTINE FillFVField(dest, src, nVal)
+! MODULES
+USE MOD_PreProc      ,ONLY: PP_N
+USE MOD_Mesh_Vars    ,ONLY: nElems
+USE MOD_FV_Vars      ,ONLY: FV_Elems
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------!
+! INPUT / OUTPUT VARIABLES
+REAL,INTENT(OUT)   :: dest(:)
+REAL,INTENT(IN)    :: src (:,:,:,:)
+INTEGER,INTENT(IN) :: nVal(4)
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+INTEGER            :: i,j,k
+INTEGER            :: iElem,NCalc
+INTEGER            :: nDOFs,iBegin,iEnd
+REAL,ALLOCATABLE   :: buffer(:,:,:)
+!===================================================================================================================================
+NCalc = nVal(1) - 1
+ALLOCATE(buffer(0:NCalc,0:NCalc,0:ZDIM(NCalc)))
+
+nDOFs  = (1+NCalc)**PP_dim
+iBegin = 1
+iEnd   = nDOFs
+
+DO iElem = 1,nElems
+  IF (FV_Elems(iElem) .NE. 0) THEN
+    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+      buffer(2*i+0,2*j+0,2*k+0) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+1,2*j+0,2*k+0) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+0,2*j+1,2*k+0) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+1,2*j+1,2*k+0) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+0,2*j+0,2*k+1) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+1,2*j+0,2*k+1) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+0,2*j+1,2*k+1) = src(i+1,j+1,k+1,iElem)
+      buffer(2*i+1,2*j+1,2*k+1) = src(i+1,j+1,k+1,iElem)
+    END DO; END DO; END DO
+    dest(iBegin:iEnd) = RESHAPE(buffer, (/nDOFs/))
+    iBegin = iBegin + nDOFs
+    iEnd   = iEnd   + nDOFs
+  END IF
+END DO
+
+SDEALLOCATE(buffer)
+END SUBROUTINE FillFVField
 #endif
 
 END MODULE MOD_EOS_Posti

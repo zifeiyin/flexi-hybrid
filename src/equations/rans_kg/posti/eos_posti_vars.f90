@@ -111,8 +111,9 @@ INTEGER,DIMENSION(1:nVarDepEOS),PARAMETER :: DepSurfaceOnlyEOS = &
 /)
 
 ! Mark all quantities that can be calculated exclusively in the volume and must be prolonged to the surface from the volume
+! NOTE(Shimushu): may have issues when dealing with muSGS etc., need to set to 1
 INTEGER,DIMENSION(1:nVarDepEOS),PARAMETER :: DepVolumeOnlyEOS = &
-(/  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,1  CUT(&) ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 &
+(/  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,1  CUT(&) ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1 &
 /)
 
 #if FV_ENABLED && FV_RECONSTRUCT
