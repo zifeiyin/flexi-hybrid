@@ -853,7 +853,7 @@ USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
 USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection
+USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection, rhokContribution
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -895,6 +895,7 @@ REAL                :: bodyForce(3)
 REAL                :: lambda
 REAL                :: comp_f, comp_c, comp_t, comp_qx, comp_qy, comp_qz, comp_q, comp_u, comp_M, comp_utau, comp_Mtau, comp_Bq
 REAL                :: dkdg, wilcox06_cross
+REAL                :: rhok_contribution
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -924,6 +925,10 @@ DO iElem=1,nElems
     Sxx = 0.5 * (s43 * ux - s23 * vy)
     Syy = 0.5 * (s43 * vy - s23 * ux)
     Sxy = 0.5 * (uy + vx)
+    ! Sxx = Sxx - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
+    ! Sxx = Sxx - s23 * MIN(MAX(UPrim(TKE), 1.0e-16), muSGS / MAX(0.09 * UPrim(OMG)**2, 1.0e-8))
+    ! rhok_contribution = s43 * MIN(MAX(UPrim(TKE), 1.0e-16), muT / MAX(0.09 * UPrim(OMG)**2, 1.0e-16)) * (ux + vy)
+    rhok_contribution = s23 * UPrim(DENS) * MAX(UPrim(TKE), 1.0e-16) * (ux + vy)
 
     SijGradU = Sxx * ux + Sxy * uy + Sxy * vx + Syy * vy
 
@@ -931,13 +936,13 @@ DO iElem=1,nElems
 
     dkdg = kx * gx + ky * gy
 
-    IF (danisDurbinCorrection) THEN 
+    IF (danisDurbinCorrection) THEN
       comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
       comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
       comp_q = SQRT(comp_qx**2 + comp_qy**2)
       comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
       comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
-    ENDIF 
+    ENDIF
 
     END ASSOCIATE
 #else
@@ -954,6 +959,11 @@ DO iElem=1,nElems
     Sxy = 0.5 * (uy + vx)
     Sxz = 0.5 * (uz + wx)
     Syz = 0.5 * (vz + wy)
+    ! Sxx = Sxx - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
+    ! Syy = Syy - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
+    ! Szz = Szz - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
+    ! rhok_contribution = s23 * MIN(UPrim(DENS) * MAX(UPrim(TKE), 1.0e-16), muT / MAX(0.09 * UPrim(OMG)**2, 1.0e-16)) * (ux + vy + wz)
+    rhok_contribution = s23 * UPrim(DENS) * MAX(UPrim(TKE), 1.0e-16) * (ux + vy + wz)
 
     SijGradU = &
         Sxx * ux + Sxy * uy + Sxz * uz + &
@@ -964,27 +974,27 @@ DO iElem=1,nElems
 
     dkdg = kx * gx + ky * gy + kz * gz
 
-    IF (danisDurbinCorrection) THEN 
+    IF (danisDurbinCorrection) THEN
       comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
       comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
       comp_qz = lambda * gradUz(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxz + UPrim(VEL2) * Syz + UPrim(VEL3) * Szz)
       comp_q = SQRT(comp_qx**2 + comp_qy**2 + comp_qz**2)
       comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
       comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
-    ENDIF 
+    ENDIF
     END ASSOCIATE
 #endif
 
-    IF (danisDurbinCorrection) THEN  
+    IF (danisDurbinCorrection) THEN
       comp_c    = SPEEDOFSOUND_H(UPrim(PRES),(1.0/UPrim(DENS)))
       comp_M    = comp_u / comp_c
       comp_utau = SQRT(comp_t / UPrim(DENS))
       comp_Mtau = comp_utau / comp_c
       comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
       CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
-    ELSE 
+    ELSE
       comp_f = 1.0
-    ENDIF 
+    ENDIF
 
     ! SijUij(i,j,k,iElem) = SijGradU
     ! SijUij(i,j,k,iElem) = 1 / (Cmu * gPos**2)
@@ -996,7 +1006,12 @@ DO iElem=1,nElems
       SijUij(i,j,k,iElem) = muS * (+(gradUy(LIFT_VEL1,i,j,k,iElem)+gradUx(LIFT_VEL2,i,j,k,iElem)))
     END IF
 
-    prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
+    IF (rhokContribution) THEN
+      prodK (1,i,j,k,iElem) = 2. * muT * SijGradU - rhok_contribution
+    ELSE
+      prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
+    END IF
+    ! prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
     ! dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
     IF (UPrim(TKE) .GE. 0.0) THEN
       dissK (1,i,j,k,iElem) = +(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
@@ -1017,7 +1032,7 @@ DO iElem=1,nElems
 
     ! cross diffusion term in Wilcox 2006
     wilcox06_cross = 0.0
-    IF ((crossDiffusionTerm) .AND. (dkdg .LT. 0.0)) THEN 
+    IF ((crossDiffusionTerm) .AND. (dkdg .LT. 0.0)) THEN
       wilcox06_cross = 0.125 * UPrim(DENS) * (Cmu * gPos**2) * dkdg
     END IF
 
@@ -1184,7 +1199,7 @@ dtPrev       = dt
 ! IF(MPIRoot) THEN
 !   write(*,'(A, E12.2, A, E12.2)') 'm = ', massFlow, ', f = ', dpdx
 !   ! print *, "nCores = ", massFlowGlobal
-!   ! print *, "Surf(massFlowBC) = ", Surf(massFlowBC) 
+!   ! print *, "Surf(massFlowBC) = ", Surf(massFlowBC)
 ! END IF
 END SUBROUTINE CalcMassFlowRateForcing
 

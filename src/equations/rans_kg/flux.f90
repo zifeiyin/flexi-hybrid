@@ -216,7 +216,9 @@ tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_
 tau_xz = muS * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
 tau_yz = muS * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
 IF (rhokContribution) THEN
-  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
+  ! s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
+  s23rhok = s23 * UPrim(DENS) * UPrim(TKE)
+  ! s23rhok = s23 * MIN(Uprim(DENS) * MAX(UPrim(TKE), 1.0e-16), muSGS / MAX(0.09 * UPrim(OMG)**2, 1.0e-8))
   tau_xx = tau_xx - s23rhok
   tau_yy = tau_yy - s23rhok
   tau_zz = tau_zz - s23rhok
@@ -255,6 +257,13 @@ h(RHOG) = -diffG*gradG3                                 ! F_euler-(mu+muTOrig/si
 tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_x-2/3*mu*v_y -2/3*mu*w*z
 tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
 tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
+IF (rhokContribution) THEN
+  ! s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
+  s23rhok = s23 * UPrim(DENS) * UPrim(TKE)
+  ! s23rhok = s23 * MIN(Uprim(DENS) * MAX(UPrim(TKE), 1.0e-16), muSGS / MAX(0.09 * UPrim(OMG)**2, 1.0e-8))
+  tau_xx = tau_xx - s23rhok
+  tau_yy = tau_yy - s23rhok
+ENDIF
 
 f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
