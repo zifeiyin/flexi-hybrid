@@ -322,11 +322,11 @@ REAL                :: nuS
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     nuS     = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem)) / UPrim(DENS,i,j,k,iElem)
-    IF ( U_in(RHOG,i,j,k,iElem) .lt. 0.0 ) THEN 
+    IF ( U_in(RHOG,i,j,k,iElem) .lt. 0.0 ) THEN
       diss  = 1.e-16
     ELSE
-      diss  = MAX( U_in(RHOK,i,j,k,iElem) * U_in(DENS,i,j,k,iElem) /  MAX(U_in(RHOG,i,j,k,iElem)**2, 1.e-24 ), 1.e-16 ) 
-    ENDIF 
+      diss  = MAX( U_in(RHOK,i,j,k,iElem) * U_in(DENS,i,j,k,iElem) /  MAX(U_in(RHOG,i,j,k,iElem)**2, 1.e-24 ), 1.e-16 )
+    ENDIF
     eta     = ( nuS**3 / diss )**0.25
     ratio   = Elem_hmx(iElem) / eta
     Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
@@ -360,6 +360,7 @@ REAL,INTENT(IN)  :: U_in(PP_nVar,0:PP_N,0:PP_N,0:PP_N,nElems) !< Conservative vo
 INTEGER                                      :: i,j,k,l,m,iElem
 REAL,DIMENSION(3,3,0:PP_N,0:PP_N,0:PP_N)     :: S_lm, M_lm, L_lm, gradV
 REAL,DIMENSION(  3,0:PP_N,0:PP_N,0:PP_N)     :: V,V_filtered
+REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: omega, omega_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: g, g_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: MM ,ML ,divV
 REAL                                         :: MMa,MLa
@@ -369,7 +370,6 @@ DO iElem=1,nElems
   V(1,:,:,:) = U_in(MOM1,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
   V(2,:,:,:) = U_in(MOM2,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
   V(3,:,:,:) = U_in(MOM3,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
-  g(  :,:,:) = U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
 
   ! Store gradients in matrix for readability and filtering
   gradV(1:3,1,:,:,:) = gradUx(VELV,:,:,:,iElem)
@@ -382,43 +382,75 @@ DO iElem=1,nElems
   V_Filtered = V
   CALL Filter_Selective(3,FilterMat_testFilter,V_filtered,doFilterDir(:,iElem))
 
-  g_filtered(:,:,:) = g(:,:,:)
-  CALL Filter_Selective(1,FilterMat_testFilter,g_filtered(:,:,:),doFilterDir(:,iElem))
-
   !              _ _   __
   ! Compute L = -u*u + uu
   DO l=1,3
     DO m=1,3
-      L_lm(l,m,:,:,:) = g(:,:,:)**2 * V(l,:,:,:)*V(m,:,:,:) ! gguu
-    END DO                                                                               ! ____
-    CALL Filter_Selective(3,FilterMat_testFilter,L_lm(l,1:3,:,:,:),doFilterDir(:,iElem)) ! gguu
+      L_lm(l,m,:,:,:) = V(l,:,:,:)*V(m,:,:,:) ! uu
+    END DO                                                                               ! __
+    CALL Filter_Selective(3,FilterMat_testFilter,L_lm(l,1:3,:,:,:),doFilterDir(:,iElem)) ! uu
   END DO
   DO l=1,3
-    DO m=1,3                                                                                           !     ____   _ _ _ _
-      L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - g_filtered(:,:,:)**2*V_filtered(l,:,:,:)*V_filtered(m,:,:,:) ! L = gguu - g*g*u*u
+    DO m=1,3                                                                      !     __   _ _
+      L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - V_filtered(l,:,:,:)*V_filtered(m,:,:,:) ! L = uu - u*u
     END DO
   END DO
 
-  !             _____            _   _
-  ! Compute M=-(Delta/Delta)**2* S + S
+  !             _____            _ _   ____
+  ! Compute M=-(Delta/Delta)**2* w S +  w S
 
   ! Compute S
   DO m=1,3; DO l=1,3
     S_lm(l,m,:,:,:) = 0.5*(gradV(l,m,:,:,:)+gradV(m,l,:,:,:))
   END DO; END DO
 
+  ! Compute omega
+  g(:,:,:) = U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  omega(:,:,:) = 1. / (Cmu * MAX(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem),1.e-16)**2 )
+
   ! Correct for compressibility
   S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
   S_lm(2,2,:,:,:) = S_lm(2,2,:,:,:) - divV(:,:,:)
   S_lm(3,3,:,:,:) = S_lm(3,3,:,:,:) - divV(:,:,:)
 
-  ! Save term S
+  ! Save first term  |S|S
   DO m=1,3
     DO l=1,3
-      M_lm(l,m,:,:,:) = (1.0 - DeltaRatio(iElem)) * DeltaS(iElem)**2 * S_lm(l,m,:,:,:) ! (d**2 - D**2) S
-    END DO ! l                                                                                           _
-    CALL Filter_Selective(3,FilterMat_testFilter,M_lm(1:3,m,:,:,:),doFilterDir(:,iElem)) ! (d**2 - D**2) S
+      ! M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * omega(:,:,:)*S_lm(l,m,:,:,:) ! |S|S
+      M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * S_lm(l,m,:,:,:) / (Cmu * g(:,:,:)**2) ! |S|S
+    END DO ! l                                                                             ____
+    CALL Filter_Selective(3,FilterMat_testFilter,M_lm(1:3,m,:,:,:),doFilterDir(:,iElem))  ! |S|S
   END DO ! m
+
+  ! Filter gradients
+  ! ATTENTION: Overwrite gradients with filtered version
+  CALL Filter_Selective(3,FilterMat_testFilter,gradV(:,1,:,:,:),doFilterDir(:,iElem))
+  CALL Filter_Selective(3,FilterMat_testFilter,gradV(:,2,:,:,:),doFilterDir(:,iElem))
+  CALL Filter_Selective(3,FilterMat_testFilter,gradV(:,3,:,:,:),doFilterDir(:,iElem))
+
+  !         _
+  ! Compute S
+  DO m=1,3; DO l=1,3
+    S_lm(l,m,:,:,:) = 0.5*(gradV(l,m,:,:,:)+gradV(m,l,:,:,:))
+  END DO; END DO ! l,m
+  divV(:,:,:) = 1./3.*(gradV(1,1,:,:,:)+gradV(2,2,:,:,:)+gradV(3,3,:,:,:))
+
+  ! filter omega
+  g_filtered(:,:,:) = g(:,:,:)
+  CALL Filter_Selective(1,FilterMat_testFilter,g_filtered(:,:,:),doFilterDir(:,iElem))
+  omega_filtered(:,:,:) = omega(:,:,:)
+  CALL Filter_Selective(1,FilterMat_testFilter,omega_filtered(:,:,:),doFilterDir(:,iElem))
+
+  ! Correct for compressibility
+  S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
+  S_lm(2,2,:,:,:) = S_lm(2,2,:,:,:) - divV(:,:,:)
+  S_lm(3,3,:,:,:) = S_lm(3,3,:,:,:) - divV(:,:,:)
+
+  !             ____    _____              _ _
+  ! Compute M = |w|S - (Delta/Delta)**2 * |w|S
+  DO m=1,3; DO l=1,3
+    M_lm(l,m,:,:,:) = M_lm(l,m,:,:,:) - DeltaRatio(iElem) * DeltaS(iElem)**2 / (Cmu * g_filtered(:,:,:)**2) * S_lm(l,m,:,:,:)
+  END DO; END DO ! l,m
 
   ! contract with M_lm according to least square approach of Lilly
   MM=0.
@@ -436,7 +468,7 @@ DO iElem=1,nElems
     MMa = MMa + MM(i,j,k)*IntElem(i,j,k,iElem)
     MLa = MLa + ML(i,j,k)*IntElem(i,j,k,iElem)
   END DO; END DO; END DO ! i,j,k
-  Cdes2(:,:,:,iElem) = 0.5*Cmu*MLa/MMa
+  Cdes2(:,:,:,iElem) = 0.5*MLa/MMa
 
 END DO
 END SUBROUTINE Compute_Cd
