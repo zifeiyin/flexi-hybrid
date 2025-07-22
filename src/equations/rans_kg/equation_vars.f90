@@ -57,6 +57,7 @@ LOGICAL              :: rhokContribution      = .TRUE.!< rhok contribution in Re
 LOGICAL              :: danisDurbinCorrection = .FALSE.!< danis durbin correction
 LOGICAL              :: crossDiffusionTerm    = .FALSE.!< cross diffusion term 
 LOGICAL              :: RiemannInvariantBC    = .FALSE.!< Riemann invariant BC
+LOGICAL              :: alphaModelCorrection  = .FALSE.!< alpha model correction
 
 
 CHARACTER(LEN=255),DIMENSION(7),PARAMETER :: StrVarNames =&

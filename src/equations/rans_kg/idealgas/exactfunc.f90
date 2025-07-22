@@ -133,6 +133,7 @@ CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massfl
 CALL prms%CreateLogicalOption('rhokContribution', "rho*k contribution in the Reynolds stress", 'T')
 CALL prms%CreateLogicalOption('danisDurbinCorrection', "danis durbin correction", 'F')
 CALL prms%CreateLogicalOption('crossDiffusionTerm'   , "cross diffusion term in wilcox 06", 'F')
+CALL prms%CreateLogicalOption('alphaModelCorrection' , "alpha model correction", 'F')
 
 CALL prms%CreateLogicalOption('RiemannInvariantBC', "use Riemann invariant BC for weak Dirichlet BCs", 'F')
 
@@ -148,7 +149,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC, rhokContribution
+USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC, rhokContribution, alphaModelCorrection
 USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -266,6 +267,10 @@ ENDIF
 danisDurbinCorrection = GETLOGICAL('danisDurbinCorrection')
 IF (danisDurbinCorrection) THEN
   SWRITE(UNIT_stdOut,'(A)')' Danis & Durbin correct term is ACTIVATED!'
+ENDIF
+alphaModelCorrection = GETLOGICAL('alphaModelCorrection')
+IF (alphaModelCorrection) THEN
+  SWRITE(UNIT_stdOut,'(A)')' alpha model correct term is ACTIVATED!'
 ENDIF
 crossDiffusionTerm    = GETLOGICAL('crossDiffusionTerm')
 IF (crossDiffusionTerm) THEN
@@ -853,7 +858,7 @@ USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
 USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection, rhokContribution
+USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection, rhokContribution, alphaModelCorrection
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -871,6 +876,7 @@ USE MOD_ExactFunc_Vars   ,ONLY: firstTimestep,tPrev,dtPrev,massFlowRef,massFlowP
 USE MOD_EddyVisc_Vars    ,ONLY: yWall
 USE MOD_EOS_Vars         ,ONLY: cp,Pr,kappa
 USE MOD_EddyVisc_Vars    ,ONLY: PrSGS
+USE MOD_EddyVisc_Vars    ,ONLY: yWall,gradyWall
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -896,6 +902,7 @@ REAL                :: lambda
 REAL                :: comp_f, comp_c, comp_t, comp_qx, comp_qy, comp_qz, comp_q, comp_u, comp_M, comp_utau, comp_Mtau, comp_Bq
 REAL                :: dkdg, wilcox06_cross
 REAL                :: rhok_contribution
+REAL                :: alpha_model_coeff
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
@@ -943,6 +950,13 @@ DO iElem=1,nElems
       comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
       comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
     ENDIF
+    IF (alphaModelCorrection) THEN
+      alpha_model_coeff = ( &
+          gradyWall(1,i,j,k,0,iElem) * gradUx(LIFT_DENS,i,j,k,iElem) + &
+          gradyWall(2,i,j,k,0,iElem) * gradUy(LIFT_DENS,i,j,k,iElem) + &
+          gradyWall(3,i,j,k,0,iElem) * gradUz(LIFT_DENS,i,j,k,iElem) &
+      ) * yWall(i,j,k,0,iElem) / UPrim(DENS)
+    ENDIF
 
     END ASSOCIATE
 #else
@@ -982,6 +996,13 @@ DO iElem=1,nElems
       comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
       comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
     ENDIF
+    IF (alphaModelCorrection) THEN
+      alpha_model_coeff = ( &
+          gradyWall(1,i,j,k,0,iElem) * gradUx(LIFT_DENS,i,j,k,iElem) + &
+          gradyWall(2,i,j,k,0,iElem) * gradUy(LIFT_DENS,i,j,k,iElem) + &
+          gradyWall(3,i,j,k,0,iElem) * gradUz(LIFT_DENS,i,j,k,iElem) &
+      ) * yWall(i,j,k,0,iElem) / UPrim(DENS)
+    ENDIF
     END ASSOCIATE
 #endif
 
@@ -992,6 +1013,8 @@ DO iElem=1,nElems
       comp_Mtau = comp_utau / comp_c
       comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
       CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
+    ELSE IF (alphaModelCorrection) THEN
+      comp_f = EXP(2.54 * MIN(alpha_model_coeff, 0.0))
     ELSE
       comp_f = 1.0
     ENDIF

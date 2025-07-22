@@ -62,7 +62,12 @@ USE MOD_Testcase_Vars      ,ONLY: testcase
 USE MOD_HDF5_Input        ,ONLY: ReadArray,OpenDataFile,CloseDataFile,GetDataSize,ReadAttribute
 USE MOD_2D                ,ONLY: ExpandArrayTo3D
 USE MOD_IO_HDF5
- IMPLICIT NONE
+USE MOD_DG_Vars            ,ONLY: D
+USE MOD_Mesh_Vars          ,ONLY: sJ,Metrics_fTilde,Metrics_gTilde,Metrics_hTilde
+USE MOD_Interpolation      ,ONLY: GetNodesAndWeights
+USE MOD_Interpolation_Vars ,ONLY: NodeType
+USE MOD_Basis              ,ONLY: PolynomialDerivativeMatrix,LagrangeInterpolationPolys,PolynomialMassMatrix
+IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -75,6 +80,8 @@ INTEGER             :: HSize_proc(4)
 CHARACTER(LEN=255)  :: FileName
 REAL                :: CellVol
 REAL,ALLOCATABLE    :: yWall_local(:,:,:,:)
+INTEGER             :: l
+REAL,ALLOCATABLE    :: xRef(:), D(:,:)
 !===================================================================================================================================
 IF(((.NOT.InterpolationInitIsDone).AND.(.NOT.MeshInitIsDone)).OR.DynSmagorinskyInitIsDone)THEN
   CALL CollectiveStop(__STAMP__,&
@@ -87,8 +94,15 @@ SWRITE(UNIT_stdOut,'(A)') ' INIT Dynamic Smagorinsky...'
 !CALL CollectiveStop(__STAMP__,"The Dynamic Smagorinsky model is not tested for FV yet!.")
 !#endif
 
+ALLOCATE(xRef(0:PP_N))
+ALLOCATE(D(0:PP_N,0:PP_N))
+
+CALL GetNodesAndWeights(PP_N,NodeType,xRef)
+CALL PolynomialDerivativeMatrix(PP_N,xRef,D)
+
 ! Allocate necessary arrays
 ALLOCATE(yWall(0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
+ALLOCATE(gradyWall(3,0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
 ALLOCATE(fd   (0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(DeltaRatio(nElems))
 
@@ -147,6 +161,22 @@ IF (file_exists) THEN
   DEALLOCATE(HSize)
   DEALLOCATE(yWall_local)
   CALL CloseDataFile()
+
+  gradyWall = 0.0
+  DO iElem=1,nElems
+    DO k=0,PP_N; DO j=0,PP_N; DO i=0,PP_N
+      DO l=0,PP_N
+        gradyWall(1,i,j,k,0,iElem) = gradyWall(1,i,j,k,0,iElem) + D(i,l) * ywall(l,j,k,0,iElem)
+        gradyWall(2,i,j,k,0,iElem) = gradyWall(2,i,j,k,0,iElem) + D(j,l) * ywall(i,l,k,0,iElem)
+        gradyWall(3,i,j,k,0,iElem) = gradyWall(3,i,j,k,0,iElem) + D(k,l) * ywall(i,j,l,0,iElem)
+      END DO
+      gradyWall(:,i,j,k,0,iElem) = ( &
+        gradyWall(1,i,j,k,0,iElem) * Metrics_fTilde(:,i,j,k,iElem,0) + &
+        gradyWall(2,i,j,k,0,iElem) * Metrics_gTilde(:,i,j,k,iElem,0) + &
+        gradyWall(3,i,j,k,0,iElem) * Metrics_hTilde(:,i,j,k,iElem,0) &
+      ) * sJ(i,j,k,iElem,0)
+    END DO; END DO; END DO
+  END DO
 ELSE
   SWRITE(UNIT_stdOut, *) "WARNING: No walldistance file found! DDES shielding not working!"
   CALL CollectiveStop(__STAMP__,'Please use POSTI to compute wall distance first!')

@@ -43,6 +43,7 @@ INTEGER,ALLOCATABLE  :: averageType(:)                !< type of averaging for d
 LOGICAL,ALLOCATABLE  :: doFilterDir(:,:)              !< specifies in which directions the test filter should be applied in each element
 
 REAL,ALLOCATABLE  :: yWall(:,:,:,:,:)                 !< wall distance
+REAL,ALLOCATABLE  :: gradyWall(:,:,:,:,:,:)           !< gradient of wall distance
 REAL,ALLOCATABLE  :: damp(:,:,:,:,:)                  !< damping factor
 REAL,ALLOCATABLE  :: Cdes2(:,:,:,:)                   !< precomputed (model constant)**2 => dynamic Smagorinsky DDES
 REAL,ALLOCATABLE  :: IntElem(:,:,:,:)                 !< integration weights for dynamic Smagorinsky model
