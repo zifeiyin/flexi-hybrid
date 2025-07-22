@@ -59,10 +59,9 @@ USE MOD_Interpolation      ,ONLY: GetVandermonde
 USE MOD_ChangeBasis        ,ONLY: changeBasis3D
 USE MOD_Interpolation_Vars ,ONLY: wGP
 USE MOD_Testcase_Vars      ,ONLY: testcase
-USE MOD_HDF5_Input        ,ONLY: ReadArray,OpenDataFile,CloseDataFile,GetDataSize,ReadAttribute
-USE MOD_2D                ,ONLY: ExpandArrayTo3D
+USE MOD_HDF5_Input         ,ONLY: ReadArray,OpenDataFile,CloseDataFile,GetDataSize,ReadAttribute
+USE MOD_2D                 ,ONLY: ExpandArrayTo3D
 USE MOD_IO_HDF5
-USE MOD_DG_Vars            ,ONLY: D
 USE MOD_Mesh_Vars          ,ONLY: sJ,Metrics_fTilde,Metrics_gTilde,Metrics_hTilde
 USE MOD_Interpolation      ,ONLY: GetNodesAndWeights
 USE MOD_Interpolation_Vars ,ONLY: NodeType

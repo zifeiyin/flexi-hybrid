@@ -62,7 +62,6 @@ USE MOD_2D                 ,ONLY: ExpandArrayTo3D
 USE MOD_Interpolation_Vars ,ONLY: InterpolationInitIsDone,wGP
 USE MOD_Mesh_Vars          ,ONLY: MeshInitIsDone,nElems,sJ,Elem_xGP,MeshFile,offsetElem
 USE MOD_EOS_Vars           ,ONLY: mu0
-USE MOD_DG_Vars            ,ONLY: D
 USE MOD_Mesh_Vars          ,ONLY: sJ,Metrics_fTilde,Metrics_gTilde,Metrics_hTilde
 USE MOD_Interpolation      ,ONLY: GetNodesAndWeights
 USE MOD_Interpolation_Vars ,ONLY: NodeType
