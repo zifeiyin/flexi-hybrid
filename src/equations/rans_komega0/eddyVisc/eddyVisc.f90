@@ -64,8 +64,8 @@ CALL prms%CreateRealOption(         'CS',            'EddyViscParameters constan
 CALL prms%CreateRealOption(         'PrSGS',         'Turbulent Prandtl number','0.9')
 CALL prms%CreateRealArrayOption(    'eddyViscLimits','Limits for the computed eddy viscosity as multiples of the physical &
                                                      &viscosity.','(/0.,100./)')
-CALL prms%CreateLogicalOption(      'VanDriest',     'Van Driest damping, only for channel flow!', '.FALSE.')
-CALL prms%CreateStringOption(       'WallDistFile',  'File containing the distances to the nearest walls in the domain.')
+! CALL prms%CreateLogicalOption(      'VanDriest',     'Van Driest damping, only for channel flow!', '.FALSE.')
+! CALL prms%CreateStringOption(       'WallDistFile',  'File containing the distances to the nearest walls in the domain.')
 END SUBROUTINE DefineParametersEddyVisc
 
 !===================================================================================================================================

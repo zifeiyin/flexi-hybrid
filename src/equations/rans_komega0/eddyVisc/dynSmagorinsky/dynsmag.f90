@@ -225,7 +225,7 @@ END SUBROUTINE InitDynSmagorinsky
 !===================================================================================================================================
 !> Compute Dynamic Smagorinsky Eddy-Visosity
 !===================================================================================================================================
-PPURE SUBROUTINE DynSmagorinsky_Point(gradUx,gradUy,gradUz,UPrim,Cdes2,y,Delta,hmax,fd,muSGS)
+PPURE SUBROUTINE DynSmagorinsky_Point(gradUx,gradUy,gradUz,UPrim,Cdes2,y,Delta,hmax,fd,muSGS,muTRA,omega)
 ! MODULES
 USE MOD_Equation_Vars,  ONLY: Cmu, sqrt6
 USE MOD_EddyVisc_Vars,  ONLY: CDES0
@@ -241,6 +241,8 @@ REAL                          ,INTENT(IN)  :: Delta                    !> pointw
 REAL                          ,INTENT(IN)  :: hmax                     !> local grid size
 REAL                          ,INTENT(OUT) :: fd                       !> fd
 REAL                          ,INTENT(OUT) :: muSGS                    !> pointwise eddyviscosity
+REAL                          ,INTENT(OUT) :: muTRA                    !> pointwise eddyviscosity
+REAL                          ,INTENT(OUT) :: omega                    !> omega
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                    :: sRho
@@ -275,20 +277,25 @@ dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 + gradUx(LIFT_VEL3)**2 &
 
 kPos    = MAX( UPrim(TKE), 1.e-16 )
 gPos    = MAX( UPrim(OMG), 1.e-16 )
-muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
+! muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
+muTOrig = UPrim(DENS) * kPos / omega
+muTRA = muTOrig
 
 muTLim = MIN(muTOrig,  UPrim(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
 
-lRANS = SQRT(mutLim * sRho * Cmu * gPos**2 )
+! lRANS = SQRT(mutLim * sRho * Cmu * gPos**2)
+lRANS = SQRT(mutLim * sRho / omega)
 
-rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+! rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+rd    = (kPos / omega + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
 lLES = SQRT(Cdes2) * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
+! muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
+muSGS = UPrim(DENS) * lDDES**2 * omega
 
 END SUBROUTINE DynSmagorinsky_Point
 
@@ -299,7 +306,7 @@ SUBROUTINE DynSmagorinsky_Volume()
 ! MODULES
 USE MOD_PreProc
 USE MOD_Mesh_Vars,         ONLY: nElems, Elem_hmx
-USE MOD_EddyVisc_Vars,     ONLY: Cdes2, muSGS, yWall, DeltaS, fd
+USE MOD_EddyVisc_Vars,     ONLY: Cdes2, muSGS, yWall, DeltaS, fd, muTRA, omega
 USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
 USE MOD_DG_Vars,           ONLY: UPrim, U
 IMPLICIT NONE
@@ -318,7 +325,7 @@ DO iElem = 1,nElems
     CALL DynSmagorinsky_Point(gradUx(:,i,j,k,iElem), gradUy(:,i,j,k,iElem),       gradUz(:,i,j,k,iElem), &
                               UPrim(:,i,j,k,iElem),  Cdes2(i,j,k,iElem),          yWall(i,j,k,0,iElem),  &
                               DeltaS(iElem),         Elem_hmx(iElem),             fd(1,i,j,k,iElem),     &
-                              muSGS(1,i,j,k,iElem)                                )
+                              muSGS(1,i,j,k,iElem),  muTRA(1,i,j,k,iElem),        omega(i,j,k,iElem))
   END DO; END DO; END DO ! i,j,k
 END DO
 END SUBROUTINE DynSmagorinsky_Volume
@@ -331,7 +338,7 @@ SUBROUTINE Apply_Clim(U_in)
 USE MOD_PreProc
 USE MOD_Equation_Vars,     ONLY: Cmu
 USE MOD_Mesh_Vars,         ONLY: nElems, Elem_hmx
-USE MOD_EddyVisc_Vars,     ONLY: CDES0, Cdes2
+USE MOD_EddyVisc_Vars,     ONLY: CDES0, Cdes2, omega
 USE MOD_DG_Vars,           ONLY: UPrim
 USE MOD_VISCOSITY
 IMPLICIT NONE
@@ -351,11 +358,12 @@ REAL                :: nuS
 DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     nuS     = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem)) / UPrim(DENS,i,j,k,iElem)
-    IF ( U_in(RHOG,i,j,k,iElem) .lt. 0.0 ) THEN
-      diss  = 1.e-16
-    ELSE
-      diss  = MAX( U_in(RHOK,i,j,k,iElem) * U_in(DENS,i,j,k,iElem) /  MAX(U_in(RHOG,i,j,k,iElem)**2, 1.e-24 ), 1.e-16 )
-    ENDIF
+    ! IF ( U_in(RHOG,i,j,k,iElem) .lt. 0.0 ) THEN
+    !   diss  = 1.e-16
+    ! ELSE
+    !   diss  = MAX( U_in(RHOK,i,j,k,iElem) * U_in(DENS,i,j,k,iElem) /  MAX(U_in(RHOG,i,j,k,iElem)**2, 1.e-24 ), 1.e-16 )
+    ! ENDIF
+    diss = Cmu * MAX(UPrim(TKE,i,j,k,iElem), 1.0E-16) * omega(i,j,k,iElem)
     eta     = ( nuS**3 / diss )**0.25
     ratio   = Elem_hmx(iElem) / eta
     Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
@@ -375,6 +383,7 @@ USE MOD_PreProc
 USE MOD_Equation_Vars ,ONLY: Cmu
 USE MOD_EddyVisc_Vars ,ONLY: Cdes2,DeltaRatio,DeltaS,FilterMat_testFilter
 USE MOD_EddyVisc_Vars ,ONLY: doFilterDir,IntElem
+USE MOD_EddyVisc_Vars ,ONLY: omega_global => omega
 USE MOD_Lifting_Vars  ,ONLY: gradUx,gradUy,gradUz
 USE MOD_Mesh_Vars     ,ONLY: nElems
 ! IMPLICIT VARIABLE HANDLING
@@ -434,8 +443,9 @@ DO iElem=1,nElems
   END DO; END DO
 
   ! Compute omega
-  g(:,:,:) = U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
-  omega(:,:,:) = 1. / (Cmu * MAX(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem),1.e-16)**2 )
+  ! g(:,:,:) = U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  ! omega(:,:,:) = 1. / (Cmu * MAX(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem),1.e-16)**2 )
+  omega(:,:,:) = omega_global(:,:,:,iElem)
 
   ! Correct for compressibility
   S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
@@ -446,7 +456,8 @@ DO iElem=1,nElems
   DO m=1,3
     DO l=1,3
       ! M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * omega(:,:,:)*S_lm(l,m,:,:,:) ! |S|S
-      M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * S_lm(l,m,:,:,:) / (Cmu * g(:,:,:)**2) ! |S|S
+      ! M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * S_lm(l,m,:,:,:) / (Cmu * g(:,:,:)**2) ! |S|S
+      M_lm(l,m,:,:,:) = DeltaS(iElem)**2 * S_lm(l,m,:,:,:) * omega(:,:,:) ! |S| S
     END DO ! l                                                                             ____
     CALL Filter_Selective(3,FilterMat_testFilter,M_lm(1:3,m,:,:,:),doFilterDir(:,iElem))  ! |S|S
   END DO ! m
@@ -465,8 +476,8 @@ DO iElem=1,nElems
   divV(:,:,:) = 1./3.*(gradV(1,1,:,:,:)+gradV(2,2,:,:,:)+gradV(3,3,:,:,:))
 
   ! filter omega
-  g_filtered(:,:,:) = g(:,:,:)
-  CALL Filter_Selective(1,FilterMat_testFilter,g_filtered(:,:,:),doFilterDir(:,iElem))
+  ! g_filtered(:,:,:) = g(:,:,:)
+  ! CALL Filter_Selective(1,FilterMat_testFilter,g_filtered(:,:,:),doFilterDir(:,iElem))
   omega_filtered(:,:,:) = omega(:,:,:)
   CALL Filter_Selective(1,FilterMat_testFilter,omega_filtered(:,:,:),doFilterDir(:,iElem))
 
@@ -478,7 +489,8 @@ DO iElem=1,nElems
   !             ____    _____              _ _
   ! Compute M = |w|S - (Delta/Delta)**2 * |w|S
   DO m=1,3; DO l=1,3
-    M_lm(l,m,:,:,:) = M_lm(l,m,:,:,:) - DeltaRatio(iElem) * DeltaS(iElem)**2 / (Cmu * g_filtered(:,:,:)**2) * S_lm(l,m,:,:,:)
+    ! M_lm(l,m,:,:,:) = M_lm(l,m,:,:,:) - DeltaRatio(iElem) * DeltaS(iElem)**2 / (Cmu * g_filtered(:,:,:)**2) * S_lm(l,m,:,:,:)
+    M_lm(l,m,:,:,:) = M_lm(l,m,:,:,:) - DeltaRatio(iElem) * DeltaS(iElem)**2 * omega_filtered(:,:,:) * S_lm(l,m,:,:,:)
   END DO; END DO ! l,m
 
   ! contract with M_lm according to least square approach of Lilly

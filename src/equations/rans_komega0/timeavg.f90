@@ -82,7 +82,7 @@ SWRITE(UNIT_stdOut,'(A)') 'Warning: If FV is enabled, time averaging is performe
 #endif
 
 ! Define variables to be averaged
-nMaxVarAvg=33
+nMaxVarAvg=34
 ALLOCATE(VarNamesAvgList(nMaxVarAvg))
 VarNamesAvgList(1)  ='Density'
 VarNamesAvgList(2)  ='MomentumX'
@@ -117,6 +117,7 @@ VarNamesAvgList(30) ='RhoWW'
 VarNamesAvgList(31) ='RhoUV'
 VarNamesAvgList(32) ='RhoUW'
 VarNamesAvgList(33) ='RhoVW'
+VarNamesAvgList(34) ='TurbOmegaReal'
 
 nMaxVarFluc=21
 ALLOCATE(VarNamesFlucList(nMaxVarFluc),hasAvgVars(nMaxVarFluc))
@@ -345,7 +346,7 @@ USE MOD_EOS          ,ONLY: ConsToPrim
 USE MOD_EOS_Vars     ,ONLY: Kappa
 USE MOD_Analyze_Vars ,ONLY: WriteData_dt
 USE MOD_AnalyzeEquation_Vars
-USE MOD_EddyVisc_Vars,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,fd,Cdes2,SijUij,dGidGi
+USE MOD_EddyVisc_Vars,ONLY: muSGS,prodK,dissK,prodG,dissG,crossG,fd,Cdes2,SijUij,dGidGi,omega
 #if FV_ENABLED
 USE MOD_FV_Vars      ,ONLY: FV_Elems,FV_Vdm,FV_sVdm
 USE MOD_ChangeBasisByDim,ONLY:ChangeBasisVolume
@@ -552,12 +553,16 @@ DO iElem=1,nElems
     tmpVars(iAvg(31),:,:,:)=Uloc(MOM1,:,:,:)*prim(VEL2,:,:,:)
   END IF
 
-  IF(CalcAvg(32))THEN ! 'RhoUV'
+  IF(CalcAvg(32))THEN ! 'RhoUW'
     tmpVars(iAvg(32),:,:,:)=Uloc(MOM1,:,:,:)*prim(VEL3,:,:,:)
   END IF
 
-  IF(CalcAvg(33))THEN ! 'RhoUV'
+  IF(CalcAvg(33))THEN ! 'RhoVW'
     tmpVars(iAvg(33),:,:,:)=Uloc(MOM2,:,:,:)*prim(VEL3,:,:,:)
+  END IF
+
+  IF(CalcAvg(34))THEN ! 'TurbOmegaReal'
+    tmpVars(iAvg(34),:,:,:)=omega(:,:,:,iElem)
   END IF
 
   UAvg(:,:,:,:,iElem)= UAvg (:,:,:,:,iElem) + tmpVars(1:nVarAvg,:,:,:)*dtStep

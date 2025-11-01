@@ -168,7 +168,7 @@ END SUBROUTINE InitSmagorinsky
 !===================================================================================================================================
 !> Compute Smagorinsky Eddy-Visosity
 !===================================================================================================================================
-PPURE SUBROUTINE Smagorinsky_Point(gradUx,gradUy,gradUz,UPrim,y,Delta,hmax,muSGS,fd)
+PPURE SUBROUTINE Smagorinsky_Point(gradUx,gradUy,gradUz,UPrim,y,Delta,hmax,muSGS,muTRA,fd,omega)
 ! MODULES
 USE MOD_Equation_Vars,  ONLY: Cmu, sqrt6
 USE MOD_EddyVisc_Vars,  ONLY: CDES0
@@ -182,7 +182,9 @@ REAL                          ,INTENT(IN)  :: y       !> pointwise wall distance
 REAL                          ,INTENT(IN)  :: Delta   !> pointwise cell spacing
 REAL                          ,INTENT(IN)  :: hmax    !> local grid size
 REAL                          ,INTENT(OUT) :: muSGS   !> pointwise eddyviscosity
+REAL                          ,INTENT(OUT) :: muTRA   !> pointwise eddyviscosity
 REAL                          ,INTENT(OUT) :: fd      !> fd
+REAL                          ,INTENT(IN)  :: omega   !> omega
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                    :: sRho
@@ -210,24 +212,29 @@ magS = SQRT( &
 
 kPos    = MAX( UPrim(TKE), 1.e-16 )
 gPos    = MAX( UPrim(OMG), 1.e-16 )
-muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
+! muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
+muTOrig = UPrim(DENS) * kPos / omega
+muTRA = muTOrig
 
-muTLim = MIN(muTOrig,  UPrim(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
+muTLim = MIN(muTOrig, UPrim(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
 
-lRANS = SQRT(mutLim * sRho * Cmu * gPos**2 )
+! lRANS = SQRT(mutLim * sRho * Cmu * gPos**2)
+lRANS = SQRT(mutLim * sRho / omega)
 
 dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 + gradUx(LIFT_VEL3)**2 &
       + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUy(LIFT_VEL3)**2 &
       + gradUz(LIFT_VEL1)**2 + gradUz(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2
 
-rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+! rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+rd    = (kPos / omega + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
 lLES = CDES0 * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
+! muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
+muSGS = UPrim(DENS) * lDDES**2 * omega
 
 END SUBROUTINE Smagorinsky_Point
 
@@ -239,7 +246,7 @@ SUBROUTINE Smagorinsky_Volume()
 ! MODULES
 USE MOD_PreProc
 USE MOD_Mesh_Vars,         ONLY: nElems, Elem_hmx
-USE MOD_EddyVisc_Vars,     ONLY: muSGS, yWall, DeltaS, fd
+USE MOD_EddyVisc_Vars,     ONLY: muSGS, muTRA, yWall, DeltaS, fd, omega
 USE MOD_Lifting_Vars,      ONLY: gradUx, gradUy, gradUz
 USE MOD_DG_Vars,           ONLY: UPrim
 !USE MOD_FV_Vars,           ONLY: FV_Elems
@@ -254,7 +261,8 @@ DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL Smagorinsky_Point( gradUx(:,i,j,k,iElem),    gradUy(:,i,j,k,iElem),              gradUz(:,i,j,k,iElem), &
                             UPrim(:,i,j,k,iElem),     yWall(i,j,k,0,iElem),               DeltaS(iElem),         &
-                            Elem_hmx(iElem),          muSGS(1,i,j,k,iElem),               fd(1,i,j,k,iElem))
+                            Elem_hmx(iElem),          muSGS(1,i,j,k,iElem),               muTRA(1,i,j,k,iElem),  &
+                            fd(1,i,j,k,iElem),        omega(i,j,k,iElem))
   END DO; END DO; END DO ! i,j,k
 END DO
 END SUBROUTINE Smagorinsky_Volume

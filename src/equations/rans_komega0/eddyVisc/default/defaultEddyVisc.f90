@@ -46,7 +46,6 @@ USE MOD_Interpolation_Vars ,ONLY: InterpolationInitIsDone,wGP
 USE MOD_Mesh_Vars          ,ONLY: MeshInitIsDone,nElems,sJ,Elem_xGP,MeshFile,offsetElem
 USE MOD_EOS_Vars           ,ONLY: mu0
 USE MOD_Mesh_Vars          ,ONLY: sJ,Metrics_fTilde,Metrics_gTilde,Metrics_hTilde
-USE MOD_Equation_Vars      ,ONLY: alphaModelCorrection
 USE MOD_Interpolation      ,ONLY: GetNodesAndWeights
 USE MOD_Interpolation_Vars ,ONLY: NodeType
 USE MOD_Basis              ,ONLY: PolynomialDerivativeMatrix,LagrangeInterpolationPolys,PolynomialMassMatrix

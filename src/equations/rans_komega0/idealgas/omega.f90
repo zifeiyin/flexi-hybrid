@@ -21,7 +21,7 @@ USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Mesh_Vars ,ONLY: nElems
 USE MOD_DG_Vars, ONLY: UPrim
-USE MOD_Equation_Vars, ONLY: Comega2
+USE MOD_Equation_Vars, ONLY: Comega2, Cexp
 USE MOD_EddyVisc_Vars, ONLY: ywall,omega
 USE MOD_Viscosity
 
@@ -33,7 +33,8 @@ DO iElem=1,nElems
     nuS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem)) / UPrim(DENS,i,j,k,iElem)
     xi = MAX(UPrim(OMG,i,j,k,iElem), 0.0) * ywall(i,j,k,0,iElem)**2 / nuS
     ! omega(i,j,k,iElem) = (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * (xi / (6.0 / Comega2) + EXP(-xi / 95.0))
-    omega(i,j,k,iElem) = UPrim(OMG,i,j,k,iElem) + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-xi / 95.0)
+    ! omega(i,j,k,iElem) = UPrim(OMG,i,j,k,iElem) + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-xi / 95.0)
+    omega(i,j,k,iElem) = UPrim(OMG,i,j,k,iElem) + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-Cexp * xi)
   END DO; END DO; END DO
 END DO
 

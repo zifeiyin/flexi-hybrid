@@ -40,18 +40,18 @@ INTEGER,PARAMETER :: nVarDepEOS=24
 !           y                              E                        V N               l
 !           S                      V       n       P                o o               F
 !           t                      e     E t   T   r                r r               r W
-!           a                      l     n h   o   e                t m               i a             
-! W         g                      o     e a   t   s                i a               c l             t
-! i         n               k   t  c V   r l   a T s                c l         W W W t l             u
-! t         a               i   u  i e   g p   l o u                i i         a a a i H             r
-! h         t             T n t r  t l   y y   T t r                t z         l l l o e             b
-! D         i             e e u b  y o   S S   e a e          V V V y e   D Q   l l l n a             o
-! G   M M M o     V V V   m t r u  M c   t t   m l T          o o o M d   i C S F F F M t             m
-! O   o o o n D D e e e P p i b l  a i   a a   p P i          r r r a H   l r c r r r a T             e
-! p D m m m D e e l l l r e c u e  g t   g g E e r m          t t t g e L a i h i i i g r             g
-! e e e e e e n n o o o e r e l n  n y   n n n r e e          i i i n l a t t l c c c n a             a
-! r n n n n n s s c c c s a n e c  i S   a a t a s D          c c c i i m a e i t t t i n       m   c _
-! a s t t t s i i i i i s t e n e  t o M t t r t s e          i i i t c b t r e i i i t s       u   d r
+!           a                      l     n h   o   e                t m               i a
+! W         g                      o     e a   t   s                i a               c l
+! i         n               k   t  c V   r l   a T s                c l         W W W t l             T
+! t         a               i   u  i e   g p   l o u                i i         a a a i H             u
+! h         t             T n t r  t l   y y   T t r                t z         l l l o e             r
+! D         i             e e u b  y o   S S   e a e          V V V y e   D Q   l l l n a             b
+! G   M M M o     V V V   m t r u  M c   t t   m l T          o o o M d   i C S F F F M t             O
+! O   o o o n D D e e e P p i b l  a i   a a   p P i          r r r a H   l r c r r r a T             m
+! p D m m m D e e l l l r e c u e  g t   g g E e r m          t t t g e L a i h i i i g r             e
+! e e e e e e n n o o o e r e l n  n y   n n n r e e          i i i n l a t t l c c c n a             g
+! r n n n n n s s c c c s a n e c  i S   a a t a s D          c c c i i m a e i t t t i n       m   c a
+! a s t t t s i i i i i s t e n e  t o M t t r t s e          i i i t c b t r e i i i t s       u   d R
 ! t i u u u i t t t t t u u r c m  u u a i i o u u r          t t t u i d i i r o o o u f       S   e e
 ! o t m m m t y y y y y r r g e u  d n c o o p r r i          y y y d t a o o e n n n d e x y z G f s a
 ! r y X Y Z y k g X Y Z e e y g t  e d h n n y e e v          X Y Z e y 2 n n n X Y Z e r + + + S d 2 l
@@ -102,7 +102,7 @@ INTEGER,DIMENSION(1:nVarDepEOS,0:nVarDepEOS),PARAMETER :: DepTableEOS = TRANSPOS
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0         ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !42 muSGS
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0         ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !43 fd
   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0         ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ,& !44 CDes2
-  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0         ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  & !45 turbomega_real
+  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0         ,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  & !45 TurbOmegaReal
 #endif
 /),(/nVarDepEOS+1,nVarDepEOS/)))
 
@@ -201,7 +201,7 @@ CHARACTER(LEN=255),DIMENSION(nVarDepEOS),PARAMETER :: DepNames = &
 "muSGS"                    ,& !42
 "fd"                       ,& !43
 "CDes2"                    ,& !44
-"TurbOmega_real"            & !45
+"TurbOmegaReal"             & !45
 #endif /*PARABOLIC*/
 /)
 

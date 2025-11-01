@@ -130,10 +130,9 @@ CALL prms%CreateRealOption('MassFlowRate',           "Mass flow rate at a given 
 CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massflow is computed")
 
 ! options for variations of turbulence models
-CALL prms%CreateLogicalOption('rhokContribution', "rho*k contribution in the Reynolds stress", 'T')
-CALL prms%CreateLogicalOption('danisDurbinCorrection', "danis durbin correction", 'F')
-CALL prms%CreateLogicalOption('crossDiffusionTerm'   , "cross diffusion term in wilcox 06", 'F')
-CALL prms%CreateLogicalOption('alphaModelCorrection' , "alpha model correction", 'F')
+CALL prms%CreateLogicalOption('rhokContribution',   "rho*k contribution in the Reynolds stress", 'T')
+CALL prms%CreateLogicalOption('crossDiffusionTerm', "cross diffusion term in wilcox 06", 'F')
+CALL prms%CreateRealOption   ('CoefficientA'    ,   "Coeffcient A in EXP(-A * x)", '0.012')
 
 CALL prms%CreateLogicalOption('RiemannInvariantBC', "use Riemann invariant BC for weak Dirichlet BCs", 'F')
 
@@ -149,7 +148,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars      ,ONLY: danisDurbinCorrection, crossDiffusionTerm, RiemannInvariantBC, rhokContribution, alphaModelCorrection
+USE MOD_Equation_Vars      ,ONLY: crossDiffusionTerm, RiemannInvariantBC, rhokContribution, Cexp
 USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -264,14 +263,8 @@ IF (.NOT.rhokContribution) THEN
   SWRITE(UNIT_stdOut,'(A)')' Neglecting rho*k contribution in the Reynolds stress!'
 ENDIF
 
-danisDurbinCorrection = GETLOGICAL('danisDurbinCorrection')
-IF (danisDurbinCorrection) THEN
-  SWRITE(UNIT_stdOut,'(A)')' Danis & Durbin correct term is ACTIVATED!'
-ENDIF
-alphaModelCorrection = GETLOGICAL('alphaModelCorrection')
-IF (alphaModelCorrection) THEN
-  SWRITE(UNIT_stdOut,'(A)')' alpha model correct term is ACTIVATED!'
-ENDIF
+Cexp = GETREAL("CoefficientA")
+
 crossDiffusionTerm    = GETLOGICAL('crossDiffusionTerm')
 IF (crossDiffusionTerm) THEN
   SWRITE(UNIT_stdOut,'(A)')' Cross diffusion term of wilcox 06 is ACTIVATED!'
@@ -859,7 +852,7 @@ USE MOD_DG_Vars          ,ONLY: U
 USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_EOS              ,ONLY: ConsToPrim
 USE MOD_Equation_Vars    ,ONLY: IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, danisDurbinCorrection, rhokContribution, alphaModelCorrection
+USE MOD_Equation_Vars    ,ONLY: crossDiffusionTerm, rhokContribution
 #if FV_ENABLED
 USE MOD_ChangeBasisByDim ,ONLY: ChangeBasisVolume
 USE MOD_FV_Vars          ,ONLY: FV_Vdm,FV_Elems
@@ -1054,7 +1047,7 @@ DO iElem=1,nElems
     ! dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * UPrim(OMG)**3 * SijGradU
     ! crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
     ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
-    prodG (1,i,j,k,iElem) = Comega1 * UPrim(DENS) * SijGradU
+    prodG (1,i,j,k,iElem) = 2.0 * Comega1 * UPrim(DENS) * SijGradU
     dissG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) * gPos**2
 
     ! cross diffusion term in Wilcox 2006
