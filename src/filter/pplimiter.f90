@@ -12,7 +12,7 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
-#if (EQNSYSNR == 2 || EQNSYSNR == 4)
+#if (EQNSYSNR==2 || EQNSYSNR==4 || EQNSYSNR==5)
 #include "eos.h"
 #endif
 !==================================================================================================================================
@@ -287,6 +287,8 @@ REAL                    :: UDiff(PP_nVar)
 #if EQNSYSNR==2
 p = KappaM1*(ULoc(ENER)-0.5*DOT_PRODUCT(ULoc(MMV2),ULoc(MMV2))/ULoc(DENS))
 #elif EQNSYSNR==4
+p = KappaM1*(ULoc(ENER)-0.5*DOT_PRODUCT(ULoc(MMV2),ULoc(MMV2))/ULoc(DENS)-ULoc(RHOK))
+#elif EQNSYSNR==5
 p = KappaM1*(ULoc(ENER)-0.5*DOT_PRODUCT(ULoc(MMV2),ULoc(MMV2))/ULoc(DENS)-ULoc(RHOK))
 #endif 
 

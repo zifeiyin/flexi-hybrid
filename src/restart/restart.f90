@@ -185,6 +185,16 @@ ELSE
       CASE(TRIM(StrVarNamesPrim(8))) ! omg
         RestartPrim(8) = iVar
 #endif /* EQNSYSNR == 4 */
+#if EQNSYSNR == 5
+      CASE(TRIM(StrVarNames(6)))     ! rhok
+        RestartCons(6) = iVar
+      CASE(TRIM(StrVarNames(7)))     ! rhog
+        RestartCons(7) = iVar
+      CASE(TRIM(StrVarNamesPrim(7))) ! tke
+        RestartPrim(7) = iVar
+      CASE(TRIM(StrVarNamesPrim(8))) ! omg
+        RestartPrim(8) = iVar
+#endif /* EQNSYSNR == 5 */
     END SELECT
   END DO
   ! Use conservative variables available
