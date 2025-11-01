@@ -194,6 +194,12 @@ MPIRequest_Rec_SM = MPI_REQUEST_NULL
 #if EDDYVISCOSITY
 ALLOCATE(MPIRequest_SGS(nNbProcs,2) )
 MPIRequest_SGS     = MPI_REQUEST_NULL
+#if EQNSYSNR == 5
+ALLOCATE(MPIRequest_TRA(nNbProcs,2) )
+ALLOCATE(MPIRequest_fd (nNbProcs,2) )
+MPIRequest_TRA     = MPI_REQUEST_NULL
+MPIRequest_fd      = MPI_REQUEST_NULL
+#endif
 #endif
 
 #if PARABOLIC
@@ -463,6 +469,10 @@ SDEALLOCATE(MPIRequest_Rec_SM)
 #endif
 #if EDDYVISCOSITY
 SDEALLOCATE(MPIRequest_SGS)
+#if EQNSYSNR == 5
+SDEALLOCATE(MPIRequest_TRA)
+SDEALLOCATE(MPIRequest_fd)
+#endif
 #endif
 #if PARABOLIC
 SDEALLOCATE(MPIRequest_gradU)

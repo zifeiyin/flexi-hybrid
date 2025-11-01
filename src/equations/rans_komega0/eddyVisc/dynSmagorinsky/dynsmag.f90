@@ -102,7 +102,7 @@ CALL PolynomialDerivativeMatrix(PP_N,xRef,D)
 ! Allocate necessary arrays
 ALLOCATE(yWall(0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
 ALLOCATE(gradyWall(3,0:PP_N,0:PP_N,0:PP_NZ,0:FV_SIZE,nElems))
-ALLOCATE(fd   (0:PP_N,0:PP_N,0:PP_NZ,nElems))
+! ALLOCATE(fd   (0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(DeltaRatio(nElems))
 
 ALLOCATE(Cdes2(0:PP_N,0:PP_N,0:PP_NZ,nElems))
@@ -317,7 +317,7 @@ DO iElem = 1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     CALL DynSmagorinsky_Point(gradUx(:,i,j,k,iElem), gradUy(:,i,j,k,iElem),       gradUz(:,i,j,k,iElem), &
                               UPrim(:,i,j,k,iElem),  Cdes2(i,j,k,iElem),          yWall(i,j,k,0,iElem),  &
-                              DeltaS(iElem),         Elem_hmx(iElem),             fd(i,j,k,iElem),       &
+                              DeltaS(iElem),         Elem_hmx(iElem),             fd(1,i,j,k,iElem),     &
                               muSGS(1,i,j,k,iElem)                                )
   END DO; END DO; END DO ! i,j,k
 END DO

@@ -101,6 +101,20 @@ ALLOCATE(muSGS_master(1,0:PP_N,0:PP_NZ,nSides))
 ALLOCATE(muSGS_slave (1,0:PP_N,0:PP_NZ,nSides))
 muSGS_master=0.
 muSGS_slave =0.
+ALLOCATE(muTRA(1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+muTRA = 0.
+ALLOCATE(muTRA_master(1,0:PP_N,0:PP_NZ,nSides))
+ALLOCATE(muTRA_slave (1,0:PP_N,0:PP_NZ,nSides))
+muTRA_master=0.
+muTRA_slave =0.
+ALLOCATE(fd(1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+fd = 0.
+ALLOCATE(fd_master(1,0:PP_N,0:PP_NZ,nSides))
+ALLOCATE(fd_slave (1,0:PP_N,0:PP_NZ,nSides))
+fd_master=0.
+fd_slave =0.
+ALLOCATE(omega(0:PP_N,0:PP_N,0:PP_NZ,nElems))
+omega = 0.
 
 ALLOCATE(prodK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(dissK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
@@ -158,6 +172,13 @@ SDEALLOCATE(CSdeltaS2)
 SDEALLOCATE(muSGS)
 SDEALLOCATE(muSGS_master)
 SDEALLOCATE(muSGS_slave)
+SDEALLOCATE(muTRA)
+SDEALLOCATE(muTRA_master)
+SDEALLOCATE(muTRA_slave)
+SDEALLOCATE(fd)
+SDEALLOCATE(fd_master)
+SDEALLOCATE(fd_slave)
+SDEALLOCATE(omega)
 SDEALLOCATE(prodK)
 SDEALLOCATE(dissK)
 SDEALLOCATE(prodG)

@@ -811,7 +811,7 @@ USE MOD_Riemann      ,ONLY: ViscousFlux
 #endif
 USE MOD_Riemann      ,ONLY: Riemann
 #if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS_master
+USE MOD_EddyVisc_Vars,ONLY: muSGS_master,muTRA_master,fd_master
 #endif
 USE MOD_TestCase     ,ONLY: GetBoundaryFluxTestcase
 USE MOD_DG_Vars      ,ONLY: UPrim_Boundary
@@ -884,7 +884,8 @@ ELSE
          gradUx_master,gradUy_master,gradUz_master,&
          NormVec&
 #if EDDYVISCOSITY
-        ,muSGS_master(:,:,:,SideID),muSGS_master(:,:,:,SideID)&
+        ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
+        ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
 #endif
     )
     Flux = Flux + Fd_Face_loc
@@ -907,7 +908,8 @@ CASE(30) ! Riemann-Type BCs
        gradUx_master,gradUy_master,gradUz_master,&
        NormVec&
 #if EDDYVISCOSITY
-      ,muSGS_master(:,:,:,SideID),muSGS_master(:,:,:,SideID)&
+      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
+      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
 #endif
   )
   Flux = Flux + Fd_Face_loc
@@ -916,6 +918,8 @@ CASE(30) ! Riemann-Type BCs
   CASE(3,4,9,91) ! Walls
 #if EDDYVISCOSITY
     muSGS_master(:,:,:,SideID)=0.
+    muTRA_master(:,:,:,SideID)=0.
+    fd_master   (:,:,:,SideID)=0.
 #endif
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       ! Now we compute the 1D Euler flux, but use the info that the normal component u=0
@@ -935,7 +939,7 @@ CASE(30) ! Riemann-Type BCs
                           gradUx_master, gradUy_master, gradUz_master, &
                           Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    &
 #if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID) &
+                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,sideID),fd_master(:,:,:,sideID) &
 #endif
                          )
       IF (BCType.EQ.3) THEN
@@ -991,7 +995,7 @@ CASE(30) ! Riemann-Type BCs
                           gradUx_Face_loc, gradUy_Face_loc, gradUz_Face_loc, &
                           Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              &
 #if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID)                         &
+                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID) &
 #endif
       )
     CASE(91)
@@ -1104,7 +1108,7 @@ CASE(30) ! Riemann-Type BCs
                           gradUx_Face_loc,gradUy_Face_loc,gradUz_Face_loc, &
                           Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            &
 #if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID)&
+                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,SideID)&
 #endif
       )
     END SELECT

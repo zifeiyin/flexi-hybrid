@@ -449,7 +449,7 @@ END SUBROUTINE Riemann_Point
 SUBROUTINE ViscousFlux_Side(Nloc,F,UPrim_L,UPrim_R, &
                             gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv &
 #if EDDYVISCOSITY
-                           ,muSGS_L,muSGS_R &
+                           ,muSGS_L,muTRA_L,fd_L,muSGS_R,muTRA_R,fd_R &
 #endif
                            )
 ! MODULES
@@ -468,6 +468,8 @@ REAL,DIMENSION(3             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: nv  !< normal 
 REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: F   !< viscous flux
 #if EDDYVISCOSITY
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS_L,muSGS_R   !> eddy viscosity left/right of the interface
+REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muTRA_L,muTRA_R   !> eddy viscosity left/right of the interface
+REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: fd_L,fd_R         !> eddy viscosity left/right of the interface
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -480,13 +482,13 @@ INTEGER                                                       :: p,q
 CALL EvalDiffFlux3D(Nloc,UPrim_L,   gradUx_L,   gradUy_L,   gradUz_L  &
                                 ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  &
 #if EDDYVISCOSITY
-                   ,muSGS_L &
+                   ,muSGS_L,muTRA_L,fd_L &
 #endif
       )
 CALL EvalDiffFlux3D(Nloc,UPrim_R,   gradUx_R,   gradUy_R,   gradUz_R  &
                                 ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  &
 #if EDDYVISCOSITY
-                   ,muSGS_R&
+                   ,muSGS_R,muTRA_R,fd_R &
 #endif
       )
 ! Arithmetic mean of the fluxes
@@ -504,7 +506,7 @@ END SUBROUTINE ViscousFlux_Side
 SUBROUTINE ViscousFlux_Point(F,UPrim_L,UPrim_R, &
                              gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv &
 #if EDDYVISCOSITY
-                            ,muSGS_L,muSGS_R &
+                            ,muSGS_L,muTRA_L,fd_L,muSGS_R,muTRA_R,fd_R &
 #endif
                             )
 ! MODULES
@@ -520,6 +522,8 @@ REAL,DIMENSION(3             ),INTENT(IN)  :: nv  !< normal vector
 REAL,DIMENSION(PP_nVar       ),INTENT(OUT) :: F   !< viscous flux
 #if EDDYVISCOSITY
 REAL,INTENT(IN)                            :: muSGS_L,muSGS_R    !> eddy viscosity left/right of the interface
+REAL,INTENT(IN)                            :: muTRA_L,muTRA_R    !> eddy viscosity left/right of the interface
+REAL,INTENT(IN)                            :: fd_L,fd_R          !> fd left/right of the interface
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -533,13 +537,13 @@ REAL,DIMENSION(PP_nVar)  :: diffFluxX_R,diffFluxY_R,diffFluxZ_R
 CALL EvalDiffFlux3D(UPrim_L,   gradUx_L,   gradUy_L,   gradUz_L  &
                            ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  &
 #if EDDYVISCOSITY
-                   ,muSGS_L &
+                   ,muSGS_L,mutra_L,fd_L &
 #endif
       )
 CALL EvalDiffFlux3D(UPrim_R,   gradUx_R,   gradUy_R,   gradUz_R  &
                            ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  &
 #if EDDYVISCOSITY
-                   ,muSGS_R&
+                   ,muSGS_R,mutra_R,fd_R &
 #endif
       )
 ! Arithmetic mean of the fluxes

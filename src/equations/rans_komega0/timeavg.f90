@@ -521,7 +521,7 @@ DO iElem=1,nElems
   END IF
 
   IF(CalcAvg(24))THEN ! 'fd'
-    tmpVars(iAvg(24),:,:,:)=fd(:,:,:,iElem)
+    tmpVars(iAvg(24),:,:,:)=fd(1,:,:,:,iElem)
   END IF
 
   IF(CalcAvg(25))THEN ! 'cdes'

@@ -55,6 +55,13 @@ REAL,ALLOCATABLE  :: CSdeltaS2(:)                     !< precomputed (model cons
 REAL,ALLOCATABLE  :: muSGS(:,:,:,:,:)                 !< Sub-grid eddy viscosity
 REAL,ALLOCATABLE  :: muSGS_master(:,:,:,:)            !< Sub-grid eddy viscosity on master sides
 REAL,ALLOCATABLE  :: muSGS_slave (:,:,:,:)            !< Sub-grid eddy viscosity on slave sides
+REAL,ALLOCATABLE  :: muTRA(:,:,:,:,:)                 !< RANS eddy viscosity
+REAL,ALLOCATABLE  :: muTRA_master(:,:,:,:)            !< RANS eddy viscosity on master sides
+REAL,ALLOCATABLE  :: muTRA_slave (:,:,:,:)            !< RANS eddy viscosity on slave sides
+REAL,ALLOCATABLE  :: fd(:,:,:,:,:)                    !< Shield function
+REAL,ALLOCATABLE  :: fd_master(:,:,:,:)               !< Shield function on master sides
+REAL,ALLOCATABLE  :: fd_slave (:,:,:,:)               !< Shield function on slave sides
+REAL,ALLOCATABLE  :: omega(:,:,:,:)                   !< Sub-grid eddy viscosity
 REAL,ALLOCATABLE  :: muSGSmax(:)                      !< maximum eddy viscosity per element
 REAL,ALLOCATABLE  :: FilterMat_TestFilter(:,:)        !< filter matrix for test filter for dynamic Smagorinsky model
 REAL              :: muSGS_limits(2)                  !< allowed range of eddy viscosity as multiple of physical viscosit
@@ -73,7 +80,7 @@ REAL,ALLOCATABLE  :: dissK (:,:,:,:,:)                !< dissipation K
 REAL,ALLOCATABLE  :: prodG (:,:,:,:,:)                !< production G
 REAL,ALLOCATABLE  :: dissG (:,:,:,:,:)                !< dissipation G
 REAL,ALLOCATABLE  :: crossG(:,:,:,:,:)                !< cross G
-REAL,ALLOCATABLE  :: fd(:,:,:,:)                      !< fd in DDES
+! REAL,ALLOCATABLE  :: fd(:,:,:,:)                      !< fd in DDES
 
 REAL,ALLOCATABLE  :: SijUij(:,:,:,:)                  !< magS
 REAL,ALLOCATABLE  :: dGidGi(:,:,:,:)                  !< dGdG

@@ -121,7 +121,7 @@ USE MOD_FV_Vars      ,ONLY: FV_alpha,FV_alpha_min
 #endif
 #endif
 #if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars, ONLY: muSGS, PrSGS
+USE MOD_EddyVisc_Vars, ONLY: muSGS, muTRA, PrSGS
 #endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
@@ -185,7 +185,8 @@ DO iElem=1,nElems
     ! Viscous Eigenvalues
     prim = UE(EXT_PRIM)
     mu=VISCOSITY_PRIM(prim)
-    muTOrig = MIN( Cmu * UE(EXT_DENS) * MAX(UE(EXT_TKE),1.e-16) * MAX(UE(EXT_OMG),1.e-16)**2, 10000. * mu) 
+    ! muTOrig = MIN( Cmu * UE(EXT_DENS) * MAX(UE(EXT_TKE),1.e-16) * MAX(UE(EXT_OMG),1.e-16)**2, 10000. * mu) 
+    muTOrig = muTRA(1,i,j,k,iElem)
 #if DECOUPLE==0
     mu = mu + MAX( MAX(muSGSMax, invSigmaK * muTOrig), muSGSMax/PrSGS)
 #endif
