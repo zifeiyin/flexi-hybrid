@@ -312,6 +312,10 @@ USE MOD_TimeDisc_Vars       ,ONLY: CurrentStage
 USE MOD_DG_Vars             ,ONLY: V,V_slave,V_master
 USE MOD_EOS                 ,ONLY: ConsToEntropy
 #endif
+#if EQNSYSNR == 5
+USE MOD_Omega               ,ONLY: ComputeOmega
+USE MOD_EddyVisc_Vars       ,ONLY: muTRA,muTRA_master,muTRA_slave,fd,fd_master,fd_slave
+#endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -354,6 +358,10 @@ CALL ConsToPrim(PP_N,UPrim,U)
 ! Compute entropy variables
 #ifdef PP_EntropyVars
 Call ConsToEntropy(PP_N,V,U)
+#endif
+
+#if EQNSYSNR == 5
+CALL ComputeOmega()
 #endif
 
 ! 3. Prolong the solution to the face integration points for flux computation (and do overlapping communication)
@@ -539,13 +547,27 @@ CALL Lifting(UPrim,UPrim_master,UPrim_slave,t)
 IF(CurrentStage.EQ.1) THEN
 #if USE_MPI
   CALL StartReceiveMPIData(muSGS_slave,DataSizeSideSGS,1,nSides,MPIRequest_SGS(:,RECV),SendID=2)
+#if EQNSYSNR == 5
+  CALL StartReceiveMPIData(muTRA_slave,DataSizeSideSGS,1,nSides,MPIRequest_TRA(:,RECV),SendID=2)
+  CALL StartReceiveMPIData(fd_slave   ,DataSizeSideSGS,1,nSides,MPIRequest_fd (:,RECV),SendID=2)
+#endif
 #endif /*USE_MPI*/
   CALL ComputeEddyViscosity()
 #if USE_MPI
   CALL ProlongToFace(1,PP_N,muSGS,muSGS_master,muSGS_slave,L_Minus,L_Plus,.TRUE.)
   CALL StartSendMPIData   (muSGS_slave,DataSizeSideSGS,1,nSides,MPIRequest_SGS(:,SEND),SendID=2)
+#if EQNSYSNR == 5
+  CALL ProlongToFace(1,PP_N,muTRA,muTRA_master,muTRA_slave,L_Minus,L_Plus,.TRUE.)
+  CALL ProlongToFace(1,PP_N,fd   ,fd_master   ,fd_slave   ,L_Minus,L_Plus,.TRUE.)
+  CALL StartSendMPIData   (muTRA_slave,DataSizeSideSGS,1,nSides,MPIRequest_TRA(:,SEND),SendID=2)
+  CALL StartSendMPIData   (fd_slave   ,DataSizeSideSGS,1,nSides,MPIRequest_fd (:,SEND),SendID=2)
+#endif
 #endif /*USE_MPI*/
   CALL ProlongToFace(1,PP_N,muSGS,muSGS_master,muSGS_slave,L_Minus,L_Plus,.FALSE.)
+#if EQNSYSNR == 5
+  CALL ProlongToFace(1,PP_N,muTRA,muTRA_master,muTRA_slave,L_Minus,L_Plus,.FALSE.)
+  CALL ProlongToFace(1,PP_N,fd   ,fd_master   ,fd_slave   ,L_Minus,L_Plus,.FALSE.)
+#endif
 END IF
 #endif /* EDDYVISCOSITY */
 #endif /*PARABOLIC*/

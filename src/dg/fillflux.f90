@@ -65,6 +65,9 @@ USE MOD_Lifting_Vars,    ONLY: gradUx_master ,gradUy_master ,gradUz_master ,grad
 #endif /*PARABOLIC*/
 #if EDDYVISCOSITY
 USE MOD_EddyVisc_Vars,   ONLY: muSGS_master,muSGS_slave
+#if EQNSYSNR == 5
+USE MOD_EddyVisc_Vars,   ONLY: muTRA_master,muTRA_slave,fd_master,fd_slave
+#endif
 #endif
 #if FV_ENABLED
 USE MOD_FV
@@ -152,7 +155,12 @@ DO SideID=firstSideID_wo_BC,lastSideID
       gradUx_slave (:,:,:,SideID),gradUy_slave (:,:,:,SideID), gradUz_slave (:,:,:,SideID),&
       NormVec(:,:,:,FV_Elems_Max(SideID),SideID)&
 #if EDDYVISCOSITY
+#if EQNSYSNR == 5
+      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,sideID),fd_master(:,:,:,sideID)&
+      ,muSGS_slave(:,:,:,SideID) ,muTRA_slave (:,:,:,sideID),fd_slave (:,:,:,sideID)&
+#else
       ,muSGS_master(:,:,:,SideID),muSGS_slave(:,:,:,SideID)&
+#endif
 #endif
   )
   ! 1.3) add up viscous flux
