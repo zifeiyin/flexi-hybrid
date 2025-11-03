@@ -316,6 +316,10 @@ USE MOD_EOS                 ,ONLY: ConsToEntropy
 USE MOD_Omega               ,ONLY: ComputeOmega
 USE MOD_EddyVisc_Vars       ,ONLY: muTRA,muTRA_master,muTRA_slave,fd,fd_master,fd_slave
 #endif
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+USE MOD_Recycling_Vars      ,ONLY: doRecycling
+USE MOD_Recycling           ,ONLY: Recycling
+#endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -590,6 +594,10 @@ CALL VolInt_Visc(Ut)
 #if EDDYVISCOSITY
 IF(CurrentStage.EQ.1) THEN
   CALL FinishExchangeMPIData(2*nNbProcs,MPIRequest_SGS)  ! muSGS_slave: slave -> master
+#if EQNSYSNR == 5
+  CALL FinishExchangeMPIData(2*nNbProcs,MPIRequest_TRA)  ! muSGS_slave: slave -> master
+  CALL FinishExchangeMPIData(2*nNbProcs,MPIRequest_fd )  ! muSGS_slave: slave -> master
+#endif
 END IF
 #endif /* EDDYVISCOSITY */
 ! Complete send / receive for gradUx, gradUy, gradUz, started in the lifting routines
@@ -686,6 +694,9 @@ Ut=-Ut
 IF(doCalcSource) CALL CalcSource(Ut,t)
 IF(doSponge)     CALL Sponge(Ut)
 IF(doTCSource)   CALL TestcaseSource(Ut)
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+IF(doRecycling)  CALL Recycling()
+#endif
 
 ! 14. Perform overintegration and apply Jacobian
 ! Perform overintegration (projection filtering type overintegration)

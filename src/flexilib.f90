@@ -77,6 +77,9 @@ USE MOD_FV,                ONLY:DefineParametersFV,InitFV
 USE MOD_FV_Basis,          ONLY:InitFV_Basis
 USE MOD_Indicator,         ONLY:DefineParametersIndicator,InitIndicator
 #endif /*FV_ENABLED*/
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+USE MOD_Recycling,         ONLY:DefineParametersRecycling,InitRecycling
+#endif
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -144,6 +147,9 @@ CALL DefineParametersPrecond()
 #endif /*USE_PRECOND*/
 CALL DefineParametersAnalyze()
 CALL DefineParametersRecordPoints()
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+CALL DefineParametersRecycling()
+#endif
 
 ! check for command line argument --help or --markdown
 IF (doPrintHelp.GT.0) THEN
@@ -221,6 +227,9 @@ CALL InitTimeDisc()
 CALL InitAnalyze()
 CALL InitImplicit()
 CALL InitRecordpoints()
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+CALL InitRecycling()
+#endif
 CALL IgnoredParameters()
 CALL Restart()
 

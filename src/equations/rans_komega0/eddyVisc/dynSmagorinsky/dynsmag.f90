@@ -242,7 +242,7 @@ REAL                          ,INTENT(IN)  :: hmax                     !> local 
 REAL                          ,INTENT(OUT) :: fd                       !> fd
 REAL                          ,INTENT(OUT) :: muSGS                    !> pointwise eddyviscosity
 REAL                          ,INTENT(OUT) :: muTRA                    !> pointwise eddyviscosity
-REAL                          ,INTENT(OUT) :: omega                    !> omega
+REAL                          ,INTENT(IN)  :: omega                    !> omega
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL                                    :: sRho

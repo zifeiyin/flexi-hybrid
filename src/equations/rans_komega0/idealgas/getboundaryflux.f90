@@ -145,8 +145,8 @@ DO iSide=1,nBCSides
 
   IF (locType.EQ.30) THEN
     activateFourier = .TRUE.
-  ENDIF 
-    
+  ENDIF
+
   ! If required, check if Refstate available
   IF (locState.LT.1) THEN
     SELECT CASE (locType)
@@ -209,7 +209,7 @@ IF (activateFourier) THEN
   DO iSide=1,nBCs
     locType =BoundaryType(iSide,BC_TYPE)
     locState=BoundaryType(iSide,BC_STATE)
-    IF ( locType.EQ.30) THEN 
+    IF ( locType.EQ.30) THEN
       !initialize the spectrum information
       synTKE = RefStatePrim(TKE,locState)
       synG   = RefStatePrim(OMG,locState)
@@ -226,26 +226,26 @@ IF (activateFourier) THEN
 #endif /* MPI */
 
   PRINT*, "Kolmogorov scale = ", etaL, ", integral scale = ", Lt
-  IF ( etaL.GE.Lt ) THEN 
+  IF ( etaL.GE.Lt ) THEN
     PRINT*, "eta = ", etaL, ", Lt = ", Lt
     PRINT*, "TKE = ", synTKE, ", omega = ", 1.0/(0.09*synG*synG)
     CALL Abort(__STAMP__,'ERROR: Integral length scale smaller than Kolmogorov scale')
   ENDIF
-  
+
 #if USE_MPI
   IF(MPIRoot)THEN
 #endif /* MPI */
     kEner = 0.747 / Lt
     kMin  = kEner / 16.0
-    kEta  = 6.28 / etaL 
-    dkLog = ( LOG10(kEta) - LOG10(kMin) ) / ( nFourierModes - 1.0 ) 
+    kEta  = 6.28 / etaL
+    dkLog = ( LOG10(kEta) - LOG10(kMin) ) / ( nFourierModes - 1.0 )
 
     DO i=1,nFourierModes
       kWave = 10.0**( LOG10(kMin) + (i-0.5) * dkLog )
       deltaKi = 10.0**( LOG10(kMin) + (i+0.5) * dkLog ) - 10.0**( LOG10(kMin) + (i-0.5) * dkLog )
 
-      Eki = 1.453 * 2.0 / 3.0 * synTKE * (kWave/kEner)**4.0 * EXP( -2.0*(kWave/kEta)**2.0 ) 
-      EKi = EKi / ( kEner * ( 1.0 + (kWave/kEner)**2.0 )**(17.0/6.0) ) 
+      Eki = 1.453 * 2.0 / 3.0 * synTKE * (kWave/kEner)**4.0 * EXP( -2.0*(kWave/kEta)**2.0 )
+      EKi = EKi / ( kEner * ( 1.0 + (kWave/kEner)**2.0 )**(17.0/6.0) )
 
       uHat(i) = SQRT( Eki * deltaKi )
 
@@ -261,12 +261,12 @@ IF (activateFourier) THEN
       ! omega[mu, sigma^2]
       tmpU1 = rannum(5)
       tmpU2 = rannum(6)
-      omegaHat(i) = tmpMean + tmpMean*sqrt(-2.0*log(tmpU1))*cos(6.28*tmpU2);        
+      omegaHat(i) = tmpMean + tmpMean*sqrt(-2.0*log(tmpU1))*cos(6.28*tmpU2);
 
       ! initialize the random vectors
       kHat(1,i) = kWave * sin( thetaN ) * cos( phiN ) ;
       kHat(2,i) = kWave * sin( thetaN ) * sin( phiN ) ;
-      kHat(3,i) = kWave * cos( thetaN ) ;        
+      kHat(3,i) = kWave * cos( thetaN ) ;
 
       sigmaHat(1,i)  = cos( alphaN ) ;
       sigmaHat(2,i)  = sin( alphaN ) ;
@@ -283,7 +283,7 @@ IF (activateFourier) THEN
       tmpU2 = sigmaHat(2,i) ;
       sigmaHat(1,i)  = tmpU1 * cos( phiN ) - tmpU2 * sin( phiN ) ;
       sigmaHat(2,i)  = tmpU1 * sin( phiN ) + tmpU2 * cos( phiN ) ;
-      
+
     ENDDO
 #if USE_MPI
   ENDIF
@@ -390,6 +390,8 @@ USE MOD_EOS_Vars     ,ONLY: sKappaM1,Kappa,KappaM1,R
 USE MOD_ExactFunc    ,ONLY: ExactFunc
 USE MOD_Equation_Vars,ONLY: IniExactFunc,BCDataPrim,RefStatePrim
 USE MOD_Exactfunc_Vars,ONLY: activateFourier,uHat,omegaHat,psiHat,kHat,sigmaHat,nFourierModes
+USE MOD_Recycling_Vars
+USE MOD_Recycling
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -452,6 +454,11 @@ CASE(22)  ! Dirichlet-type: BCState specifies exactfunc to be used
     CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
   END DO; END DO
 
+CASE(32)  ! Dirichlet-type: BCState specifies exactfunc to be used
+  DO q=0,ZDIM(Nloc); DO p=0,Nloc
+    CALL FillState(UPrim_boundary,UPrim_master,SideID)
+  END DO; END DO
+
 CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     UPrim_boundary(DENS,p,q)        = RefStatePrim(DENS,BCState)
@@ -460,18 +467,18 @@ CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
     UPrim_boundary(VEL3,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),TangVec2(:,p,q))
     UPrim_boundary(PRES:OMG,p,q)    = RefStatePrim(PRES:OMG,BCState)
     UPrim_Boundary(TKE,p,q)         = 1.e-8
-  
+
     !compute total pressure before synthetic
     c  = SQRT(kappa*UPrim_boundary(PRES,p,q)/UPrim_boundary(DENS,p,q))
     Ma = SQRT(DOT_PRODUCT(UPrim_Boundary(VELV,p,q),UPrim_Boundary(VELV,p,q)))/c
-    pt = UPrim_boundary(PRES,p,q)*((1+0.5*(kappa-1)*Ma*Ma)**(kappa*sKappaM1)) 
+    pt = UPrim_boundary(PRES,p,q)*((1+0.5*(kappa-1)*Ma*Ma)**(kappa*sKappaM1))
     Tt = UPrim_boundary(TEMP,p,q)*(1+0.5*(kappa-1)*Ma*Ma)
 
-    IF (activateFourier) THEN 
+    IF (activateFourier) THEN
     ! adding perturbations
       newCrd(1:3) = Face_xGP(1:3,p,q) - t * UPrim_boundary(VEL1:VEL3,p,q)
-      DO iWave=1,nFourierModes 
-        phaseAngle  = DOT_PRODUCT(newCrd(1:3), kHat(1:3,iWave)) + psiHat(iWave) + omegaHat(iWave)*t 
+      DO iWave=1,nFourierModes
+        phaseAngle  = DOT_PRODUCT(newCrd(1:3), kHat(1:3,iWave)) + psiHat(iWave) + omegaHat(iWave)*t
         nv = 2.0 * uHat(iWave) * COS(phaseAngle) * sigmaHat(1:3,iWave)
         UPrim_boundary(VEL1,p,q) = UPrim_boundary(VEL1,p,q) + DOT_PRODUCT(nv,NormVec( :,p,q))
         UPrim_boundary(VEL2,p,q) = UPrim_boundary(VEL2,p,q) + DOT_PRODUCT(nv,TangVec1(:,p,q))
@@ -482,7 +489,7 @@ CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
       Ma = SQRT(DOT_PRODUCT(UPrim_Boundary(VELV,p,q),UPrim_Boundary(VELV,p,q)))/c
 
       ! use isentropic relation
-      UPrim_boundary(PRES,p,q) = pt/((1+0.5*(kappa-1)*Ma*Ma)**(kappa*sKappaM1)) 
+      UPrim_boundary(PRES,p,q) = pt/((1+0.5*(kappa-1)*Ma*Ma)**(kappa*sKappaM1))
       UPrim_boundary(TEMP,p,q) = Tt/( 1+0.5*(kappa-1)*Ma*Ma)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(TEMP,p,q))
 
@@ -596,10 +603,10 @@ CASE(3,4,9,91,23,24,25,26,27)
         UPrim_boundary(PRES,p,q) = pb                       ! Pressure
         ! set temperature via ideal gas equation, consistent to density and pressure
         UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
-        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN 
+        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN
           UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
           UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
-        ENDIF 
+        ENDIF
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
         !             Hence, nothing to do here!
@@ -632,10 +639,10 @@ CASE(3,4,9,91,23,24,25,26,27)
       ! set temperature via ideal gas equation, consistent to density and pressure
       UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
       ! make sure of correct backflow turbulence quantities
-      IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN 
+      IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN
         UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
         UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
-      ENDIF 
+      ENDIF
     END DO; END DO !p,q
 
   CASE(26) ! Pressure outflow BC, without backflow
@@ -652,10 +659,10 @@ CASE(3,4,9,91,23,24,25,26,27)
         UPrim_boundary(PRES,p,q) = pb                       ! Pressure
         ! set temperature via ideal gas equation, consistent to density and pressure
         UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
-        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN 
+        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN
           UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
           UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
-        ENDIF 
+        ENDIF
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
         !             Hence, nothing to do here!
@@ -787,7 +794,7 @@ UPrim_outer(DENS) = (cb**2 / (kappa * sb))**sKappaM1
 UPrim_outer(PRES) = UPrim_outer(DENS) * cb**2 / kappa
 UPrim_outer(TEMP) = UPrim_outer(PRES) / (R * UPrim_outer(DENS))
 END SUBROUTINE RiemannInvariantBoundary
-  
+
 
 !==================================================================================================================================
 !> Computes the boundary fluxes for a given face (defined by SideID).
@@ -871,7 +878,7 @@ ELSE
       NormVec,TangVec1,TangVec2,Face_xGP)
 
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,25,26,27) ! Riemann-Type BCs
+  CASE(2,12,121,22,23,24,25,26,27,32) ! Riemann-Type BCs
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL PrimToCons(UPrim_master(:,p,q),  UCons_master(:,p,q))
       CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
@@ -1168,7 +1175,7 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
       NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,3,4,9,91,12,121,22,23,24,25,26,27,30)
+  CASE(2,3,4,9,91,12,121,22,23,24,25,26,27,30,32)
     DO q=0,PP_NZ; DO p=0,PP_N
       gradU(:,p,q) = (UPrim_master(:,p,q) - UPrim_boundary(:,p,q)) * sdx_Face(p,q,3)
     END DO; END DO ! p,q=0,PP_N
@@ -1222,9 +1229,9 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
                         NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,25,26,27) ! Riemann solver based BCs
+  CASE(2,12,121,22,23,24,25,26,27,32) ! Riemann solver based BCs
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
-  CASE(30) 
+  CASE(30)
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
   CASE(3,4) ! No-slip wall BCs
     DO q=0,PP_NZ; DO p=0,PP_N
