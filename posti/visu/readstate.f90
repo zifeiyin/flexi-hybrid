@@ -121,6 +121,9 @@ USE MOD_Overintegration,ONLY:DefineParametersOverintegration,InitOverintegration
 USE MOD_ReadInTools   ,ONLY: prms
 USE MOD_ReadInTools   ,ONLY: FinalizeParameters
 USE MOD_Restart_Vars  ,ONLY: RestartTime
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+USE MOD_Recycling     ,ONLY: DefineParametersRecycling,InitRecycling
+#endif
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -169,6 +172,9 @@ CALL DefineParametersExactFunc()
 #if PARABOLIC
 CALL DefineParametersLifting()
 #endif
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+CALL DefineParametersRecycling()
+#endif
 CALL prms%read_options(prmfile)
 
 ! Initialization of I/O routines
@@ -205,6 +211,9 @@ CALL InitFV()
 #if PARABOLIC
 CALL InitLifting()
 #endif /*PARABOLIC*/
+#if EQNSYSNR == 4 || EQNSYSNR == 5
+CALL InitRecycling()
+#endif
 CALL Restart(doFlushFiles=.FALSE.)
 SWRITE(UNIT_stdOut,'(A)',ADVANCE='NO')" Call DGTimeDerivative_weakForm..."
 CALL DGTimeDerivative_weakForm(RestartTime)

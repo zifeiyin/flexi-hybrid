@@ -77,7 +77,7 @@ CALL prms%CreateStringOption( 'VarNameAvg'       , "Names of variables to be tim
 CALL prms%CreateStringOption( 'VarNameFluc'      , "Names of variables for which Flucs (time-averaged&
                                                    & square of the variable) should be computed.&
                                                    & Required for computing actual fluctuations."      , multiple=.TRUE.)
-#if FV_ENABLED                                                 
+#if FV_ENABLED
 CALL prms%CreateLogicalOption('TimeAvgInFV'      , "Set true to write timeavg in FV basis"            , '.TRUE.')
 #endif
 END SUBROUTINE DefineParametersAnalyzeEquation
@@ -203,6 +203,7 @@ USE MOD_CalcBodyForces,     ONLY: CalcBodyForces,CalcWallFluxes
 USE MOD_Mesh_Vars,          ONLY: BoundaryName,nBCs,BoundaryType
 USE MOD_Output,             ONLY: OutputToFile
 USE MOD_EddyVisc_Vars,      ONLY: eddyViscType
+USE MOD_Recycling_Vars
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -301,6 +302,23 @@ IF(MPIRoot.AND.doCalcTurbSource)THEN
   WRITE(UNIT_stdOut,formatStr)' Max source : ', kgnut(9:21:2)
   WRITE(formatStr,'(A,I2,A)')'(A14,',7,'ES18.9)'
   WRITE(UNIT_stdOut,formatStr)' Min source : ', kgnut(10:22:2)
+END IF
+
+IF(MPIRoot.AND.doRecycling)THEN
+  ! WRITE(UNIT_stdOut,*) "thetaD/thetaR = ", thetaD/thetaR
+  WRITE(UNIT_stdOut,*) "d99R =   ", d99R
+  WRITE(UNIT_stdOut,*) "d99I ~   ", d99I
+  WRITE(UNIT_stdOut,*) "ReTauR = ", d99R / dnuR
+  WRITE(UNIT_stdOut,*) "ReTauI ~ ", d99I / dnuI
+  WRITE(UNIT_stdOut,*) "uTauR =  ", uTauR
+  WRITE(UNIT_stdOut,*) "uTauI ~  ", uTauI
+
+  IF (timeavgInit) THEN
+    OPEN(unit=42,file="recycling_mean.dat",status="unknown",action="write")
+    ! WRITE(42,*) recycl_UPrim_mean
+    WRITE(42,*) recycl_U_mean
+    CLOSE(42)
+  END IF
 END IF
 
 IF (doCalcWallFluxes) THEN
