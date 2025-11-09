@@ -12,13 +12,13 @@ USE MOD_ReadInTools
 
 CALL prms%SetSection("Recycling")
 CALL prms%CreateLogicalOption("doRecycling", "", "F")
+CALL prms%CreateIntOption( "inftyRefState",  "Refstate required for freestream value.")
+CALL prms%CreateIntOption("nDofsInY", "Number of DOFs in Y direction")
+CALL prms%CreateIntOption("nDofsInZ", "Number of DOFs in Z direction")
 CALL prms%CreateRealOption("recycling_xrec", "")
-CALL prms%CreateRealOption("recycling_dens", "")
-CALL prms%CreateRealOption("recycling_vel1", "")
-CALL prms%CreateRealOption("recycling_pres", "")
-CALL prms%CreateRealOption("recycling_freq", "")
 CALL prms%CreateRealOption("recycling_momentum_thickness", "")
-! CALL prms%CreateRealOption("recycling_Twall", "")
+CALL prms%CreateRealOption("yMatchingTolerance", "tolerance for finding match Y", "1.0E-6")
+CALL prms%CreateRealOption("zMatchingTolerance", "tolerance for finding match Z", "1.0E-6")
 
 END SUBROUTINE DefineParametersRecycling
 
@@ -31,93 +31,128 @@ USE MOD_ReadInTools
 USE MOD_Recycling_Vars
 IMPLICIT NONE
 
-INTEGER :: i,j,k,p,q,nn,iELem,iSide,iFile,ios
-REAL :: tmp
+INTEGER :: i,j,k,p,q,nn,iELem,iSide,iFile,iosi, nLocalMatched, localInd, nGlobalMatched
+REAL :: tmp, recycMinDist, minCrdGlb
 
 doRecycling = GETLOGICAL("doRecycling")
 IF (.NOT. doRecycling) THEN
   RETURN
 END IF
 
+freeStreamRefState=GETINT("inftyRefState")
+nY      = GETINT("nDofsInY")
+nZ      = GETINT("nDofsInZ")
 xRecyc  = GETREAL("recycling_xrec")
 thetaD  = GETREAL("recycling_momentum_thickness")
-rho_inf = GETREAL("recycling_dens")
-u_inf   = GETREAL("recycling_vel1")
-p_inf   = GETREAL("recycling_pres")
-timeavgFeq = GETREAL("recycling_freq")
+yMatchingTolerance = GETREAL("yMatchingTolerance")
+zMatchingTolerance = GETREAL("zMatchingTolerance")
 ! Twall   = GETREAL("recycling_Twall")
 
-OPEN(newunit=iFile, file="inflowData.dat", status="old", action="read")
-READ(iFile, *, iostat=ios) nInflowData
-ALLOCATE(inflowData(1+PP_nVar,nInflowData))
-READ(iFile, *, iostat=ios) inflowData
-CLOSE(iFile)
-
-! read y
-nY = 0
-OPEN(newunit=iFile, file="y.dat", status="old", action="read")
-DO
-  READ(iFile, *, iostat=ios) tmp
-  IF (ios.NE.0) THEN
-    EXIT
-  END IF
-  nY = nY + 1
-END DO
-REWIND(iFile)
-ALLOCATE(y(nY))
-DO nn=1,nY
-  READ(iFile, *, iostat=ios) y(nn)
-END DO
-CLOSE(iFile)
-
-! read z
-nZ = 0
-OPEN(newunit=iFile, file="z.dat", status="old", action="read")
-DO
-  READ(iFile, *, iostat=ios) tmp
-  IF (ios.NE.0) THEN
-    EXIT
-  END IF
-  nZ = nZ + 1
-END DO
-REWIND(iFile)
-ALLOCATE(z(nZ))
-DO nn=1,nZ
-  READ(iFile, *, iostat=ios) z(nn)
-END DO
-CLOSE(iFile)
-
 ! initialize recycling plane
-nRecycl = 0
+! find the nearest location
+tmp = 1.0E10
 DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-  IF (ABS(Elem_xGP(1,i,j,k,iElem) - xRecyc).LE.1.0E-6) THEN
-    nRecycl = nRecycl + 1
-  END IF
-END DO; END DO; END DO; END DO
-ALLOCATE(rm(4,nRecycl))
-nRecycl = 0
-DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-  IF (ABS(Elem_xGP(1,i,j,k,iElem) - xRecyc).LE.1.0E-6) THEN
-    nRecycl = nRecycl + 1
-    rm(:,nRecycl) = (/i,j,k,iElem/)
-  END IF
+    IF ( ((Elem_xGP(1,i,j,k,iElem) - xRecyc).LT.tmp) .AND. ((Elem_xGP(1,i,j,k,iElem) - xRecyc) .GT. 0.0) ) THEN
+      tmp = Elem_xGP(1,i,j,k,iElem) - xRecyc
+    END IF
 END DO; END DO; END DO; END DO
 
-ALLOCATE(rmg(2,nRecycl))
-DO nn=1,nRecycl
-  DO j=1,nY
-    IF (ABS(Elem_xGP(2,rm(1,nn),rm(2,nn),rm(3,nn),rm(4,nn)) - y(j)).LE.1.0E-6) THEN
-      rmg(1,nn) = j
-      EXIT
+CALL MPI_ALLREDUCE(tmp, recycMinDist, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_FLEXI, iError)
+recycMinDist = recycMinDist + xRecyc
+
+ALLOCATE( indexMap(1:3, 0:PP_N, 0:PP_N, 0:PP_NZ, 1:nElems) )
+
+nLocalMatched = 0
+DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    IF ( ABS(Elem_xGP(1,i,j,k,iElem) - recycMinDist) .LT. 1.e-6 ) THEN
+      nLocalMatched = nLocalMatched + 1
+      indexMap(1,i,j,k,iELem) = 3
+    ELSE 
+      indexMap(1,i,j,k,iELem) = -1
     END IF
-  END DO
-  DO k=1,nZ
-    IF (ABS(Elem_xGP(3,rm(1,nn),rm(2,nn),rm(3,nn),rm(4,nn)) - z(k)).LE.1.0E-6) THEN
-      rmg(2,nn) = k
-      EXIT
+END DO; END DO; END DO; END DO
+
+CALL MPI_ALLREDUCE(nLocalMatched, nGlobalMatched, 1, MPI_INT, MPI_SUM, MPI_COMM_FLEXI, iError)
+IF (nGlobalMatched.NE.(nY*nZ)) THEN
+  CALL Abort(__STAMP__,'Number of sampled DOFs in the recycling plane is not equal to nY*nZ')
+END IF
+
+SWRITE(*,*) "Number of sampled DoFs in the recycling plane = ", nGlobalMatched
+
+ALLOCATE( y(nY) )
+ALLOCATE( z(nZ) )
+y = -1.0E6
+z = -1.0E6
+
+! for the recycling plane
+! use Y information to get IndexY mapping without involving MPIALLGATHER, reduce indexMap(1,i,j,k,iELem) = 3 to 2
+nn = 0
+DO localInd=1,nY
+  tmp = 1.0E6
+  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN 
+      tmp = MIN(tmp, Elem_xGP(2,i,j,k,iELem))
     END IF
-  END DO
+  END DO; END DO; END DO; END DO
+  y(localInd) = tmp
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, y(localInd), 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_FLEXI, iError)
+  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+    IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN
+      IF (ABS(Elem_xGP(2,i,j,k,iELem) - y(localInd)) .LE. yMatchingTolerance) THEN
+        indexMap(2,i,j,k,iELem) = localInd
+        indexMap(1,i,j,k,iELem) = 2
+        nn = nn + 1
+      END IF 
+    END IF
+  END DO; END DO; END DO; END DO
+  SWRITE(*,*) "No. DoFs collected totally for ", localInd, "-th Y layer is ", nn
 END DO
+! check if all DOFs in the recycling plane are matched in Y coordinates
+nn = 0
+DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+  IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN
+    nn = nn + 1
+  END IF 
+END DO; END DO; END DO; END DO
+IF ( nn .GT. 0) THEN
+  CALL Abort(__STAMP__,'There exists DOFs in the recycling plane that are not matched in Y coordinates')
+END IF
+DO localInd = 1, nY 
+  SWRITE(*,*) "y(i) = ", localInd, y(localInd)
+END DO 
+
+! use Z information to get IndexZ mapping without involving MPIALLGATHER, reduce indexMap(1,iELem) = 2 to 1
+DO localInd=1,nZ
+  tmp = 1.0E6
+  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN 
+      tmp = MIN(tmp, Elem_xGP(3,i,j,k,iELem))
+    END IF
+  END DO; END DO; END DO; END DO
+  z(localInd) = tmp
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, z(localInd),  1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_FLEXI, iError)
+  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+    IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN
+      IF ( ABS(Elem_xGP(3,i,j,k,iELem) - z(localInd)) .LE. zMatchingTolerance ) THEN
+        indexMap(3,i,j,k,iELem) = localInd
+        indexMap(1,i,j,k,iELem) = 1
+      END IF      
+    END IF
+  END DO; END DO; END DO; END DO
+END DO
+! check if all DOFs in the recycling plane are matched in Z coordinates
+nn = 0
+DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+  IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN
+    nn = nn + 1
+  END IF 
+END DO; END DO; END DO; END DO
+IF ( nn .GT. 0) THEN
+  CALL Abort(__STAMP__,'There exists DOFs in the recycling plane that are not matched in Z coordinates')
+END IF
+DO localInd = 1, nZ 
+  SWRITE(*,*) "z(i) = ", localInd, z(localInd)
+END DO 
 
 ! initialize inflow plane
 nInflow = 0
@@ -142,29 +177,28 @@ DO nn=1,nInflow
 END DO
 
 ALLOCATE(img(2,nInflow))
-img = 0
+img = -1
 DO nn=1,nInflow
   DO j=1,nY
-    IF (ABS(Face_xGP(2,im(1,nn),im(2,nn),0,im(3,nn)) - y(j)).LE.1.0E-6) THEN
+    IF (ABS(Face_xGP(2,im(1,nn),im(2,nn),0,im(3,nn)) - y(j)).LE.yMatchingTolerance) THEN
       img(1,nn) = j
       EXIT
     END IF
   END DO
+  IF ( img(1,nn) .LT. 0) THEN
+    CALL Abort(__STAMP__,'there is a inflow DOF that is not matched in Y coordinate')
+  END IF
   DO k=1,nZ
-    IF (ABS(Face_xGP(3,im(1,nn),im(2,nn),0,im(3,nn)) - z(k)).LE.1.0E-6) THEN
+    IF (ABS(Face_xGP(3,im(1,nn),im(2,nn),0,im(3,nn)) - z(k)).LE.zMatchingTolerance) THEN
       img(2,nn) = k
       EXIT
     END IF
   END DO
+  IF ( img(2,nn) .LT. 0) THEN
+    SWRITE(*,*) "current DOF's Z coordinate is = ", Face_xGP(3,im(1,nn),im(2,nn),0,im(3,nn))
+    CALL Abort(__STAMP__,'there is a inflow DOF that is not matched in Z coordinate')
+  END IF
 END DO
-
-CALL MPI_ALLREDUCE(nInflow, p, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_FLEXI, iError)
-SWRITE(*,*) "nInflow = ", p
-CALL MPI_ALLREDUCE(nRecycl, q, 1, MPI_INTEGER, MPI_SUM, MPI_COMM_FLEXI, iError)
-SWRITE(*,*) "nRecycl = ", q
-IF (p.NE.q) THEN
-  CALL Abort(__STAMP__,'nInflow /= nRecycl, check your recycling_xrec')
-END IF
 
 ALLOCATE(recycl_U_global(PP_nVar,nY,nZ))
 ALLOCATE(recycl_UPrim_global(PP_nVarPrim,nY,nZ))
@@ -176,16 +210,6 @@ recycl_UPrim_global = 0.0
 recycl_U_mean       = 0.0
 recycl_UPrim_mean   = 0.0
 recycl_UPrim_fluc   = 0.0
-
-INQUIRE(file="recycling_mean.dat", exist=timeavgInit)
-IF (timeavgInit) THEN
-  OPEN(newunit=iFile,file="recycling_mean.dat",status="old",action="read")
-  READ(iFile,*,iostat=ios) recycl_U_mean
-  CLOSE(iFile)
-  DO k=1,nZ; DO j=1,nY
-    recycl_U_global(:,j,k) = recycl_U_mean(:,j)
-  END DO; END DO
-END IF
 
 END SUBROUTINE InitRecycling
 
@@ -207,10 +231,11 @@ REAL :: tauw,rhow
 ! RETURN
 
 recycl_U_global = 0.0
-DO nn=1,nRecycl
-  recycl_U_global(:,rmg(1,nn),rmg(2,nn)) = U(:,rm(1,nn),rm(2,nn),rm(3,nn),rm(4,nn))
-END DO
-
+DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+  IF ( indexMap(1,i,j,k,iELem) .EQ. 1 ) THEN
+    recycl_U_global(:, indexMap(2,i,j,k,iELem), indexMap(3,i,j,k,iELem) ) = U(:,i,j,k,iELem)
+  END IF
+END DO; END DO; END DO; END DO
 nn = PP_nVar * nY * nZ
 CALL MPI_ALLREDUCE(MPI_IN_PLACE, recycl_U_global, nn, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_FLEXI, iError)
 
@@ -218,24 +243,10 @@ DO k=1,nZ; DO j=1,nY
   CALL ConsToPrim(recycl_UPrim_global(:,j,k), recycl_U_global(:,j,k))
 END DO; END DO
 
-IF (.NOT.timeavgInit) THEN
-  timeavgInit = .TRUE.
-
-  recycl_U_mean = 0.0
-  DO k=1,nZ; DO j=1,nY
-    recycl_U_mean(:,j) = recycl_U_mean(:,j) + recycl_U_global(:,j,k)
-  END DO; END DO
-  recycl_U_mean = recycl_U_mean / nZ
-ELSE
-  ! tmp = 1.0 - EXP(-RKb(CurrentStage)*dt/timeavgFeq)
-  ! tmp = (RKb(CurrentStage) * dt) / timeavgFeq
-  tmp = timeavgFeq
-
-  recycl_U_mean = (1.0 - tmp) * recycl_U_mean
-  DO k=1,nZ; DO j=1,nY
-    recycl_U_mean(:,j) = recycl_U_mean(:,j) + tmp * recycl_U_global(:,j,k) / nZ
-  END DO; END DO
-END IF
+recycl_U_mean = 0.0
+DO k=1,nZ; DO j=1,nY
+  recycl_U_mean(:,j) = recycl_U_mean(:,j) + recycl_U_global(:,j,k) / nZ
+END DO; END DO
 
 DO j=1,nY
   CALL ConsToPrim(recycl_UPrim_mean(:,j), recycl_U_mean(:,j))
@@ -247,26 +258,25 @@ END DO; END DO
 
 tmp = 0.0
 DO j=nY-5,nY
-  ! tmp = tmp + recycl_U_mean(MOM1,j) / recycl_U_mean(DENS,j)
   tmp = tmp + recycl_UPrim_mean(VEL1,j)
 END DO
-tmp = tmp / 6
+tmp = tmp / 6.0
 ! tmp = u_inf
 
+! from top to bottom, because sometimes fluctuation changes delta99 estimation if from wall
 d99R = 0.0
-DO j=2,nY
-  IF (recycl_UPrim_mean(VEL1,j) .GE. (0.99 * tmp)) THEN
-    u1 = recycl_UPrim_mean(VEL1,j-1)
-    u2 = recycl_UPrim_mean(VEL1,j-0)
-    d99R = ((u2 - (0.99 * tmp)) * y(j-1) + ((0.99 * tmp) - u1) * y(j)) / (u2 - u1)
-    EXIT
-  END IF
-END DO
-
-IF (d99R .EQ. 0.0) THEN
-  SWRITE(*,*) "u_inf = ", tmp
-  SWRITE(*,*) "u = ", recycl_UPrim_mean(VEL1,:)
-  CALL Abort(__STAMP__,"d99 not found")
+DO k = 2, (nY - 1)
+  j = nY - k 
+  IF ( (recycl_UPrim_mean(VEL1,j) .LE. (0.99 * tmp)) .AND. (recycl_UPrim_mean(VEL1,j+1) .GT. (0.99 * tmp))) THEN
+    u1 = recycl_UPrim_mean(VEL1,j)
+    u2 = recycl_UPrim_mean(VEL1,j+1)
+    d99R = ((u2 - (0.99 * tmp)) * y(j) + ((0.99 * tmp) - u1) * y(j+1)) / (u2 - u1)
+    EXIT 
+  ENDIF 
+END DO 
+! if not found or uniform initialization, just start with scaling ratio of 1
+IF (d99R .LT. 1e-8) THEN
+  d99R = thetaD
 END IF
 
 #if PP_NodeType != 2
@@ -280,9 +290,13 @@ Twall = recycl_UPrim_mean(TEMP,1)
 tauw = VISCOSITY_TEMPERATURE(Twall) * recycl_UPrim_mean(VEL1,2) / y(2)
 #endif
 uTauR = SQRT(tauw / rhow)
+! for hard start
+IF (uTauR .LT. 1.0e-8) THEN 
+  uTauR = 1.0
+ENDIF
 
 ! TODO(Shimushu): remove hard-coded variables
-d99I = thetaD
+d99I = MIN( thetaD, d99R ) ! avoid wrong instantaneous scaling ratio for natural development 
 uTauI = uTauR * (d99R / d99I)**(0.1)
 
 utau_ratio = uTauI / uTauR
@@ -304,6 +318,7 @@ USE MOD_Globals
 USE MOD_Mesh_Vars, ONLY: Face_xGP
 USE MOD_EOS_Vars, ONLY: R
 USE MOD_EOS, ONLY: ConsToPrim
+USE MOD_Equation_Vars  ,ONLY: RefStatePrim
 USE MOD_Recycling_Vars
 USE MOD_ExactFunc_Vars, ONLY: BCData, BCLength
 IMPLICIT NONE
@@ -311,6 +326,8 @@ IMPLICIT NONE
 REAL,INTENT(OUT)   :: UPrim_boundary(PP_nVarPrim,0:PP_N,0:PP_NZ)
 REAL,INTENT(IN)    :: UPrim_master(  PP_nVarPrim,0:PP_N,0:PP_NZ)
 INTEGER,INTENT(IN) :: iSide
+
+REAL, PARAMETER :: cutEta = 1.25
 
 INTEGER :: p,q
 INTEGER :: lower,upper,i
@@ -347,41 +364,51 @@ DO q=0,PP_NZ; DO p=0,PP_N
   weta = 0.5 * (1.0 + TANH(4.0 * (eta - 0.2) / ((1.0 - 2.0 * 0.2) * eta + 0.2)) / TANH(4.0))
   bdamp = 0.5 * (1.0 - TANH(4.0 * (eta - 2.0)))
 
-  IF (eta .GE. 1.0) THEN
+  IF (eta .GT. cutEta) THEN 
+    UPrim_boundary(:,p,q)=RefStatePrim(:,freeStreamRefState)
+  ELSEIF (eta .GT. 1.0) THEN
     weta = 1.0
     UPrimFlucOuter = 0.0
-  END IF
 
-  UPrimMeanInner(VEL1) = UPrimMeanInner(VEL1) * utau_ratio
-  UPrimMeanInner(TKE ) = UPrimMeanInner(TKE ) * utau_ratio**2.0
-  UPrimMeanInner(OMG ) = UPrimMeanInner(OMG ) * utau_ratio**2.0
+    UPrimMeanInner(VEL1) = UPrimMeanInner(VEL1) * utau_ratio
+    UPrimMeanInner(TKE ) = UPrimMeanInner(TKE ) * utau_ratio**2.0
+    UPrimMeanInner(OMG ) = UPrimMeanInner(OMG ) * utau_ratio**2.0
 
-  UPrimMeanOuter(VEL1) = UPrimMeanOuter(VEL1) * utau_ratio + u_inf * (1.0 - utau_ratio)
+    UPrimMeanOuter(VEL1) = UPrimMeanOuter(VEL1) * utau_ratio + u_inf * (1.0 - utau_ratio)
 
-  UPrimFlucInner(VELV) = UPrimFlucInner(VELV) * utau_ratio
-  UPrimFlucOuter(VELV) = UPrimFlucOuter(VELV) * utau_ratio
+    UPrimFlucInner(VELV) = UPrimFlucInner(VELV) * utau_ratio
 
-  UPrimFlucInner(TKE ) = UPrimFlucInner(TKE ) * utau_ratio**2.0
-  UPrimFlucInner(OMG ) = UPrimFlucInner(OMG ) * utau_ratio**2.0
+    UPrimFlucInner(TKE ) = UPrimFlucInner(TKE ) * utau_ratio**2.0
+    UPrimFlucInner(OMG ) = UPrimFlucInner(OMG ) * utau_ratio**2.0
 
-  UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
-  UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
+    UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
+    UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
 
-  UPrimFluc(DENS) = bdamp * UPrimFluc(DENS)
-  ! UPrimFluc(TEMP) = bdamp * UPrimFluc(TEMP)
-  UPrimFluc(VELV) = bdamp * UPrimFluc(VELV)
+    UPrim_boundary(:,p,q) = (UPrim_boundary(:,p,q) * (cutEta-eta) + ( UPrimMean + UPrimFluc ) * (eta-1.0) ) / (cutEta - 1.0 )
+    UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
+  ELSE 
+    UPrimMeanInner(VEL1) = UPrimMeanInner(VEL1) * utau_ratio
+    UPrimMeanInner(TKE ) = UPrimMeanInner(TKE ) * utau_ratio**2.0
+    UPrimMeanInner(OMG ) = UPrimMeanInner(OMG ) * utau_ratio**2.0
 
-  UPrimFluc(DENS) = MAX(MIN(UPrimFluc(DENS), 4.0 * UPrimMean(DENS)), -0.75 * UPrimMean(DENS))
-  ! UPrimFluc(TEMP) = MAX(MIN(UPrimFluc(TEMP), 4.0 * UPrimMean(TEMP)), -0.75 * UPrimMean(TEMP))
+    UPrimMeanOuter(VEL1) = UPrimMeanOuter(VEL1) * utau_ratio + u_inf * (1.0 - utau_ratio)
 
-  ! UPrim_boundary(:,p,q) = (UPrimMeanInner + UPrimFlucInner) * (1.0 - weta) + (UPrimMeanOuter + UPrimFlucOuter) * weta
-  UPrim_boundary(:,p,q) = UPrimMean + UPrimFluc
+    UPrimFlucInner(VELV) = UPrimFlucInner(VELV) * utau_ratio
+    UPrimFlucOuter(VELV) = UPrimFlucOuter(VELV) * utau_ratio
 
-  UPrim_boundary(PRES,p,q) = p_inf
-  UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q) / (R * UPrim_boundary(DENS,p,q))
-  ! UPrim_boundary(PRES,p,q) = UPrim_boundary(DENS,p,q) * R * UPrim_boundary(TEMP,p,q)
+    UPrimFlucInner(TKE ) = UPrimFlucInner(TKE ) * utau_ratio**2.0
+    UPrimFlucInner(OMG ) = UPrimFlucInner(OMG ) * utau_ratio**2.0
 
-  UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
+    UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
+    UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
+
+    UPrim_boundary(:,p,q) = UPrimMean + UPrimFluc
+    UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
+  ENDIF 
+
+  UPrim_boundary(TKE,p,q) = MAX( UPrim_boundary(TKE,p,q), 1.e-6 )
+  UPrim_boundary(OMG,p,q) = MAX( UPrim_boundary(OMG,p,q), 1.e-6 )
+
 END DO; END DO
 
 END SUBROUTINE FillState
@@ -409,12 +436,13 @@ END IF
 #if PP_NodeType != 2
 IF (isUPrim2) THEN
   IF (yDest.LE.y(1)) THEN
-    UDest(DENS) = U(DENS,1) + (yDest - y(1)) / (y(2) - y(1)) * (U(DENS,2) - U(DENS,1))
-    UDest(PRES) = U(PRES,1) + (yDest - y(1)) / (y(2) - y(1)) * (U(PRES,2) - U(PRES,1))
-    UDest(TEMP) = U(TEMP,1) + (yDest - y(1)) / (y(2) - y(1)) * (U(TEMP,2) - U(TEMP,1))
-    UDest(VELV) = (yDest / y(1)) * U(VELV,1)
-    UDest(TKE ) = (yDest / y(1)) * U(TKE ,1)
-    UDest(OMG ) = (yDest / y(1)) * U(OMG ,1)
+    ! avoid extrapolation at the first layer
+    UDest(DENS) = U(DENS,1)
+    UDest(PRES) = U(PRES,1)
+    UDest(TEMP) = U(TEMP,1)
+    UDest(VELV) = U(VELV,1)
+    UDest(TKE ) = U(TKE ,1)
+    UDest(OMG ) = U(OMG ,1)
     RETURN
   END IF
 END IF

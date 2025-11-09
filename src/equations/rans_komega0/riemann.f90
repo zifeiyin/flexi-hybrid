@@ -43,10 +43,12 @@ INTEGER,PARAMETER      :: PRM_RIEMANN_HLLC          = 2
 INTEGER,PARAMETER      :: PRM_RIEMANN_ROE           = 3
 INTEGER,PARAMETER      :: PRM_RIEMANN_ROEL2         = 32
 INTEGER,PARAMETER      :: PRM_RIEMANN_ROEENTROPYFIX = 33
+INTEGER,PARAMETER      :: PRM_RIEMANN_ROEHYBRID     = 34
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLL           = 4
 INTEGER,PARAMETER      :: PRM_RIEMANN_HLLE          = 5
 INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU          = 6
 INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU2         = 62
+INTEGER,PARAMETER      :: PRM_RIEMANN_SLAU2Hybrid   = 63
 #ifdef SPLIT_DG
 INTEGER,PARAMETER      :: PRM_RIEMANN_CH            = 7
 INTEGER,PARAMETER      :: PRM_RIEMANN_Average       = 0
@@ -103,11 +105,13 @@ CALL prms%CreateIntFromStringOption('Riemann',   "Riemann solver to be used: LF,
 CALL addStrListEntry('Riemann','lf',           PRM_RIEMANN_LF)
 CALL addStrListEntry('Riemann','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('Riemann','RoeL2',        PRM_RIEMANN_ROEL2)
+CALL addStrListEntry('Riemann','roehybrid',    PRM_RIEMANN_ROEHYBRID)
 CALL addStrListEntry('Riemann','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('Riemann','hll',          PRM_RIEMANN_HLL)
 CALL addStrListEntry('Riemann','hlle',         PRM_RIEMANN_HLLE)
 CALL addStrListEntry('Riemann','slau',         PRM_RIEMANN_SLAU)
 CALL addStrListEntry('Riemann','slau2',        PRM_RIEMANN_SLAU2)
+CALL addStrListEntry('Riemann','slau2hybrid',  PRM_RIEMANN_SLAU2Hybrid)
 #ifdef SPLIT_DG
 CALL addStrListEntry('Riemann','ch',           PRM_RIEMANN_CH)
 CALL addStrListEntry('Riemann','avg',          PRM_RIEMANN_Average)
@@ -118,11 +122,13 @@ CALL prms%CreateIntFromStringOption('RiemannBC', "Riemann solver used for bounda
 CALL addStrListEntry('RiemannBC','lf',           PRM_RIEMANN_LF)
 CALL addStrListEntry('RiemannBC','hllc',         PRM_RIEMANN_HLLC)
 CALL addStrListEntry('RiemannBC','RoeL2',        PRM_RIEMANN_ROEL2)
+CALL addStrListEntry('RiemannBC','roehybrid',    PRM_RIEMANN_ROEHYBRID)
 CALL addStrListEntry('RiemannBC','roeentropyfix',PRM_RIEMANN_ROEENTROPYFIX)
 CALL addStrListEntry('RiemannBC','hll',          PRM_RIEMANN_HLL)
 CALL addStrListEntry('RiemannBC','hlle',         PRM_RIEMANN_HLLE)
 CALL addStrListEntry('RiemannBC','slau',         PRM_RIEMANN_SLAU)
 CALL addStrListEntry('RiemannBC','slau2',        PRM_RIEMANN_SLAU2)
+CALL addStrListEntry('RiemannBC','slau2hybrid',  PRM_RIEMANN_SLAU2Hybrid)
 #ifdef SPLIT_DG
 CALL addStrListEntry('RiemannBC','ch',           PRM_RIEMANN_CH)
 CALL addStrListEntry('RiemannBC','avg',          PRM_RIEMANN_Average)
@@ -154,6 +160,8 @@ CASE(PRM_RIEMANN_HLLC)
   Riemann_pointer => Riemann_HLLC
 CASE(PRM_RIEMANN_ROEL2)
   Riemann_pointer => Riemann_RoeL2
+CASE(PRM_RIEMANN_ROEHYBRID)
+  Riemann_pointer => Riemann_RoeHybrid
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   Riemann_pointer => Riemann_RoeEntropyFix
 CASE(PRM_RIEMANN_HLL)
@@ -164,6 +172,8 @@ CASE(PRM_RIEMANN_SLAU)
   Riemann_pointer => Riemann_SLAU
 CASE(PRM_RIEMANN_SLAU2)
   Riemann_pointer => Riemann_SLAU2
+CASE(PRM_RIEMANN_SLAU2Hybrid)
+  Riemann_pointer => Riemann_SLAU2Hybrid
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,&
     'Riemann solver not defined!')
@@ -179,6 +189,8 @@ CASE(PRM_RIEMANN_HLLC)
   RiemannBC_pointer => Riemann_HLLC
 CASE(PRM_RIEMANN_ROEL2)
   Riemann_pointer => Riemann_RoeL2
+CASE(PRM_RIEMANN_ROEHYBRID)
+  RiemannBC_pointer => Riemann_RoeHybrid
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   RiemannBC_pointer => Riemann_RoeEntropyFix
 CASE(PRM_RIEMANN_HLL)
@@ -189,6 +201,8 @@ CASE(PRM_RIEMANN_SLAU)
   Riemann_pointer => Riemann_SLAU
 CASE(PRM_RIEMANN_SLAU2)
   Riemann_pointer => Riemann_SLAU2
+CASE(PRM_RIEMANN_SLAU2Hybrid)
+  Riemann_pointer => Riemann_SLAU2Hybrid
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,&
     'RiemannBC solver not defined!')
@@ -201,12 +215,16 @@ CASE(PRM_RIEMANN_LF)
   Riemann_pointer => Riemann_LF
 CASE(PRM_RIEMANN_ROEL2)
   Riemann_pointer => Riemann_RoeL2
+CASE(PRM_RIEMANN_ROEHYBRID)
+  Riemann_pointer => Riemann_RoeHybrid
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   Riemann_pointer => Riemann_RoeEntropyFix
 CASE(PRM_RIEMANN_SLAU)
   Riemann_pointer => Riemann_SLAU
 CASE(PRM_RIEMANN_SLAU2)
   Riemann_pointer => Riemann_SLAU2
+CASE(PRM_RIEMANN_SLAU2Hybrid)
+  Riemann_pointer => Riemann_SLAU2Hybrid
 CASE(PRM_RIEMANN_CH)
   Riemann_pointer => Riemann_CH
 CASE(PRM_RIEMANN_Average)
@@ -224,12 +242,16 @@ CASE(PRM_RIEMANN_LF)
   RiemannBC_pointer => Riemann_LF
 CASE(PRM_RIEMANN_ROEL2)
   Riemann_pointer => Riemann_RoeL2
+CASE(PRM_RIEMANN_ROEHYBRID)
+  RiemannBC_pointer => Riemann_RoeHybrid
 CASE(PRM_RIEMANN_ROEENTROPYFIX)
   RiemannBC_pointer => Riemann_RoeEntropyFix
 CASE(PRM_RIEMANN_SLAU)
   Riemann_pointer => Riemann_SLAU
 CASE(PRM_RIEMANN_SLAU2)
   Riemann_pointer => Riemann_SLAU2
+CASE(PRM_RIEMANN_SLAU2Hybrid)
+  Riemann_pointer => Riemann_SLAU2Hybrid
 CASE(PRM_RIEMANN_CH)
   Riemann_pointer => Riemann_CH
 CASE(PRM_RIEMANN_Average)
@@ -885,6 +907,104 @@ F(RHOK) = F(RHOK) - 0.5 * lambdaMax * (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
 F(RHOG) = F(RHOG) - 0.5 * lambdaMax * (U_RR(EXT_RHOG) - U_LL(EXT_RHOG))
 END SUBROUTINE Riemann_RoeL2
 
+
+!=================================================================================================================================
+!> low mach number Roe's approximate Riemann solver according to Oßwald(2015)
+!=================================================================================================================================
+PPURE SUBROUTINE Riemann_RoeHybrid(F_L,F_R,U_LL,U_RR,F)
+! MODULES
+USE MOD_EOS_Vars  ,ONLY: kappaM1,kappa
+#ifdef SPLIT_DG
+USE MOD_SplitFlux ,ONLY: SplitDGSurface_pointer
+#endif /*SPLIT_DG*/
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!---------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+                                               !> extended solution vector on the left/right side of the interface
+REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR
+                                               !> advection fluxes on the left/right side of the interface
+REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R
+REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
+!---------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                    :: H_L,H_R
+REAL                    :: SqrtRho_L,SqrtRho_R,sSqrtRho
+REAL                    :: RoeVel(3),RoeH,Roec,absVel
+REAL                    :: Ma_loc ! local Mach-Number
+REAL,DIMENSION(5)       :: a,r1,r2,r3,r4,r5  ! Roe eigenvectors
+REAL                    :: Alpha1,Alpha2,Alpha3,Alpha4,Alpha5,Delta_U(5+1)
+REAL                    :: cl,cr,lambdaMax,lambdaMaxLF
+!=================================================================================================================================
+! Roe flux
+H_L       = TOTALENTHALPY_NS_HE(U_LL)
+H_R       = TOTALENTHALPY_NS_HE(U_RR)
+SqrtRho_L = SQRT(U_LL(EXT_DENS))
+SqrtRho_R = SQRT(U_RR(EXT_DENS))
+
+sSqrtRho  = 1./(SqrtRho_L+SqrtRho_R)
+! Roe mean values
+RoeVel    = (SqrtRho_R*U_RR(EXT_VELV) + SqrtRho_L*U_LL(EXT_VELV)) * sSqrtRho
+absVel    = DOT_PRODUCT(RoeVel,RoeVel)
+RoeH      = (SqrtRho_R*H_R+SqrtRho_L*H_L) * sSqrtRho
+Roec      = ROEC_RIEMANN_H(RoeH,RoeVel)
+
+! mean eigenvalues and eigenvectors
+a  = (/ RoeVel(1)-Roec, RoeVel(1), RoeVel(1), RoeVel(1), RoeVel(1)+Roec      /)
+r1 = (/ 1.,             a(1),      RoeVel(2), RoeVel(3), RoeH-RoeVel(1)*Roec /)
+r2 = (/ 1.,             RoeVel(1), RoeVel(2), RoeVel(3), 0.5*absVel          /)
+r3 = (/ 0.,             0.,        1.,        0.,        RoeVel(2)           /)
+r4 = (/ 0.,             0.,        0.,        1.,        RoeVel(3)           /)
+r5 = (/ 1.,             a(5),      RoeVel(2), RoeVel(3), RoeH+RoeVel(1)*Roec /)
+
+! calculate differences
+Delta_U(1:5) = U_RR(1:5) - U_LL(1:5)
+Delta_U(5)    = Delta_U(5) - (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+Delta_U(DELTA_U6)   = Delta_U(DELTA_U5)-(Delta_U(DELTA_U3)-RoeVel(2)*Delta_U(DELTA_U1))*RoeVel(2) - &
+                      (Delta_U(DELTA_U4)-RoeVel(3)*Delta_U(DELTA_U1))*RoeVel(3)
+
+! low Mach-Number fix
+Ma_loc = MIN(SQRT(absVel)/(Roec*SQRT(kappa)),1.0)
+Delta_U(DELTA_UV) = Delta_U(DELTA_UV) * Ma_loc
+
+! calculate factors
+Alpha3 = Delta_U(DELTA_U3) - RoeVel(2)*Delta_U(DELTA_U1)
+Alpha4 = Delta_U(DELTA_U4) - RoeVel(3)*Delta_U(DELTA_U1)
+Alpha2 = ALPHA2_RIEMANN_H(RoeH,RoeVel,Roec,Delta_U)
+Alpha1 = 0.5/Roec * (Delta_U(DELTA_U1)*(RoeVel(1)+Roec) - Delta_U(DELTA_U2) - Roec*Alpha2)
+Alpha5 = Delta_U(DELTA_U1) - Alpha1 - Alpha2
+
+cl = SQRT(kappa * U_LL(EXT_PRES) / U_LL(EXT_DENS))
+cr = SQRT(kappa * U_RR(EXT_PRES) / U_RR(EXT_DENS))
+lambdaMax = MAX(ABS(U_LL(EXT_VEL1)) + cl, ABS(U_RR(EXT_VEL1)) + cr)
+! Lax-Friedrichs
+lambdaMaxLF = MAX( ABS(U_RR(EXT_VEL1)),ABS(U_LL(EXT_VEL1)) ) + MAX( SPEEDOFSOUND_HE(U_LL),SPEEDOFSOUND_HE(U_RR) )
+
+#ifndef SPLIT_DG
+! assemble Roe flux
+F = 0.5 * (F_L + F_R)
+F(1:5)=F(1:5) - 0.5 * ( &
+       Alpha1*ABS(a(1))*r1 + &
+       Alpha2*ABS(a(2))*r2 + &
+       Alpha3*ABS(a(3))*r3 + &
+       Alpha4*ABS(a(4))*r4 + &
+       Alpha5*ABS(a(5))*r5)
+#else
+! get split flux
+CALL SplitDGSurface_pointer(U_LL,U_RR,F)
+! assemble Roe flux
+F(1:5) = F(1:5) - 0.5 * (Alpha1*ABS(a(1))*r1 + &
+                         Alpha2*ABS(a(2))*r2 + &
+                         Alpha3*ABS(a(3))*r3 + &
+                         Alpha4*ABS(a(4))*r4 + &
+                         Alpha5*ABS(a(5))*r5)
+#endif /*SPLIT_DG*/
+
+F(ENER) = F(ENER) - 0.5 * lambdaMaxLF * (U_RR(EXT_RHOK) - U_LL(EXT_RHOK))
+F(RHOK:RHOG) = F(RHOK:RHOG) - 0.5*LambdaMaxLF*(U_RR(RHOK:RHOG) - U_LL(RHOK:RHOG))
+
+END SUBROUTINE Riemann_RoeHybrid
+
 !=================================================================================================================================
 !> Standard Harten-Lax-Van-Leer Riemann solver without contact discontinuity
 !=================================================================================================================================
@@ -1136,6 +1256,93 @@ ELSE
 END IF
 F(MOM1) = F(MOM1) + pTilde ! Eq. 2.3a
 END SUBROUTINE Riemann_SLAU2
+
+
+!=================================================================================================================================
+!> SLAU2, with LF on turbulence variables
+!=================================================================================================================================
+PPURE SUBROUTINE Riemann_SLAU2Hybrid(F_L,F_R,U_LL,U_RR,F)
+!=================================================================================================================================
+! MODULES
+USE MOD_EOS_Vars      ,ONLY: Kappa,KappaM1
+USE MOD_SplitFlux     ,ONLY: SplitDGSurface_pointer
+IMPLICIT NONE
+!---------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+                                               !> extended solution vector on the left/right side of the interface
+REAL,DIMENSION(PP_2Var),INTENT(IN) :: U_LL,U_RR
+                                               !> advection fluxes on the left/right side of the interface
+REAL,DIMENSION(PP_nVar),INTENT(IN) :: F_L,F_R
+REAL,DIMENSION(PP_nVar),INTENT(OUT):: F        !< resulting Riemann flux
+!---------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL    :: H_L,H_R
+REAL    :: cL, cR, c0_5, VL2, VR2, VAvg, MM, chi, MaL, MaR, fL, fR
+REAL    :: pTilde, g, Vn, VnPlus, VnMinus, massFlux, LambdaMax
+!=================================================================================================================================
+H_L       = TOTALENTHALPY_HE(U_LL)
+H_R       = TOTALENTHALPY_HE(U_RR)
+cL        = SPEEDOFSOUND_HE(U_LL)
+cR        = SPEEDOFSOUND_HE(U_RR)
+c0_5      = 0.5 * (cL + cR) ! Eq. 2.3h
+
+VL2       = DOT_PRODUCT(U_LL(EXT_VELV), U_LL(EXT_VELV))
+VR2       = DOT_PRODUCT(U_RR(EXT_VELV), U_RR(EXT_VELV))
+VAvg      = SQRT(0.5 * (VL2 + VR2))
+MM        = MIN(1.0, VAvg / c0_5) ! Eq. 2.3e
+chi       = (1.0 - MM)**2 ! Eq. 2.3d
+MaL       = U_LL(EXT_VEL1) / c0_5 ! Eq. 2.3g
+MaR       = U_RR(EXT_VEL1) / c0_5 ! Eq. 2.3g
+
+IF (ABS(MaL) .LE. 1.0) THEN
+  fL = 0.25 * (MaL + 1.0)**2 * (2.0 - MaL) ! Eq. 2.3f
+ELSE IF (MaL .GE. 0.0) THEN
+  fL = 1.0 ! Eq. 2.3f
+ELSE
+  fL = 0.0 ! Eq. 2.3f
+END IF
+IF (ABS(MaR) .LE. 1.0) THEN
+  fR = 0.25 * (MaR - 1.0)**2 * (2.0 + MaR) ! Eq. 2.3f
+ELSE IF (MaR .GE. 0.0) THEN
+  fR = 0.0 ! Eq. 2.3f
+ELSE
+  fR = 1.0 ! Eq. 2.3f
+END IF
+! Eq. 2.3c
+pTilde    = 0.5 * (U_LL(EXT_PRES) + U_RR(EXT_PRES)) + &
+            0.5 * (fL - fR) * (U_LL(EXT_PRES) - U_RR(EXT_PRES)) + &
+            VAvg * (fL + fR - 1.0) * 0.5 * (U_LL(EXT_DENS) + U_RR(EXT_DENS)) * c0_5
+! Eq. 2.3l
+g         = -MAX(MIN(MaL, 0.0), -1.0) * MIN(MAX(MaR, 0.0), 1.0)
+Vn        = (ABS(U_LL(EXT_MOM1)) + ABS(U_RR(EXT_MOM1))) / (U_LL(EXT_DENS) + U_RR(EXT_DENS)) ! Eq. 2.3k
+VnPlus    = (1.0 - g) * Vn + g * ABS(U_LL(EXT_VEL1)) ! Eq. 2.3j
+VnMinus   = (1.0 - g) * Vn + g * ABS(U_RR(EXT_VEL1)) ! Eq. 2.3j
+! Eq. 2.3i
+massFlux  = 0.5 * ( &
+              U_LL(EXT_DENS) * (U_LL(EXT_VEL1) + VnPlus) + &
+              U_RR(EXT_DENS) * (U_RR(EXT_VEL1) - VnMinus) - &
+              chi / c0_5 * (U_RR(EXT_PRES) - U_LL(EXT_PRES)))
+
+IF (massFlux .GE. 0.0) THEN
+  F(1:5) = massFlux * (/1.0, U_LL(EXT_VELV), H_L/) ! Eq. 2.3a
+ELSE
+  F(1:5) = massFlux * (/1.0, U_RR(EXT_VELV), H_R/) ! Eq. 2.3a
+END IF
+F(MOM1) = F(MOM1) + pTilde ! Eq. 2.3a
+
+! Lax-Friedrichs
+LambdaMax = MAX( ABS(U_RR(EXT_VEL1)),ABS(U_LL(EXT_VEL1)) ) + MAX( SPEEDOFSOUND_HE(U_LL),SPEEDOFSOUND_HE(U_RR) )
+
+#ifndef SPLIT_DG
+F(RHOK:RHOG) = 0.5*((F_L(RHOK:RHOG)+F_R(RHOK:RHOG)) - LambdaMax*(U_RR((RHOK:RHOG)) - U_LL((RHOK:RHOG))))
+#else
+! get split flux
+CALL SplitDGSurface_pointer(U_LL,U_RR,F)
+! compute surface flux
+F(RHOK:RHOG) = F(RHOK:RHOG) - 0.5*LambdaMax*(U_RR(RHOK:RHOG) - U_LL(RHOK:RHOG))
+#endif /*SPLIT_DG*/
+
+END SUBROUTINE Riemann_SLAU2Hybrid
 
 #ifdef SPLIT_DG
 !==================================================================================================================================

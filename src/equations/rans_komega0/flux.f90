@@ -195,7 +195,6 @@ REAL                :: tau_zz,tau_xz,tau_yz
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
-! muTOrig= MIN( Cmu * UPrim(DENS) * MAX(UPrim(TKE),1.e-16) * MAX(UPrim(OMG),1.e-16)**2, 10000. * muS )
 muTOrig = muTRA
 diffK  = muS + invSigmaK * muTOrig
 diffG  = muS + invSigmaG * muTOrig
@@ -221,9 +220,7 @@ tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_
 tau_xz = muS * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
 tau_yz = muS * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
 IF (rhokContribution) THEN
-  ! s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
-  s23rhok = s23 * UPrim(DENS) * UPrim(TKE)
-  ! s23rhok = s23 * MIN(Uprim(DENS) * MAX(UPrim(TKE), 1.0e-16), muSGS / MAX(0.09 * UPrim(OMG)**2, 1.0e-8))
+  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
   tau_xx = tau_xx - s23rhok
   tau_yy = tau_yy - s23rhok
   tau_zz = tau_zz - s23rhok
@@ -263,9 +260,7 @@ tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_
 tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
 tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
 IF (rhokContribution) THEN
-  ! s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
-  s23rhok = s23 * UPrim(DENS) * UPrim(TKE)
-  ! s23rhok = s23 * MIN(Uprim(DENS) * MAX(UPrim(TKE), 1.0e-16), muSGS / MAX(0.09 * UPrim(OMG)**2, 1.0e-8))
+  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
   tau_xx = tau_xx - s23rhok
   tau_yy = tau_yy - s23rhok
 ENDIF

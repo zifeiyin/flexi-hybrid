@@ -247,8 +247,8 @@ REAL                          ,INTENT(IN)  :: omega                    !> omega
 ! LOCAL VARIABLES
 REAL                                    :: sRho
 REAL                                    :: magS
-REAL                                    :: kPos, gPos, muTOrig, muTLim
-REAL                                    :: lLES, lRANS, lDDES, rd
+REAL                                    :: muTOrig
+REAL                                    :: lLES, lRANS, lDDES, rd, omegaHat
 REAL                                    :: dUdU
 REAL                                    :: muS
 REAL,PARAMETER                          :: kappa=0.41
@@ -275,26 +275,21 @@ dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 + gradUx(LIFT_VEL3)**2 &
       + gradUz(LIFT_VEL1)**2 + gradUz(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2
 #endif
 
-kPos    = MAX( UPrim(TKE), 1.e-16 )
-gPos    = MAX( UPrim(OMG), 1.e-16 )
-! muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
-muTOrig = UPrim(DENS) * kPos / omega
+
+omegaHat = MAX( omega, MAX(sqrt6 * magS, 1.e-16) )
+
+muTOrig = UPrim(DENS) *  MAX( UPrim(TKE), 0.0 ) / omegaHat
 muTRA = muTOrig
 
-muTLim = MIN(muTOrig,  UPrim(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
+lRANS = SQRT( muTOrig / omega )
 
-! lRANS = SQRT(mutLim * sRho * Cmu * gPos**2)
-lRANS = SQRT(mutLim * sRho / omega)
-
-! rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
-rd    = (kPos / omega + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+rd    = (muTOrig + muS) / (UPrim(DENS) * (kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
 lLES = SQRT(Cdes2) * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-! muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
 muSGS = UPrim(DENS) * lDDES**2 * omega
 
 END SUBROUTINE DynSmagorinsky_Point
@@ -363,7 +358,7 @@ DO iElem = 1,nElems
     ! ELSE
     !   diss  = MAX( U_in(RHOK,i,j,k,iElem) * U_in(DENS,i,j,k,iElem) /  MAX(U_in(RHOG,i,j,k,iElem)**2, 1.e-24 ), 1.e-16 )
     ! ENDIF
-    diss = Cmu * MAX(UPrim(TKE,i,j,k,iElem), 1.0E-16) * omega(i,j,k,iElem)
+    diss = Cmu * MAX(UPrim(TKE,i,j,k,iElem), 1.0E-16) * MAX( omega(i,j,k,iElem), 1.0E-16)
     eta     = ( nuS**3 / diss )**0.25
     ratio   = Elem_hmx(iElem) / eta
     Clim    = 0.5 * CDES0 * ( MAX( MIN( (ratio-23.0)/7.0, 1.0), 0.0) + MAX( MIN( (ratio-65.0)/25.0, 1.0), 0.0) )
@@ -509,7 +504,7 @@ DO iElem=1,nElems
     MMa = MMa + MM(i,j,k)*IntElem(i,j,k,iElem)
     MLa = MLa + ML(i,j,k)*IntElem(i,j,k,iElem)
   END DO; END DO; END DO ! i,j,k
-  Cdes2(:,:,:,iElem) = 0.5*MLa/MMa
+  Cdes2(:,:,:,iElem) = MIN( 0.5*MLa/MAX(MMa,1.e-16), 0.16 ) ! a common practice to set upper limit to prevent blow up
 
 END DO
 END SUBROUTINE Compute_Cd

@@ -903,18 +903,10 @@ DO iElem=1,nElems
 
     muS = VISCOSITY_TEMPERATURE(UPrim(TEMP))
     muT = muSGS(1,i,j,k,iElem)
-    kPos    = MAX( UPrim(TKE), 1.e-16 )
-    gPos    = MAX( UPrim(OMG), 1.e-16 )
+    kPos    = MAX( UPrim(TKE), 0.0 )
+    gPos    = MAX( UPrim(OMG), 0.0 )
 
-    ! muTOrig = MIN( Cmu * UPrim(DENS) * kPos * gPos**2, 10000.0 * muS )
     muTOrig = muTRA(1,i,j,k,iElem)
-
-    ! invR   = 1. / MAX( 0.01 * muS, muTOrig )
-    ! invG   = SQRT(Cmu * UPrim(DENS) * kPos * invR)
-
-    ! muEffG = (muS + invSigmaG * muTOrig)
-
-    ! lambda = muS*cp/Pr + muT*cp/PrSGS
 
 #if PP_dim==2
     ASSOCIATE( &
@@ -926,31 +918,11 @@ DO iElem=1,nElems
     Sxx = 0.5 * (s43 * ux - s23 * vy)
     Syy = 0.5 * (s43 * vy - s23 * ux)
     Sxy = 0.5 * (uy + vx)
-    ! Sxx = Sxx - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
-    ! Sxx = Sxx - s23 * MIN(MAX(UPrim(TKE), 1.0e-16), muSGS / MAX(0.09 * UPrim(OMG)**2, 1.0e-8))
-    ! rhok_contribution = s43 * MIN(MAX(UPrim(TKE), 1.0e-16), muT / MAX(0.09 * UPrim(OMG)**2, 1.0e-16)) * (ux + vy)
-    rhok_contribution = s23 * UPrim(DENS) * MAX(UPrim(TKE), 1.0e-16) * (ux + vy)
+    rhok_contribution = s23 * UPrim(DENS) * kPos * (ux + vy)
 
     SijGradU = Sxx * ux + Sxy * uy + Sxy * vx + Syy * vy
 
-    ! dGdG = gx * gx + gy * gy
-
     dkdg = kx * gx + ky * gy
-
-    ! IF (danisDurbinCorrection) THEN
-    !   comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy)
-    !   comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy)
-    !   comp_q = SQRT(comp_qx**2 + comp_qy**2)
-    !   comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2) + 4.0 * Sxy**2)
-    !   comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2)
-    ! ENDIF
-    ! IF (alphaModelCorrection) THEN
-    !   alpha_model_coeff = ( &
-    !       gradyWall(1,i,j,k,0,iElem) * gradUx(LIFT_DENS,i,j,k,iElem) + &
-    !       gradyWall(2,i,j,k,0,iElem) * gradUy(LIFT_DENS,i,j,k,iElem) + &
-    !       gradyWall(3,i,j,k,0,iElem) * gradUz(LIFT_DENS,i,j,k,iElem) &
-    !   ) * yWall(i,j,k,0,iElem) / UPrim(DENS)
-    ! ENDIF
 
     END ASSOCIATE
 #else
@@ -967,54 +939,19 @@ DO iElem=1,nElems
     Sxy = 0.5 * (uy + vx)
     Sxz = 0.5 * (uz + wx)
     Syz = 0.5 * (vz + wy)
-    ! Sxx = Sxx - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
-    ! Syy = Syy - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
-    ! Szz = Szz - s23 / (0.09 * MAX(UPrim(OMG)**2, 1.0e-8))
-    ! rhok_contribution = s23 * MIN(UPrim(DENS) * MAX(UPrim(TKE), 1.0e-16), muT / MAX(0.09 * UPrim(OMG)**2, 1.0e-16)) * (ux + vy + wz)
-    rhok_contribution = s23 * UPrim(DENS) * MAX(UPrim(TKE), 1.0e-16) * (ux + vy + wz)
+   
+    rhok_contribution = s23 * UPrim(DENS) * kPos * (ux + vy + wz)
 
     SijGradU = &
         Sxx * ux + Sxy * uy + Sxz * uz + &
         Sxy * vx + Syy * vy + Syz * vz + &
         Sxz * wx + Syz * wy + Szz * wz
 
-    ! dGdG = gx * gx + gy * gy + gz * gz
-
     dkdg = kx * gx + ky * gy + kz * gz
 
-    ! IF (danisDurbinCorrection) THEN
-    !   comp_qx = lambda * gradUx(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxx + UPrim(VEL2) * Sxy + UPrim(VEL3) * Sxz)
-    !   comp_qy = lambda * gradUy(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxy + UPrim(VEL2) * Syy + UPrim(VEL3) * Syz)
-    !   comp_qz = lambda * gradUz(LIFT_TEMP,i,j,k,iElem) + 2.0 * (muS + muT) * (UPrim(VEL1) * Sxz + UPrim(VEL2) * Syz + UPrim(VEL3) * Szz)
-    !   comp_q = SQRT(comp_qx**2 + comp_qy**2 + comp_qz**2)
-    !   comp_t = (muS + muT) * SQRT(2.0 * (Sxx**2 + Syy**2 + Szz**2) + 4.0 * (Sxy**2 + Syz**2 + Sxz**2))
-    !   comp_u = SQRT(UPrim(VEL1)**2 + UPrim(VEL2)**2 + UPrim(VEL3)**2)
-    ! ENDIF
-    ! IF (alphaModelCorrection) THEN
-    !   alpha_model_coeff = ( &
-    !       gradyWall(1,i,j,k,0,iElem) * gradUx(LIFT_DENS,i,j,k,iElem) + &
-    !       gradyWall(2,i,j,k,0,iElem) * gradUy(LIFT_DENS,i,j,k,iElem) + &
-    !       gradyWall(3,i,j,k,0,iElem) * gradUz(LIFT_DENS,i,j,k,iElem) &
-    !   ) * yWall(i,j,k,0,iElem) / UPrim(DENS)
-    ! ENDIF
     END ASSOCIATE
 #endif
 
-    ! IF (danisDurbinCorrection) THEN
-    !   comp_c    = SPEEDOFSOUND_H(UPrim(PRES),(1.0/UPrim(DENS)))
-    !   comp_M    = comp_u / comp_c
-    !   comp_utau = SQRT(comp_t / UPrim(DENS))
-    !   comp_Mtau = comp_utau / comp_c
-    !   comp_Bq   = comp_q / (UPrim(DENS) * Cp * UPrim(TEMP) * comp_utau)
-    !   CALL CalcCompf(comp_f, comp_M, comp_Mtau, comp_Bq)
-    ! ELSE IF (alphaModelCorrection) THEN
-    !   comp_f = EXP(2.54 * MIN(alpha_model_coeff, 0.0))
-    ! ELSE
-    !   comp_f = 1.0
-    ! ENDIF
-
-    ! SijUij(i,j,k,iElem) = SijGradU
-    ! SijUij(i,j,k,iElem) = 1 / (Cmu * gPos**2)
     IF (Elem_xGP(2,i,j,k,iElem) .GE. 0) THEN
       dGidGi(i,j,k,iElem) = muT * (-(gradUy(LIFT_VEL1,i,j,k,iElem)+gradUx(LIFT_VEL2,i,j,k,iElem)))
       SijUij(i,j,k,iElem) = muS * (-(gradUy(LIFT_VEL1,i,j,k,iElem)+gradUx(LIFT_VEL2,i,j,k,iElem)))
@@ -1028,36 +965,14 @@ DO iElem=1,nElems
     ELSE
       prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
     END IF
-    ! prodK (1,i,j,k,iElem) = 2. * muT * SijGradU
-    ! dissK (1,i,j,k,iElem) = Cmu * (UPrim(DENS) * kPos)**2 * invR
-    ! IF (UPrim(TKE) .GE. 0.0) THEN
-    !   dissK (1,i,j,k,iElem) = +(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
-    ! ELSE
-    !   dissK (1,i,j,k,iElem) = -(Cmu * (UPrim(DENS) * UPrim(TKE))**2 * invR)
-    ! END IF
-    ! prodK (1,i,j,k,iElem) = MIN(20. * ABS(dissK (1,i,j,k,iElem)), 2. * muT * SijGradU)
-    dissK (1,i,j,k,iElem) = Cmu * UPrim(DENS) * kPos * omega(i,j,k,iElem)
+    dissK (1,i,j,k,iElem) = Cmu * UPrim(DENS) * UPrim(TKE) * omega(i,j,k,iElem)
 
-    ! IF (UPrim(OMG).GE.0.0) THEN
-    !   prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS)**2 * kPos * gPos * 0.5 * invR
-    ! ELSE
-    !   prodG (1,i,j,k,iElem) = comp_f * Comega2 * UPrim(DENS) / (2 * Cmu) * invG
-    ! END IF
-    ! dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * gPos**3 * SijGradU
-    ! dissG (1,i,j,k,iElem) = comp_f * Comega1 * Cmu * UPrim(DENS) * UPrim(OMG)**3 * SijGradU
-    ! crossG(1,i,j,k,iElem) = 3.0 * muEffG * Cmu * UPrim(DENS) * kPos * gPos * invR * dGdG
-    ! crossG(1,i,j,k,iElem) = muEffG * 3.0 * invG * dGdG
     prodG (1,i,j,k,iElem) = 2.0 * Comega1 * UPrim(DENS) * SijGradU
     dissG (1,i,j,k,iElem) = Comega2 * UPrim(DENS) * gPos**2
 
     ! cross diffusion term in Wilcox 2006
     wilcox06_cross = 0.0
-    ! IF ((crossDiffusionTerm) .AND. (dkdg .LT. 0.0)) THEN
-    !   wilcox06_cross = 0.125 * UPrim(DENS) * (Cmu * gPos**2) * dkdg
-    ! END IF
 
-    ! Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
-    ! Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) - crossG(1,i,j,k,iElem) + wilcox06_cross
     Ut_src(RHOK,i,j,k) = prodK(1,i,j,k,iElem) - dissK(1,i,j,k,iElem)
     Ut_src(RHOG,i,j,k) = prodG(1,i,j,k,iElem) - dissG(1,i,j,k,iElem) + wilcox06_cross
   END DO; END DO; END DO ! i,j,k

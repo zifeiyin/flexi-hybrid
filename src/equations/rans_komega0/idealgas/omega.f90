@@ -23,18 +23,29 @@ USE MOD_Mesh_Vars ,ONLY: nElems
 USE MOD_DG_Vars, ONLY: UPrim
 USE MOD_Equation_Vars, ONLY: Comega2, Cexp
 USE MOD_EddyVisc_Vars, ONLY: ywall,omega
+USE MOD_Lifting_Vars     ,ONLY: gradUx,gradUy,gradUz
 USE MOD_Viscosity
 
 INTEGER :: iElem,i,j,k
-REAL    :: nuS, xi
+REAL    :: nuS, xi, omega0Pos, magS
 
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     nuS = VISCOSITY_TEMPERATURE(UPrim(TEMP,i,j,k,iElem)) / UPrim(DENS,i,j,k,iElem)
-    xi = MAX(UPrim(OMG,i,j,k,iElem), 0.0) * ywall(i,j,k,0,iElem)**2 / nuS
-    ! omega(i,j,k,iElem) = (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * (xi / (6.0 / Comega2) + EXP(-xi / 95.0))
-    ! omega(i,j,k,iElem) = UPrim(OMG,i,j,k,iElem) + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-xi / 95.0)
-    omega(i,j,k,iElem) = UPrim(OMG,i,j,k,iElem) + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-Cexp * xi)
+    IF (UPrim(OMG,i,j,k,iElem) .GE. 0.0) THEN
+      omega0Pos = MAX(UPrim(OMG,i,j,k,iElem),0.0)
+      xi = omega0Pos * ywall(i,j,k,0,iElem)**2 / nuS
+      omega(i,j,k,iElem) = omega0Pos + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-Cexp * xi)
+    ELSE 
+      omega0Pos = SQRT( &
+        2. * (gradUx(LIFT_VEL1,i,j,k,iElem)**2 + gradUy(LIFT_VEL2,i,j,k,iElem)**2 + gradUz(LIFT_VEL3,i,j,k,iElem)**2) + &
+             (gradUy(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL2,i,j,k,iElem))**2 + &
+             (gradUz(LIFT_VEL1,i,j,k,iElem) + gradUx(LIFT_VEL3,i,j,k,iElem))**2 + &
+             (gradUz(LIFT_VEL2,i,j,k,iElem) + gradUy(LIFT_VEL3,i,j,k,iElem))**2) * SQRT(6.0)
+      xi = omega0Pos * ywall(i,j,k,0,iElem)**2 / nuS
+      omega(i,j,k,iElem) = omega0Pos + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-Cexp * xi)
+    END IF
+    
   END DO; END DO; END DO
 END DO
 

@@ -38,6 +38,7 @@
 !>  * 27  : Subsonic inflow BC, WARNING: REFSTATE is different: Tt,alpha,beta,<empty>,pT (4th entry ignored), angles in DEG
 !>  CUSTOM INFLOW BCs:
 !>  * 30  : Add synthetic random Fourier modes onto ref state
+!>  * 32  : recycling-rescaling inflow generation method
 !==================================================================================================================================
 MODULE MOD_GetBoundaryFlux
 ! MODULES
