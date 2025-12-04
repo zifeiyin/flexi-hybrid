@@ -23,7 +23,7 @@ CALL prms%CreateRealOption("zMatchingTolerance", "tolerance for finding match Z"
 END SUBROUTINE DefineParametersRecycling
 
 SUBROUTINE InitRecycling
-USE MOD_Global
+USE MOD_Globals
 USE MOD_PreProc
 USE MOD_Mesh_Vars, ONLY: Elem_xGP, Face_xGP, nElems, nBCSides, BoundaryType, BC
 USE MOD_DG_Vars, ONLY: U, UPrim, UPrim_master
