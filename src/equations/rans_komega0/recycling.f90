@@ -23,10 +23,11 @@ CALL prms%CreateRealOption("zMatchingTolerance", "tolerance for finding match Z"
 END SUBROUTINE DefineParametersRecycling
 
 SUBROUTINE InitRecycling
-USE MOD_Globals
+USE MOD_Global
 USE MOD_PreProc
 USE MOD_Mesh_Vars, ONLY: Elem_xGP, Face_xGP, nElems, nBCSides, BoundaryType, BC
 USE MOD_DG_Vars, ONLY: U, UPrim, UPrim_master
+USE MOD_Equation_Vars, ONLY: RefStatePrim
 USE MOD_ReadInTools
 USE MOD_Recycling_Vars
 IMPLICIT NONE
@@ -46,6 +47,7 @@ xRecyc  = GETREAL("recycling_xrec")
 thetaD  = GETREAL("recycling_momentum_thickness")
 yMatchingTolerance = GETREAL("yMatchingTolerance")
 zMatchingTolerance = GETREAL("zMatchingTolerance")
+u_inf = RefStatePrim(VEL1,freeStreamRefState)
 ! Twall   = GETREAL("recycling_Twall")
 
 ! initialize recycling plane
@@ -61,13 +63,14 @@ CALL MPI_ALLREDUCE(tmp, recycMinDist, 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM
 recycMinDist = recycMinDist + xRecyc
 
 ALLOCATE( indexMap(1:3, 0:PP_N, 0:PP_N, 0:PP_NZ, 1:nElems) )
+indexMap = 0
 
 nLocalMatched = 0
 DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     IF ( ABS(Elem_xGP(1,i,j,k,iElem) - recycMinDist) .LT. 1.e-6 ) THEN
       nLocalMatched = nLocalMatched + 1
       indexMap(1,i,j,k,iELem) = 3
-    ELSE 
+    ELSE
       indexMap(1,i,j,k,iELem) = -1
     END IF
 END DO; END DO; END DO; END DO
@@ -88,71 +91,83 @@ z = -1.0E6
 ! use Y information to get IndexY mapping without involving MPIALLGATHER, reduce indexMap(1,i,j,k,iELem) = 3 to 2
 nn = 0
 DO localInd=1,nY
+  nn = 0
   tmp = 1.0E6
   DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN 
+    IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN
       tmp = MIN(tmp, Elem_xGP(2,i,j,k,iELem))
     END IF
   END DO; END DO; END DO; END DO
   y(localInd) = tmp
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, y(localInd), 1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_FLEXI, iError)
-  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN
       IF (ABS(Elem_xGP(2,i,j,k,iELem) - y(localInd)) .LE. yMatchingTolerance) THEN
         indexMap(2,i,j,k,iELem) = localInd
         indexMap(1,i,j,k,iELem) = 2
         nn = nn + 1
-      END IF 
+      END IF
     END IF
   END DO; END DO; END DO; END DO
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, nn, 1, MPI_INT, MPI_SUM, MPI_COMM_FLEXI, iError)
   SWRITE(*,*) "No. DoFs collected totally for ", localInd, "-th Y layer is ", nn
 END DO
 ! check if all DOFs in the recycling plane are matched in Y coordinates
 nn = 0
-DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
   IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN
     nn = nn + 1
-  END IF 
+  END IF
 END DO; END DO; END DO; END DO
 IF ( nn .GT. 0) THEN
   CALL Abort(__STAMP__,'There exists DOFs in the recycling plane that are not matched in Y coordinates')
 END IF
-DO localInd = 1, nY 
+DO localInd = 1, nY
   SWRITE(*,*) "y(i) = ", localInd, y(localInd)
-END DO 
+  IF (y(localInd) .EQ. 1.0E6) THEN
+    CALL Abort(__STAMP__,'y layer not found')
+  END IF
+END DO
 
 ! use Z information to get IndexZ mapping without involving MPIALLGATHER, reduce indexMap(1,iELem) = 2 to 1
 DO localInd=1,nZ
+  nn = 0
   tmp = 1.0E6
   DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN 
+    IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN
       tmp = MIN(tmp, Elem_xGP(3,i,j,k,iELem))
     END IF
   END DO; END DO; END DO; END DO
   z(localInd) = tmp
   CALL MPI_ALLREDUCE(MPI_IN_PLACE, z(localInd),  1, MPI_DOUBLE_PRECISION, MPI_MIN, MPI_COMM_FLEXI, iError)
-  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+  DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN
       IF ( ABS(Elem_xGP(3,i,j,k,iELem) - z(localInd)) .LE. zMatchingTolerance ) THEN
         indexMap(3,i,j,k,iELem) = localInd
         indexMap(1,i,j,k,iELem) = 1
-      END IF      
+        nn = nn + 1
+      END IF
     END IF
   END DO; END DO; END DO; END DO
+  CALL MPI_ALLREDUCE(MPI_IN_PLACE, nn, 1, MPI_INT, MPI_SUM, MPI_COMM_FLEXI, iError)
+  SWRITE(*,*) "No. DoFs collected totally for ", localInd, "-th Z layer is ", nn
 END DO
 ! check if all DOFs in the recycling plane are matched in Z coordinates
 nn = 0
-DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N 
+DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
   IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN
     nn = nn + 1
-  END IF 
+  END IF
 END DO; END DO; END DO; END DO
 IF ( nn .GT. 0) THEN
   CALL Abort(__STAMP__,'There exists DOFs in the recycling plane that are not matched in Z coordinates')
 END IF
-DO localInd = 1, nZ 
+DO localInd = 1, nZ
   SWRITE(*,*) "z(i) = ", localInd, z(localInd)
-END DO 
+  IF (z(localInd) .EQ. 1.0E6) THEN
+    CALL Abort(__STAMP__,'z layer not found')
+  END IF
+END DO
 
 ! initialize inflow plane
 nInflow = 0
@@ -266,14 +281,14 @@ tmp = tmp / 6.0
 ! from top to bottom, because sometimes fluctuation changes delta99 estimation if from wall
 d99R = 0.0
 DO k = 2, (nY - 1)
-  j = nY - k 
+  j = nY - k
   IF ( (recycl_UPrim_mean(VEL1,j) .LE. (0.99 * tmp)) .AND. (recycl_UPrim_mean(VEL1,j+1) .GT. (0.99 * tmp))) THEN
     u1 = recycl_UPrim_mean(VEL1,j)
     u2 = recycl_UPrim_mean(VEL1,j+1)
     d99R = ((u2 - (0.99 * tmp)) * y(j) + ((0.99 * tmp) - u1) * y(j+1)) / (u2 - u1)
-    EXIT 
-  ENDIF 
-END DO 
+    EXIT
+  ENDIF
+END DO
 ! if not found or uniform initialization, just start with scaling ratio of 1
 IF (d99R .LT. 1e-8) THEN
   d99R = thetaD
@@ -291,12 +306,12 @@ tauw = VISCOSITY_TEMPERATURE(Twall) * recycl_UPrim_mean(VEL1,2) / y(2)
 #endif
 uTauR = SQRT(tauw / rhow)
 ! for hard start
-IF (uTauR .LT. 1.0e-8) THEN 
+IF (uTauR .LT. 1.0e-8) THEN
   uTauR = 1.0
 ENDIF
 
 ! TODO(Shimushu): remove hard-coded variables
-d99I = MIN( thetaD, d99R ) ! avoid wrong instantaneous scaling ratio for natural development 
+d99I = MIN( thetaD, d99R ) ! avoid wrong instantaneous scaling ratio for natural development
 uTauI = uTauR * (d99R / d99I)**(0.1)
 
 utau_ratio = uTauI / uTauR
@@ -364,7 +379,7 @@ DO q=0,PP_NZ; DO p=0,PP_N
   weta = 0.5 * (1.0 + TANH(4.0 * (eta - 0.2) / ((1.0 - 2.0 * 0.2) * eta + 0.2)) / TANH(4.0))
   bdamp = 0.5 * (1.0 - TANH(4.0 * (eta - 2.0)))
 
-  IF (eta .GT. cutEta) THEN 
+  IF (eta .GT. cutEta) THEN
     UPrim_boundary(:,p,q)=RefStatePrim(:,freeStreamRefState)
   ELSEIF (eta .GT. 1.0) THEN
     weta = 1.0
@@ -386,7 +401,7 @@ DO q=0,PP_NZ; DO p=0,PP_N
 
     UPrim_boundary(:,p,q) = (UPrim_boundary(:,p,q) * (cutEta-eta) + ( UPrimMean + UPrimFluc ) * (eta-1.0) ) / (cutEta - 1.0 )
     UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
-  ELSE 
+  ELSE
     UPrimMeanInner(VEL1) = UPrimMeanInner(VEL1) * utau_ratio
     UPrimMeanInner(TKE ) = UPrimMeanInner(TKE ) * utau_ratio**2.0
     UPrimMeanInner(OMG ) = UPrimMeanInner(OMG ) * utau_ratio**2.0
@@ -404,7 +419,7 @@ DO q=0,PP_NZ; DO p=0,PP_N
 
     UPrim_boundary(:,p,q) = UPrimMean + UPrimFluc
     UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
-  ENDIF 
+  ENDIF
 
   UPrim_boundary(TKE,p,q) = MAX( UPrim_boundary(TKE,p,q), 1.e-6 )
   UPrim_boundary(OMG,p,q) = MAX( UPrim_boundary(OMG,p,q), 1.e-6 )
