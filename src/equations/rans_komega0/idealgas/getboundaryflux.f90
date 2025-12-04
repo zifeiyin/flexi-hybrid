@@ -38,7 +38,6 @@
 !>  * 27  : Subsonic inflow BC, WARNING: REFSTATE is different: Tt,alpha,beta,<empty>,pT (4th entry ignored), angles in DEG
 !>  CUSTOM INFLOW BCs:
 !>  * 30  : Add synthetic random Fourier modes onto ref state
-!>  * 32  : recycling-rescaling inflow generation method
 !==================================================================================================================================
 MODULE MOD_GetBoundaryFlux
 ! MODULES
@@ -142,7 +141,8 @@ DO iSide=1,nBCSides
   IF((locType.EQ. 2).OR.(locType.EQ. 4).OR. &
      (locType.EQ.23).OR.(locType.EQ.24).OR. &
      (locType.EQ.25).OR.(locType.EQ.26).OR. &
-     (locType.EQ.27).OR.(locType.EQ.30)     ) MaxBCState = MAX(MaxBCState,locState)
+     (locType.EQ.27).OR.(locType.EQ.30).OR. &
+     (locType.EQ.241)                       ) MaxBCState = MAX(MaxBCState,locState)
 
   IF (locType.EQ.30) THEN
     activateFourier = .TRUE.
@@ -155,7 +155,7 @@ DO iSide=1,nBCSides
       CALL Abort(__STAMP__,'No refstate (rho,x,x,x,p,x,x) defined to compute temperature from density and pressure for BC_TYPE',locType)
     CASE(23)
       CALL Abort(__STAMP__,'No outflow Mach number in refstate (x,Ma,x,x,x,x,x) defined for BC_TYPE',locType)
-    CASE(24,25,26)
+    CASE(24,241,25,26)
       CALL Abort(__STAMP__,'No outflow pressure in refstate (x,x,x,x,p,x,x) defined for BC_TYPE',locType)
     CASE(27)
       CALL Abort(__STAMP__,'No inflow refstate (Tt,alpha,beta,<empty>,pT,x,x) in refstate defined for BC_TYPE',locType)
@@ -420,7 +420,7 @@ BCType  = Boundarytype(BC(SideID),BC_TYPE)
 BCState = Boundarytype(BC(SideID),BC_STATE)
 
 SELECT CASE(BCType)
-CASE(2) ! Exact function or refstate
+CASE(2,241) ! Exact function or refstate
   IF(BCState.EQ.0)THEN
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL ExactFunc(IniExactFunc,t,Face_xGP(:,p,q),Cons)
@@ -782,12 +782,12 @@ Ub = 0.5 * (Rplus + Rminus)
 cb = 0.25 * kappaM1 * (Rplus - Rminus)
 IF (Ub .GE. 0.0) THEN
   sb = ci**2 / (kappa * UPrim_inner(DENS)**kappaM1)
-  UPrim_outer(VELV) = UPrim_inner(VELV) - (Ub - Vi) * NormVec(:)
+  UPrim_outer(VELV) = UPrim_inner(VELV) + (Ub - Vi) * NormVec(:)
   UPrim_outer(TKE)  = UPrim_inner(TKE)
   UPrim_outer(OMG)  = UPrim_inner(OMG)
 ELSE
   sb = co**2 / (kappa * UPrim_outer(DENS)**kappaM1)
-  UPrim_outer(VELV) = UPrim_outer(VELV) - (Ub - Vo) * NormVec(:)
+  UPrim_outer(VELV) = UPrim_outer(VELV) + (Ub - Vo) * NormVec(:)
   ! UPrim_outer(TKE)  = UPrim_outer(TKE)
   ! UPrim_outer(OMG)  = UPrim_outer(OMG)
 END IF
@@ -912,6 +912,25 @@ CASE(30) ! Riemann-Type BCs
       NormVec,TangVec1,TangVec2,doBC=.TRUE.)
 #if PARABOLIC
   CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
+       gradUx_master,gradUy_master,gradUz_master,&
+       gradUx_master,gradUy_master,gradUz_master,&
+       NormVec&
+#if EDDYVISCOSITY
+      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
+      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
+#endif
+  )
+  Flux = Flux + Fd_Face_loc
+#endif /*PARABOLIC*/
+
+CASE(241)
+  DO q=0,ZDIM(Nloc); DO p=0,Nloc
+    CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
+  END DO; END DO ! p,q=0,PP_N
+  CALL Riemann(Nloc,Flux,UCons_boundary,UCons_boundary,UPrim_boundary,UPrim_boundary, &
+      NormVec,TangVec1,TangVec2,doBC=.TRUE.)
+#if PARABOLIC
+  CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_boundary,UPrim_boundary,&
        gradUx_master,gradUy_master,gradUz_master,&
        gradUx_master,gradUy_master,gradUz_master,&
        NormVec&
@@ -1176,7 +1195,7 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
       NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,3,4,9,91,12,121,22,23,24,25,26,27,30,32)
+  CASE(2,3,4,9,91,12,121,22,23,24,241,25,26,27,30,32)
     DO q=0,PP_NZ; DO p=0,PP_N
       gradU(:,p,q) = (UPrim_master(:,p,q) - UPrim_boundary(:,p,q)) * sdx_Face(p,q,3)
     END DO; END DO ! p,q=0,PP_N
@@ -1230,7 +1249,7 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
                         NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,25,26,27,32) ! Riemann solver based BCs
+  CASE(2,12,121,22,23,24,241,25,26,27,32) ! Riemann solver based BCs
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
   CASE(30)
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
@@ -1241,12 +1260,12 @@ ELSE
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
       Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE,p,q)
-      Flux(LIFT_OMG ,p,q) = 0.
+      Flux(LIFT_OMG ,p,q) = 0.0
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
       Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE,p,q)
-      Flux(LIFT_OMG ,p,q) = 0.
+      Flux(LIFT_OMG ,p,q) = 0.0
 #endif
     END DO; END DO !p,q
   CASE(9,91)
