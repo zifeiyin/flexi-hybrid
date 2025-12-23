@@ -92,6 +92,13 @@ IF (file_exists) THEN
                   HSize_proc,&
                   offsetElem,4,RealArray=yWall_local)
 
+#if PP_dim == 2
+  IF (HSize(3).EQ.1) THEN
+    yWall(:,:,:,0,:) = yWall_local(:,:,0:0,:)
+  ELSE
+    yWall(:,:,:,0,:) = yWall_local
+  END IF
+#else
   IF (HSize(3).EQ.1) THEN
     ! Walldistance was created by 2D tool, expand in third dimension
     CALL ExpandArrayTo3D(4,(/PP_N+1,PP_N+1,1,nElems/),3,PP_N+1,yWall_local,yWall(:,:,:,0,:))
@@ -99,6 +106,7 @@ IF (file_exists) THEN
     ! 3D walldistance tool and 3D Flexi
     yWall(:,:,:,0,:) = yWall_local
   END IF
+#endif
 
   DEALLOCATE(HSize)
   DEALLOCATE(yWall_local)
