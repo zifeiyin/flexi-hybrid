@@ -811,13 +811,14 @@ END SUBROUTINE SurfMetricsFromJa
 !> Computes Hmax := max(dx, dy, dz) for models like DDES, works only for Gauss-Lobatto.
 !==================================================================================================================================
 SUBROUTINE CalcHMax()
-  USE MOD_Mesh_Vars, ONLY: nElems, Elem_xGP, Elem_hmx
-  USE MOD_PreProc,   ONLY: PP_N ! PP_NZ is a macro instead of a variable
-  IMPLICIT NONE
-  INTEGER :: iElem, i, j, k
-  REAL    :: dx, dy, dz
-  REAL    :: xmax, xmin, ymax, ymin, zmax, zmin
-  REAL    :: gauss_node_fix(10)
+USE MOD_Mesh_Vars, ONLY: nElems, Elem_xGP, Elem_hmx
+USE MOD_PreProc,   ONLY: PP_N ! PP_NZ is a macro instead of a variable
+IMPLICIT NONE
+INTEGER :: iElem, i, j, k
+REAL    :: dx, dy, dz
+REAL    :: xmax, xmin, ymax, ymin, zmax, zmin
+REAL    :: gauss_node_fix(10)
+REAL    :: vec(3)
 
 #if PP_NodeType==1 /* Gauss node */
   gauss_node_fix = (/ &
@@ -837,24 +838,39 @@ SUBROUTINE CalcHMax()
 #endif
 
   DO iElem = 1, nElems
-    xmax = -HUGE(1.)
-    xmin = HUGE(1.)
-    ymax = -HUGE(1.)
-    ymin = HUGE(1.)
-    zmax = -HUGE(1.)
-    zmin = HUGE(1.)
-    DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-      xmax = MAX(xmax, Elem_xGP(1,i,j,k,iElem))
-      xmin = MIN(xmin, Elem_xGP(1,i,j,k,iElem))
-      ymax = MAX(ymax, Elem_xGP(2,i,j,k,iElem))
-      ymin = MIN(ymin, Elem_xGP(2,i,j,k,iElem))
-      zmax = MAX(zmax, Elem_xGP(3,i,j,k,iElem))
-      zmin = MIN(zmin, Elem_xGP(3,i,j,k,iElem))
-    END DO; END DO; END DO
-    dx = xmax - xmin
-    dy = ymax - ymin
-    dz = zmax - zmin
-    Elem_hmx(iElem) = gauss_node_fix(PP_N) * MAX(dx, dy, dz) / (REAL(PP_N) + 1.)
+    ! xmax = -HUGE(1.)
+    ! xmin = HUGE(1.)
+    ! ymax = -HUGE(1.)
+    ! ymin = HUGE(1.)
+    ! zmax = -HUGE(1.)
+    ! zmin = HUGE(1.)
+    ! DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    !   xmax = MAX(xmax, Elem_xGP(1,i,j,k,iElem))
+    !   xmin = MIN(xmin, Elem_xGP(1,i,j,k,iElem))
+    !   ymax = MAX(ymax, Elem_xGP(2,i,j,k,iElem))
+    !   ymin = MIN(ymin, Elem_xGP(2,i,j,k,iElem))
+    !   zmax = MAX(zmax, Elem_xGP(3,i,j,k,iElem))
+    !   zmin = MIN(zmin, Elem_xGP(3,i,j,k,iElem))
+    ! END DO; END DO; END DO
+    ! dx = xmax - xmin
+    ! dy = ymax - ymin
+    ! dz = zmax - zmin
+    ! Elem_hmx(iElem) = gauss_node_fix(PP_N) * MAX(dx, dy, dz) / (REAL(PP_N) + 1.)
+    Elem_hmx(iElem) = 0.0
+
+    vec = Elem_xGP(:,0,0,0,iElem) - Elem_xGP(:,PP_N,PP_N,PP_N,iElem)
+    Elem_hmx(iElem) = MAX(Elem_hmx(iElem), SQRT(DOT_PRODUCT(vec,vec)))
+
+    vec = Elem_xGP(:,PP_N,0,0,iElem) - Elem_xGP(:,0,PP_N,PP_N,iElem)
+    Elem_hmx(iElem) = MAX(Elem_hmx(iElem), SQRT(DOT_PRODUCT(vec,vec)))
+
+    vec = Elem_xGP(:,0,PP_N,0,iElem) - Elem_xGP(:,PP_N,0,PP_N,iElem)
+    Elem_hmx(iElem) = MAX(Elem_hmx(iElem), SQRT(DOT_PRODUCT(vec,vec)))
+
+    vec = Elem_xGP(:,PP_N,PP_N,0,iElem) - Elem_xGP(:,0,0,PP_N,iElem)
+    Elem_hmx(iElem) = MAX(Elem_hmx(iElem), SQRT(DOT_PRODUCT(vec,vec)))
+
+    Elem_hmx(iElem) = gauss_node_fix(PP_N) * Elem_hmx(iElem) / (REAL(PP_N) + 1.)
   END DO
 END SUBROUTINE CalcHMax
 
