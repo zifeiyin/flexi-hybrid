@@ -58,6 +58,7 @@ INTEGER,PARAMETER      :: PRM_SPLITDG_DU          = 2
 INTEGER,PARAMETER      :: PRM_SPLITDG_KG          = 3
 INTEGER,PARAMETER      :: PRM_SPLITDG_PI          = 4
 INTEGER,PARAMETER      :: PRM_SPLITDG_CH          = 5
+INTEGER,PARAMETER      :: PRM_SPLITDG_KK          = 6
 
 INTERFACE InitSplitDG
   MODULE PROCEDURE InitSplitDG
@@ -85,13 +86,14 @@ IMPLICIT NONE
 ! LOCAL VARIABLES
 !==================================================================================================================================
 CALL prms%SetSection("SplitDG")
-CALL prms%CreateIntFromStringOption('SplitDG',"SplitDG formulation to be used: SD, MO, DU, KG, PI, CH","PI")
+CALL prms%CreateIntFromStringOption('SplitDG',"SplitDG formulation to be used: SD, MO, DU, KG, PI, CH, KK","PI")
 CALL addStrListEntry('SplitDG','sd',           PRM_SPLITDG_SD)
 CALL addStrListEntry('SplitDG','mo',           PRM_SPLITDG_MO)
 CALL addStrListEntry('SplitDG','du',           PRM_SPLITDG_DU)
 CALL addStrListEntry('SplitDG','kg',           PRM_SPLITDG_KG)
 CALL addStrListEntry('SplitDG','pi',           PRM_SPLITDG_PI)
 CALL addStrListEntry('SplitDG','ch',           PRM_SPLITDG_CH)
+CALL addStrListEntry('SplitDG','kk',           PRM_SPLITDG_KK)
 
 END SUBROUTINE DefineParametersSplitDG
 
@@ -135,6 +137,9 @@ CASE(PRM_SPLITDG_PI)
 CASE(PRM_SPLITDG_CH)
   SplitDGVolume_pointer  => SplitVolumeFluxCH
   SplitDGSurface_pointer => SplitSurfaceFluxCH
+CASE(PRM_SPLITDG_KK)
+  SplitDGVolume_pointer  => SplitVolumeFluxKK
+  SplitDGSurface_pointer => SplitSurfaceFluxKK
 CASE DEFAULT
   CALL CollectiveStop(__STAMP__,&
     'SplitDG formulation not defined!')
@@ -340,7 +345,7 @@ F(MOM3)= 0.25*(U_LL(EXT_MOM3)+U_RR(EXT_MOM3))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))   
 F(MOM3)= 0.
 #endif
 F(ENER)= 0.25*(U_LL(EXT_ENER)+U_RR(EXT_ENER)+U_LL(EXT_PRES)+U_RR(EXT_PRES))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))         ! ({rho*E}+{p})*{u}
-F(RHOK)= 0.25*(U_LL(EXT_RHOK)+U_RR(EXT_RHOK))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*k}*{u} 
+F(RHOK)= 0.25*(U_LL(EXT_RHOK)+U_RR(EXT_RHOK))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*k}*{u}
 F(RHOG)= 0.25*(U_LL(EXT_RHOG)+U_RR(EXT_RHOG))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                       ! {rho*g}*{u}
 
 END SUBROUTINE SplitSurfaceFluxDU
@@ -770,7 +775,8 @@ fTilde(MOM3) = rhoLogMean*uMean*wMean                                ! {rho}_log
 #else
 fTilde(MOM3) = 0.
 #endif
-fTilde(ENER) = rhoLogMean*HMean*uMean                                ! {rho}_log*{H}*{u}
+! fTilde(ENER) = rhoLogMean*HMean*uMean                                ! {rho}_log*{H}*{u}
+fTilde(ENER) = rhoLogMean*HMean*uMean+rhoLogMean*uMean*kMean         ! {rho}_log*{H}*{u}
 fTilde(RHOK) = rhoLogMean*uMean*kMean                                ! {rho}_log*{u}*{k}
 fTilde(RHOG) = rhoLogMean*uMean*gMean                                ! {rho}_log*{u}*{g}
 ! local Euler fluxes y-direction
@@ -782,7 +788,8 @@ gTilde(MOM3) = rhoLogMean*vMean*wMean                                ! {rho}_log
 #else
 gTilde(MOM3) = 0.
 #endif
-gTilde(ENER) = rhoLogMean*HMean*vMean                                ! {rho}_log*{H}*{v}
+! gTilde(ENER) = rhoLogMean*HMean*vMean                                ! {rho}_log*{H}*{v}
+gTilde(ENER) = rhoLogMean*HMean*vMean+rhoLogMean*vMean*kMean         ! {rho}_log*{H}*{v}
 gTilde(RHOK) = rhoLogMean*vMean*kMean                                ! {rho}_log*{v}*{k}
 gTilde(RHOG) = rhoLogMean*vMean*gMean                                ! {rho}_log*{v}*{g}
 #if PP_dim == 3
@@ -791,7 +798,8 @@ hTilde(DENS) = rhoLogMean*wMean                                      ! {rho}_log
 hTilde(MOM1) = rhoLogMean*wMean*uMean                                ! {rho}_log*{w}*{u}
 hTilde(MOM2) = rhoLogMean*wMean*vMean                                ! {rho}_log*{w}*{v}
 hTilde(MOM3) = rhoLogMean*wMean**2 + pHatMean                        ! {rho}_log*{w}²+{pHat}
-hTilde(ENER) = rhoLogMean*HMean*wMean                                ! {rho}_log*{H}*{w}
+! hTilde(ENER) = rhoLogMean*HMean*wMean                                ! {rho}_log*{H}*{w}
+hTilde(ENER) = rhoLogMean*HMean*wMean+rhoLogMean*wMean*kMean         ! {rho}_log*{H}*{w}
 hTilde(RHOK) = rhoLogMean*wMean*kMean                                ! {rho}_log*{w}*{k}
 hTilde(RHOG) = rhoLogMean*wMean*gMean                                ! {rho}_log*{w}*{g}
 #endif
@@ -890,5 +898,130 @@ ENDIF
 
 UMean = (U_L+U_R)/(2.*N)
 END SUBROUTINE getLogMean
+
+
+PPURE SUBROUTINE SplitVolumeFluxKK(URef,UPrimRef,U,UPrim,MRef,M,Flux)
+! MODULES
+USE MOD_PreProc
+USE MOD_EOS_Vars,ONLY: skappaM1
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+REAL,DIMENSION(CONS),INTENT(IN)  :: URef          !< conserved variables
+REAL,DIMENSION(CONS),INTENT(IN)  :: U             !< conserved variables
+REAL,DIMENSION(PRIM),INTENT(IN)  :: UPrimRef      !< primitive variables
+REAL,DIMENSION(PRIM),INTENT(IN)  :: UPrim         !< primitive variables
+REAL,DIMENSION(1:3 ),INTENT(IN)  :: MRef          !< metric terms
+REAL,DIMENSION(1:3 ),INTENT(IN)  :: M             !< metric terms
+REAL,DIMENSION(CONS),INTENT(OUT) :: Flux          !< flux in reverence space
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                                    :: H,HRef        ! auxiliary variables for the specific enthalpy
+REAL                                    :: e,eRef        ! auxiliary variables for the specific enthalpy
+REAL                                    :: kinetic_energy
+REAL,DIMENSION(PP_nVar)                 :: fTilde,gTilde ! flux in physical space
+#if PP_dim == 3
+REAL,DIMENSION(PP_nVar)                 :: hTilde        ! flux in physical space
+#endif
+!==================================================================================================================================
+eRef = skappaM1 * UPrimRef(PRES) / UPrimRef(DENS)
+e    = skappaM1 * UPrim(PRES) / U(DENS)
+
+kinetic_energy = 0.5 * DOT_PRODUCT(UPrimRef(VELV), UPrim(VELV))
+
+! local Euler fluxes x-direction
+fTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))                                   ! {rho}*{u}
+fTilde(MOM1) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))**2 + (UPrimRef(PRES)+UPrim(PRES)) ! {rho}*{u}²+{p}
+fTilde(MOM2) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(VEL2)+UPrim(VEL2))      ! {rho}*{u}*{v}
+#if PP_dim == 3
+fTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(VEL3)+UPrim(VEL3))      ! {rho}*{u}*{w}
+#else
+fTilde(MOM3) = 0.
+#endif
+! fTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{u}*{k}
+! fTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{u}*{g}
+fTilde(RHOK) = URef(DENS)*UPrimRef(VEL1)*UPrimRef(TKE)+U(DENS)*UPrim(VEL1)*UPrim(TKE)                   ! {rho*u*k}
+fTilde(RHOG) = URef(DENS)*UPrimRef(VEL1)*UPrimRef(OMG)+U(DENS)*UPrim(VEL1)*UPrim(OMG)                   ! {rho*u*g}
+fTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL1)+UPrim(VEL1))*(eRef+e+2.0*kinetic_energy)+&
+               (UPrimRef(PRES)*UPrim(VEL1)+UPrim(PRES)*UPrimRef(VEL1))+fTilde(RHOK)
+! local Euler fluxes y-direction
+gTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))                                   ! {rho}*{v}
+gTilde(MOM1) = fTilde(MOM2)                                                                             ! {rho}*{v}*{u}
+gTilde(MOM2) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))**2 + (UPrimRef(PRES)+UPrim(PRES)) ! {rho}*{v}²+{p}
+#if PP_dim == 3
+gTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(VEL3)+UPrim(VEL3))      ! {rho}*{v}*{w}
+#else
+gTilde(MOM3) = 0.
+#endif
+! gTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{v}*{k}
+! gTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{v}*{g}
+gTilde(RHOK) = URef(DENS)*UPrimRef(VEL2)*UPrimRef(TKE)+U(DENS)*UPrim(VEL2)*UPrim(TKE)                   ! {rho*v*k}
+gTilde(RHOG) = URef(DENS)*UPrimRef(VEL2)*UPrimRef(OMG)+U(DENS)*UPrim(VEL2)*UPrim(OMG)                   ! {rho*v*g}
+gTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL2)+UPrim(VEL2))*(eRef+e+2.0*kinetic_energy)+&
+               (UPrimRef(PRES)*UPrim(VEL2)+UPrim(PRES)*UPrimRef(VEL2))+gTilde(RHOK)
+#if PP_dim == 3
+! local Euler fluxes z-direction
+hTilde(DENS) = 0.5 *(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))                                   ! {rho}*{w}
+hTilde(MOM1) = fTilde(MOM3)                                                                             ! {rho}*{w}*{u}
+hTilde(MOM2) = gTilde(MOM3)                                                                             ! {rho}*{w}*{v}
+hTilde(MOM3) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))**2 + (UPrimRef(PRES)+UPrim(PRES)) ! {rho}*{w}²+{p}
+! hTilde(RHOK) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(UPrimRef(TKE)+UPrim(TKE))        ! {rho}*{w}*{k}
+! hTilde(RHOG) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(UPrimRef(OMG)+UPrim(OMG))        ! {rho}*{w}*{g}
+hTilde(RHOK) = URef(DENS)*UPrimRef(VEL3)*UPrimRef(TKE)+U(DENS)*UPrim(VEL3)*UPrim(TKE)                   ! {rho*w*k}
+hTilde(RHOG) = URef(DENS)*UPrimRef(VEL3)*UPrimRef(OMG)+U(DENS)*UPrim(VEL3)*UPrim(OMG)                   ! {rho*w*g}
+hTilde(ENER) = 0.25*(URef(DENS)+U(DENS))*(UPrimRef(VEL3)+UPrim(VEL3))*(eRef+e+2.0*kinetic_energy)+&
+               (UPrimRef(PRES)*UPrim(VEL3)+UPrim(PRES)*UPrimRef(VEL3))+hTilde(RHOK)
+#endif
+
+! transform into reference space
+Flux(:) = 0.5*(MRef(1)+M(1))*fTilde(:) + &
+#if PP_dim == 3
+          0.5*(MRef(3)+M(3))*hTilde(:) + &
+#endif
+          0.5*(MRef(2)+M(2))*gTilde(:)
+
+END SUBROUTINE SplitVolumeFluxKK
+
+
+PPURE SUBROUTINE SplitSurfaceFluxKK(U_LL,U_RR,F)
+! MODULES
+USE MOD_PreProc
+USE MOD_EOS_Vars,ONLY: skappaM1
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT / OUTPUT VARIABLES
+REAL,DIMENSION(PP_2Var),INTENT(IN)  :: U_LL      !< variables at the left surfaces
+REAL,DIMENSION(PP_2Var),INTENT(IN)  :: U_RR      !< variables at the right surfaces
+REAL,DIMENSION(CONS   ),INTENT(OUT) :: F         !< resulting flux
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL                                :: H_LL,H_RR ! auxiliary variables for the specific energy
+REAL                                :: e_LL,e_RR,kinetic_energy
+!==================================================================================================================================
+e_LL = skappaM1 * U_LL(EXT_PRES) / U_LL(EXT_DENS)
+e_RR = skappaM1 * U_RR(EXT_PRES) / U_RR(EXT_DENS)
+
+kinetic_energy = 0.5 * DOT_PRODUCT(U_LL(EXT_VELV), U_RR(EXT_VELV))
+
+! specific energy, H=E+p/rho=(rhoE+p)/rho
+H_LL = (U_LL(EXT_ENER)+U_LL(EXT_PRES))/U_LL(EXT_DENS)
+H_RR = (U_RR(EXT_ENER)+U_RR(EXT_PRES))/U_RR(EXT_DENS)
+!compute flux
+F(DENS)= 0.25* (U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))                                          ! {rho}*{u}
+F(MOM1)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))**2 + 0.5*(U_LL(EXT_PRES)+U_RR(EXT_PRES)) ! {rho}*{u}²+{p}
+F(MOM2)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_VEL2)+U_RR(EXT_VEL2))          ! {rho}*{u}*{v}
+#if PP_dim == 3
+F(MOM3)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_VEL3)+U_RR(EXT_VEL3))          ! {rho}*{u}*{w}
+#else
+F(MOM3)= 0.
+#endif
+! F(RHOK)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_TKE)+U_RR(EXT_TKE))            ! {rho}*{u}*{k}
+! F(RHOG)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))*(U_LL(EXT_OMG)+U_RR(EXT_OMG))            ! {rho}*{u}*{g}
+F(RHOK)= 0.5*(U_LL(EXT_DENS)*U_LL(EXT_VEL1)*U_LL(EXT_TKE)+U_RR(EXT_DENS)*U_RR(EXT_VEL1)*U_RR(EXT_TKE))                  ! {rho*u*k}
+F(RHOG)= 0.5*(U_LL(EXT_DENS)*U_LL(EXT_VEL1)*U_LL(EXT_OMG)+U_RR(EXT_DENS)*U_RR(EXT_VEL1)*U_RR(EXT_OMG))                  ! {rho*u*g}
+F(ENER)= 0.125*(U_LL(EXT_DENS)+U_RR(EXT_DENS))*(e_LL+e_RR+2.0*kinetic_energy)*(U_LL(EXT_VEL1)+U_RR(EXT_VEL1))+&
+         0.5*(U_LL(EXT_PRES)*U_RR(EXT_VEL1)+U_RR(EXT_PRES)*U_LL(EXT_VEL1))+F(RHOK)
+END SUBROUTINE SplitSurfaceFluxKK
+
 
 END MODULE MOD_SplitFlux
