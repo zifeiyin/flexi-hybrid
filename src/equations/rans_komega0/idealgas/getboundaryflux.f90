@@ -110,6 +110,7 @@ USE MOD_EOS_Vars          ,ONLY: mu0
 USE MOD_Exactfunc_Vars    ,ONLY: activateFourier,uHat,omegaHat,psiHat,kHat,sigmaHat,nFourierModes
 USE MOD_EOS               ,ONLY: ConsToPrim
 USE MOD_ExactFunc         ,ONLY: ExactFunc
+USE MOD_Viscosity
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -207,15 +208,20 @@ IF (activateFourier) THEN
   Lt     = 0.0
   synTKE = 0.0
   synG   = 0.0
+  IF (CountOption("lengthScaleOmega").EQ.1) THEN
+    synG = GETREAL("lengthScaleOmega")
+  END IF
   DO iSide=1,nBCs
     locType =BoundaryType(iSide,BC_TYPE)
     locState=BoundaryType(iSide,BC_STATE)
     IF ( locType.EQ.30) THEN
       !initialize the spectrum information
       synTKE = RefStatePrim(TKE,locState)
-      synG   = RefStatePrim(OMG,locState)
-      etaL  = (mu0/RefStatePrim(DENS,locState))**0.75 * synG**0.5 / synTKE**0.25
-      Lt    = 0.09 * SQRT(synTKE) * synG**2.0
+      IF (CountOption("lengthScaleOmega").EQ.0) THEN
+        synG   = RefStatePrim(OMG,locState)
+      END IF
+      etaL  = (VISCOSITY_TEMPERATURE(RefStatePrim(TEMP,locState))/RefStatePrim(DENS,locState))**0.75 / (0.09 * synTKE * synG)**0.25
+      Lt    = SQRT(synTKE) / synG
     ENDIF
   ENDDO
   ! communicate between processors
@@ -229,7 +235,7 @@ IF (activateFourier) THEN
   PRINT*, "Kolmogorov scale = ", etaL, ", integral scale = ", Lt
   IF ( etaL.GE.Lt ) THEN
     PRINT*, "eta = ", etaL, ", Lt = ", Lt
-    PRINT*, "TKE = ", synTKE, ", omega = ", 1.0/(0.09*synG*synG)
+    PRINT*, "TKE = ", synTKE, ", omega = ", synG
     CALL Abort(__STAMP__,'ERROR: Integral length scale smaller than Kolmogorov scale')
   ENDIF
 
@@ -420,7 +426,19 @@ BCType  = Boundarytype(BC(SideID),BC_TYPE)
 BCState = Boundarytype(BC(SideID),BC_STATE)
 
 SELECT CASE(BCType)
-CASE(2,241) ! Exact function or refstate
+CASE(2) ! Exact function or refstate
+  IF(BCState.EQ.0)THEN
+    DO q=0,ZDIM(Nloc); DO p=0,Nloc
+      CALL ExactFunc(IniExactFunc,t,Face_xGP(:,p,q),Cons)
+      CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
+    END DO; END DO
+  ELSE
+    DO q=0,ZDIM(Nloc); DO p=0,Nloc
+      UPrim_boundary(:,p,q) = RefStatePrim(:,BCState)
+    END DO; END DO
+  END IF
+
+CASE(241)
   IF(BCState.EQ.0)THEN
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL ExactFunc(IniExactFunc,t,Face_xGP(:,p,q),Cons)
@@ -438,21 +456,18 @@ CASE(12)  ! Dirichlet-type: BCState from readin state
   ! UPrim_boundary(:,:,:) = BCDataPrim(:,:,:,SideID)
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     UPrim_boundary(:,p,q) = BCDataPrim(:,p,q,SideID)
-    CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
   END DO; END DO
 
 CASE(121) ! Dirichlet-type:BCState from exact function computed once at the beginning of the simulation
   ! UPrim_boundary(:,:,:) = BCDataPrim(:,:,:,SideID)
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     UPrim_boundary(:,p,q) = BCDataPrim(:,p,q,SideID)
-    CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
   END DO; END DO
 
 CASE(22)  ! Dirichlet-type: BCState specifies exactfunc to be used
   DO q=0,ZDIM(Nloc); DO p=0,Nloc
     CALL ExactFunc(BCState,t,Face_xGP(:,p,q),Cons)
     CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
-    CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
   END DO; END DO
 
 CASE(32)  ! Dirichlet-type: BCState specifies exactfunc to be used
@@ -467,7 +482,7 @@ CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
     UPrim_boundary(VEL2,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),TangVec1(:,p,q))
     UPrim_boundary(VEL3,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),TangVec2(:,p,q))
     UPrim_boundary(PRES:OMG,p,q)    = RefStatePrim(PRES:OMG,BCState)
-    UPrim_Boundary(TKE,p,q)         = 1.e-8
+    UPrim_Boundary(TKE,p,q)         = 1.0E-4 * RefStatePrim(TKE,BCState)
 
     !compute total pressure before synthetic
     c  = SQRT(kappa*UPrim_boundary(PRES,p,q)/UPrim_boundary(DENS,p,q))
