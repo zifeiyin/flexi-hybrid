@@ -281,7 +281,7 @@ omegaHat = MAX( omega, MAX(sqrt6 * magS, 1.e-16) )
 muTOrig = UPrim(DENS) *  MAX( UPrim(TKE), 0.0 ) / omegaHat
 muTRA = muTOrig
 
-lRANS = SQRT( muTOrig / omega )
+lRANS = SQRT( muTOrig / omega / UPrim(DENS) )
 
 rd    = (muTOrig + muS) / (UPrim(DENS) * (kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)

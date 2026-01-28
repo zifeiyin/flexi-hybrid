@@ -198,42 +198,40 @@ REAL,PARAMETER                          :: kappa=0.41
 sRho  = 1.0 / UPrim(DENS)
 muS   = VISCOSITY_PRIM(UPrim)
 
+! Already take the square root of 2 into account here
 #if PP_dim==2
 magS = SQRT( &
     2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2) + &
     (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2)
+dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 &
+      + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2
 #else
 magS = SQRT( &
     2. * (gradUx(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2) + &
     (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))**2 + &
     (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))**2 + &
     (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))**2)
-#endif
-
-kPos    = MAX( UPrim(TKE), 1.e-16 )
-gPos    = MAX( UPrim(OMG), 1.e-16 )
-! muTOrig = Cmu * UPrim(DENS) * kPos * gPos**2
-muTOrig = UPrim(DENS) * kPos / omega
-muTRA = muTOrig
-
-muTLim = MIN(muTOrig, UPrim(DENS) * kPos / MAX(sqrt6 * magS, 1.e-16))
-
-! lRANS = SQRT(mutLim * sRho * Cmu * gPos**2)
-lRANS = SQRT(mutLim * sRho / omega)
 
 dUdU  = gradUx(LIFT_VEL1)**2 + gradUx(LIFT_VEL2)**2 + gradUx(LIFT_VEL3)**2 &
       + gradUy(LIFT_VEL1)**2 + gradUy(LIFT_VEL2)**2 + gradUy(LIFT_VEL3)**2 &
       + gradUz(LIFT_VEL1)**2 + gradUz(LIFT_VEL2)**2 + gradUz(LIFT_VEL3)**2
+#endif
 
-! rd    = ( Cmu * kPos * gPos**2 + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
-rd    = (kPos / omega + muS * sRho) / ((kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
+
+omegaHat = MAX( omega, MAX(sqrt6 * magS, 1.e-16) )
+
+muTOrig = UPrim(DENS) * MAX( UPrim(TKE), 0.0 ) / omegaHat
+muTRA = muTOrig
+
+lRANS = SQRT( muTOrig / omega / UPrim(DENS) )
+
+rd    = (muTOrig + muS) / (UPrim(DENS) * (kappa * y)**2 * SQRT(MAX(1.e-16, dUdU)))
 fd    = 1.0 - TANH((8.0 * rd)**3.0)
 
 lLES = CDES0 * (fd * Delta + (1. - fd) * hmax)
 
 lDDES = lRANS - fd * MAX(0., lRANS-lLES)
 
-! muSGS = UPrim(DENS) * lDDES**2 / MAX( Cmu * gPos**2, 1.e-16 )
 muSGS = UPrim(DENS) * lDDES**2 * omega
 
 END SUBROUTINE Smagorinsky_Point
