@@ -189,7 +189,7 @@ REAL                          ,INTENT(IN)  :: omega   !> omega
 ! LOCAL VARIABLES
 REAL                                    :: sRho
 REAL                                    :: magS
-REAL                                    :: kPos, gPos, muTOrig, muTLim
+REAL                                    :: kPos, gPos, muTOrig, muTLim, omegaHat
 REAL                                    :: lLES, lRANS, lDDES, rd
 REAL                                    :: dUdU
 REAL                                    :: muS
