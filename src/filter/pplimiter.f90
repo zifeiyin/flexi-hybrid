@@ -201,7 +201,8 @@ DO iElem=1,nElems
   kMin   = MINVAL(UPrim(TKE ,:,:,:,iElem))
 
   ! Do nothing if density and pressure are above limit
-  IF ((rhoMin.GE.PPepsDens).AND.(pMin.GE.PPepsPres).AND.(kMin.GE.PPepsTKE)) CYCLE
+  ! IF ((rhoMin.GE.PPepsDens).AND.(pMin.GE.PPepsPres).AND.(kMin.GE.PPepsTKE)) CYCLE
+  IF ((rhoMin.GE.PPepsDens).AND.(pMin.GE.PPepsPres)) CYCLE
 
   ! Set element as active (for analyze/visu purposes only)
   PP_Elems(iElem)=1
@@ -214,7 +215,8 @@ DO iElem=1,nElems
 
   ! check if mean is admissible
   CALL ConsToPrim(UMeanPrim,UMean)
-  IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres).OR.(UMeanPrim(TKE).LE.PPepsTKE)) THEN
+  ! IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres).OR.(UMeanPrim(TKE).LE.PPepsTKE)) THEN
+  IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres)) THEN
     ! mean is not admissible: Make mean admissible and set to a constant value
     UMeanPrim(DENS) = MAX(UMeanPrim(DENS),PPepsDens)
     UMeanPrim(PRES) = MAX(UMeanPrim(PRES),PPepsPres)
@@ -248,13 +250,13 @@ DO iElem=1,nElems
     END DO;END DO;END DO
   END IF
 
-  ! Step 3, limit the turbulent kinetic energy
-  IF (kMin.LT.PPepsTKE) THEN
-    Theta1 = (UMean(RHOK)-PPepsTKE*Umean(DENS)) / (UMean(RHOK)-kMin*Umean(DENS))
-    DO k=0,PP_NZ;DO j=0,PP_N;DO i=0,PP_N
-      U(RHOK,i,j,k,iElem) = Theta1*(U(RHOK,i,j,k,iElem)-UMean(RHOK)) + UMean(RHOK)
-    END DO;END DO;END DO
-  END IF
+  ! ! Step 3, limit the turbulent kinetic energy
+  ! IF (kMin.LT.PPepsTKE) THEN
+  !   Theta1 = (UMean(RHOK)-PPepsTKE*Umean(DENS)) / (UMean(RHOK)-kMin*Umean(DENS))
+  !   DO k=0,PP_NZ;DO j=0,PP_N;DO i=0,PP_N
+  !     U(RHOK,i,j,k,iElem) = Theta1*(U(RHOK,i,j,k,iElem)-UMean(RHOK)) + UMean(RHOK)
+  !   END DO;END DO;END DO
+  ! END IF
 
 END DO !iElem
 ! collect statistics
