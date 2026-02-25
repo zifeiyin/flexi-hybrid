@@ -55,7 +55,10 @@ DO iElem=1,nElems
       xi = omega0Pos * ywall(i,j,k,0,iElem)**2 / nuS
       omega(i,j,k,iElem) = omega0Pos + (6.0 / Comega2) * nuS / ywall(i,j,k,0,iElem)**2 * EXP(-Cexp * xi)
     END IF
-    
+    IF (ywall(i,j,k,0,iElem).LE.1.0E-16) THEN
+      ! Here we assume y1 >= 1.0E-6
+      omega(i,j,k,iElem) = (60.0 / Comega2) * nuS / 1.0E-6**2
+    END IF
   END DO; END DO; END DO
 END DO
 
