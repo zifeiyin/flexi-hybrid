@@ -49,8 +49,6 @@ xRecyc  = GETREAL("recycling_xrec")
 thetaD  = GETREAL("recycling_momentum_thickness")
 yMatchingTolerance = GETREAL("yMatchingTolerance")
 zMatchingTolerance = GETREAL("zMatchingTolerance")
-u_inf = RefStatePrim(VEL1,freeStreamRefState)
-! Twall   = GETREAL("recycling_Twall")
 
 ! initialize recycling plane
 ! find the nearest location
@@ -354,7 +352,6 @@ DO j=nY-5,nY
   tmp = tmp + recycl_UPrim_mean(VEL1,j)
 END DO
 tmp = tmp / 6.0
-! tmp = u_inf
 
 ! from top to bottom, because sometimes fluctuation changes delta99 estimation if from wall
 d99R = 0.0
@@ -373,29 +370,26 @@ IF (d99R .LT. 1e-8) THEN
 END IF
 
 #if PP_NodeType != 2
-! TODO(Shimushu): remove hard-coded variables
-rhow = ((y(2) - 0.0) * recycl_UPrim_mean(DENS,1) + (0.0 - y(1)) * recycl_UPrim_mean(DENS,2)) / (y(2) - y(1))
-Twall = ((y(2) - 0.0) * recycl_UPrim_mean(TEMP,1) + (0.0 - y(1)) * recycl_UPrim_mean(TEMP,2)) / (y(2) - y(1))
-tauw = VISCOSITY_TEMPERATURE(Twall) * recycl_UPrim_mean(VEL1,1) / y(1)
+rhow  = recycl_UPrim_mean(DENS,1) - y(1) * (recycl_UPrim_mean(DENS,2) - recycl_UPrim_mean(DENS,1)) / (y(2) - y(1))
+Twall = recycl_UPrim_mean(TEMP,1) - y(1) * (recycl_UPrim_mean(TEMP,2) - recycl_UPrim_mean(TEMP,1)) / (y(2) - y(1))
+tauw  = VISCOSITY_TEMPERATURE(Twall) * recycl_UPrim_mean(VEL1,1) / y(1)
 #else
-rhow = recycl_UPrim_mean(DENS,1)
+rhow  = recycl_UPrim_mean(DENS,1)
 Twall = recycl_UPrim_mean(TEMP,1)
-tauw = VISCOSITY_TEMPERATURE(Twall) * recycl_UPrim_mean(VEL1,2) / y(2)
+tauw  = VISCOSITY_TEMPERATURE(Twall) * recycl_UPrim_mean(VEL1,2) / y(2)
 #endif
-uTauR = SQRT(tauw / rhow)
+uTauR = SQRT(MAX(tauw, 0.0) / rhow)
 ! for hard start
 IF (uTauR .LT. 1.0e-8) THEN
   uTauR = 1.0
 ENDIF
 
-! TODO(Shimushu): remove hard-coded variables
 d99I = MIN( thetaD, d99R ) ! avoid wrong instantaneous scaling ratio for natural development
 uTauI = uTauR * (d99R / d99I)**(0.1)
 
 utau_ratio = uTauI / uTauR
 
 ! NOTE(Shimushu): assume rho_w,I = rho_w,R
-! TODO(Shimushu): remove hard-coded variables
 dnuR = VISCOSITY_TEMPERATURE(Twall) / (rhow * uTauR)
 dnuI = VISCOSITY_TEMPERATURE(Twall) / (rhow * uTauI)
 
@@ -426,21 +420,20 @@ INTEGER :: p,q
 INTEGER :: lower,upper,i
 REAL    :: UCons(PP_nVar)
 
-REAL    :: UMeanInner(PP_nVar)
-REAL    :: UFlucInner(PP_nVar)
-REAL    :: UMeanOuter(PP_nVar)
-REAL    :: UFlucOuter(PP_nVar)
+REAL    :: UPrim(PP_nVarPrim)
+REAL    :: UPrimMean(PP_nVarPrim)
+REAL    :: UPrimFluc(PP_nVarPrim)
 REAL    :: UPrimMeanInner(PP_nVarPrim)
 REAL    :: UPrimMeanOuter(PP_nVarPrim)
 REAL    :: UPrimFlucInner(PP_nVarPrim)
 REAL    :: UPrimFlucOuter(PP_nVarPrim)
-REAL    :: UPrimMean(PP_nVarPrim)
-REAL    :: UPrimMean2(PP_nVar)
-REAL    :: UPrimFluc(PP_nVarPrim)
 REAL    :: yplus,eta
 REAL    :: weta
 REAL    :: bdamp
 REAL    :: fdamp
+REAL    :: gdamp
+REAL    :: gamma
+REAL    :: VelvFluc(3)
 
 IF (.NOT.recycling_called) THEN
   UPrim_boundary = UPrim_master
@@ -448,60 +441,86 @@ IF (.NOT.recycling_called) THEN
 END IF
 
 DO q=0,PP_NZ; DO p=0,PP_N
+  ! CALL BinarySearch(PP_nVarPrim, recycl_UPrim_global(:,:,nZ+1-img(2,rim(p,q,iSide))), UPrim, (d99R / d99I) * Face_xGP(2,p,q,0,iSide))
+
+  ! eta   = Face_xGP(2,p,q,0,iSide) / d99I
+  ! bdamp = 0.5 * (1.0 - TANH(4.0 * (eta - 2.0)))
+  ! fdamp = 1.0 / (1.0 + (eta / 1.1)**6)
+  ! ! UPrim(TKE:OMG) = (d99R / d99I)**2 * UPrim(TKE:OMG)
+
+  ! UPrim = fdamp * UPrim + (1.0 - fdamp) * RefStatePrim(:,freeStreamRefState)
+
+  ! UPrim(PRES) = RefStatePrim(PRES,freeStreamRefState)
+  ! UPrim(TEMP) = UPrim(PRES) / (R * UPrim(DENS))
+  ! UPrim(VEL3) = -UPrim(VEL3)
+  ! UPrim(TKE)  = MAX(UPrim(TKE), 1.0E-6)
+  ! UPrim(OMG)  = MAX(UPrim(OMG), 1.0E-6)
+
+  ! UPrim_boundary(:,p,q) = UPrim
+
   CALL BinarySearch(PP_nVarPrim, recycl_UPrim_mean(:,:),                            UPrimMeanInner, (dnuR / dnuI) * Face_xGP(2,p,q,0,iSide))
   CALL BinarySearch(PP_nVarPrim, recycl_UPrim_mean(:,:),                            UPrimMeanOuter, (d99R / d99I) * Face_xGP(2,p,q,0,iSide))
   CALL BinarySearch(PP_nVarPrim, recycl_UPrim_fluc(:,:,nZ+1-img(2,rim(p,q,iSide))), UPrimFlucInner, (dnuR / dnuI) * Face_xGP(2,p,q,0,iSide))
   CALL BinarySearch(PP_nVarPrim, recycl_UPrim_fluc(:,:,nZ+1-img(2,rim(p,q,iSide))), UPrimFlucOuter, (d99R / d99I) * Face_xGP(2,p,q,0,iSide))
 
-  eta = Face_xGP(2,p,q,0,iSide) / d99I
-  weta = 0.5 * (1.0 + TANH(4.0 * (eta - 0.2) / ((1.0 - 2.0 * 0.2) * eta + 0.2)) / TANH(4.0))
-  bdamp = 0.5 * (1.0 - TANH(4.0 * (eta - 2.0)))
-
-  IF (eta .GT. cutEta) THEN
-    UPrim_boundary(:,p,q)=RefStatePrim(:,freeStreamRefState)
-  ELSEIF (eta .GT. 1.0) THEN
+  eta   = Face_xGP(2,p,q,0,iSide) / d99I
+  weta  = 0.5 * (1.0 + TANH(4.0 * (eta - 0.2) / ((1.0 - 2.0 * 0.2) * eta + 0.2)) / TANH(4.0))
+  IF (eta .GT. 1.0) THEN
     weta = 1.0
-    UPrimFlucOuter = 0.0
+  END IF
+  bdamp = 0.5 * (1.0 - TANH(4.0 * (eta - 2.0)))
+  fdamp = 1.0 / (1.0 + (eta / 1.1)**6)
+  gdamp = 1.0 - 0.5 * (TANH(10.0 * (eta - 1.25)) + 1.0)
+  gamma = uTauI / uTauR
 
-    UPrimMeanInner(VEL1) = UPrimMeanInner(VEL1) * utau_ratio
-    UPrimMeanInner(TKE ) = UPrimMeanInner(TKE ) * utau_ratio**2.0
-    UPrimMeanInner(OMG ) = UPrimMeanInner(OMG ) * utau_ratio**2.0
+  ! IF (eta .GT. 1.0) THEN
+  !   UPrimFlucInner = 0.0
+  !   UPrimFlucOuter = 0.0
+  ! END IF
 
-    UPrimMeanOuter(VEL1) = UPrimMeanOuter(VEL1) * utau_ratio + u_inf * (1.0 - utau_ratio)
-
-    UPrimFlucInner(VELV) = UPrimFlucInner(VELV) * utau_ratio
-
-    UPrimFlucInner(TKE ) = UPrimFlucInner(TKE ) * utau_ratio**2.0
-    UPrimFlucInner(OMG ) = UPrimFlucInner(OMG ) * utau_ratio**2.0
-
-    UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
-    UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
-
-    UPrim_boundary(:,p,q) = (UPrim_boundary(:,p,q) * (cutEta-eta) + ( UPrimMean + UPrimFluc ) * (eta-1.0) ) / (cutEta - 1.0 )
-    UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
+  UPrimMeanInner(VEL1) = gamma * UPrimMeanInner(VEL1)
+  IF (UPrimMeanOuter(VEL1) .GT. RefStatePrim(VEL1,freeStreamRefState)) THEN
+    UPrimMeanOuter(VEL1) = RefStatePrim(VEL1,freeStreamRefState)
   ELSE
-    UPrimMeanInner(VEL1) = UPrimMeanInner(VEL1) * utau_ratio
-    UPrimMeanInner(TKE ) = UPrimMeanInner(TKE ) * utau_ratio**2.0
-    UPrimMeanInner(OMG ) = UPrimMeanInner(OMG ) * utau_ratio**2.0
+    UPrimMeanOuter(VEL1) = gamma * UPrimMeanInner(VEL1) + (1.0 - gamma) * RefStatePrim(VEL1,freeStreamRefState)
+  END IF
+  UPrimFlucInner(VELV) = gamma * UPrimFlucInner(VELV)
+  UPrimFlucOuter(VELV) = gamma * UPrimFlucOuter(VELV)
 
-    UPrimMeanOuter(VEL1) = UPrimMeanOuter(VEL1) * utau_ratio + u_inf * (1.0 - utau_ratio)
+  UPrimMeanInner(TKE)  = gamma**2 * UPrimMeanInner(TKE)
+  UPrimMeanInner(OMG)  = gamma**2 * UPrimMeanInner(OMG)
+  UPrimFlucInner(TKE)  = gamma**2 * UPrimFlucInner(TKE)
+  UPrimFlucInner(OMG)  = gamma**2 * UPrimFlucInner(OMG)
 
-    UPrimFlucInner(VELV) = UPrimFlucInner(VELV) * utau_ratio
-    UPrimFlucOuter(VELV) = UPrimFlucOuter(VELV) * utau_ratio
+  ! UPrimMeanOuter(TKE)  = gamma**2 * UPrimMeanOuter(TKE)
+  ! UPrimMeanOuter(OMG)  = gamma**2 * UPrimMeanOuter(OMG)
+  UPrimFlucOuter(TKE)  = gamma**2 * UPrimFlucOuter(TKE)
+  UPrimFlucOuter(OMG)  = gamma**2 * UPrimFlucOuter(OMG)
 
-    UPrimFlucInner(TKE ) = UPrimFlucInner(TKE ) * utau_ratio**2.0
-    UPrimFlucInner(OMG ) = UPrimFlucInner(OMG ) * utau_ratio**2.0
+  UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
+  UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
 
-    UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
-    UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
+  UPrimFluc(DENS) = MIN(MAX(UPrimFluc(DENS), -0.75 * UPrimMean(DENS)), 4.0 * UPrimMean(DENS))
+  ! CALL RANDOM_NUMBER(VelvFluc)
+  ! UPrimFluc(VELV) = UPrimFluc(VELV) + 0.02 * RefStatePrim(VEL1,freeStreamRefState) * (VelvFluc - 0.5) * MIN(eta, 1.0)
 
-    UPrim_boundary(:,p,q) = UPrimMean + UPrimFluc
-    UPrim_boundary(VEL3,p,q) = -UPrim_boundary(VEL3,p,q)
-  ENDIF
+  UPrim = UPrimMean + UPrimFluc
 
-  UPrim_boundary(TKE,p,q) = MAX( UPrim_boundary(TKE,p,q), 1.e-6 )
-  UPrim_boundary(OMG,p,q) = MAX( UPrim_boundary(OMG,p,q), 1.e-6 )
+  ! UPrim = (UPrimMeanInner + UPrimFlucInner) * (1.0 - weta) + (UPrimMeanOuter + UPrimFlucOuter) * weta
 
+  UPrim(DENS:TEMP) = gdamp * UPrim(DENS:TEMP) + (1.0 - gdamp) * RefStatePrim(DENS:TEMP,freeStreamRefState)
+  ! IF (eta .GT. 1.0) THEN
+  !   UPrim(DENS:TEMP) = RefStatePrim(DENS:TEMP,freeStreamRefState)
+  ! END IF
+  UPrim(TKE:OMG)   = bdamp * UPrim(TKE:OMG)   + (1.0 - bdamp) * RefStatePrim(TKE:OMG,  freeStreamRefState)
+
+  UPrim(PRES) = RefStatePrim(PRES,freeStreamRefState)
+  UPrim(TEMP) = UPrim(PRES) / (R * UPrim(DENS))
+  UPrim(VEL3) = -UPrim(VEL3)
+  UPrim(TKE)  = MAX(UPrim(TKE), 1.0E-6)
+  UPrim(OMG)  = MAX(UPrim(OMG), 1.0E-6)
+
+  UPrim_boundary(:,p,q) = UPrim
 END DO; END DO
 
 END SUBROUTINE FillState

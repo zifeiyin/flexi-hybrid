@@ -50,10 +50,6 @@ REAL                :: dnuR, dnuI
 
 LOGICAL             :: timeavgInit = .FALSE.
 
-REAL                :: rho_inf = 0.1
-REAL                :: u_inf = 823.6
-REAL                :: p_inf = 270.0
-
 REAL                :: timeavgFeq = 1.0E-6
 
 LOGICAL             :: recycling_called = .FALSE.
