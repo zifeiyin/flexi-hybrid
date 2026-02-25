@@ -35,6 +35,8 @@ IMPLICIT NONE
 INTEGER :: i,j,k,p,q,nn,iELem,iSide,iFile,iosi, nLocalMatched, localInd, nGlobalMatched
 REAL :: tmp, recycMinDist, minCrdGlb
 
+INTEGER :: ii,jj,kk,pp,qq,isLower
+
 doRecycling = GETLOGICAL("doRecycling")
 IF (.NOT. doRecycling) THEN
   RETURN
@@ -103,9 +105,29 @@ DO localInd=1,nY
   DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     IF ( indexMap(1,i,j,k,iELem) .EQ. 3 ) THEN
       IF (ABS(Elem_xGP(2,i,j,k,iELem) - y(localInd)) .LE. yMatchingTolerance) THEN
+#if PP_NodeType == 1
         indexMap(2,i,j,k,iELem) = localInd
         indexMap(1,i,j,k,iELem) = 2
         nn = nn + 1
+#else
+        IF (MOD(localInd, PP_N + 1) .EQ. 0) THEN
+          isLower = 1
+          DO kk=0,PP_NZ; DO jj=0,PP_N; DO ii=0,PP_N
+            IF (Elem_xGP(2,ii,jj,kk,iELem) .GT. y(localInd) + yMatchingTolerance) THEN
+              isLower = 0
+            END IF
+          END DO; END DO; END DO
+          IF (isLower .EQ. 1) THEN
+            indexMap(2,i,j,k,iELem) = localInd
+            indexMap(1,i,j,k,iELem) = 2
+            nn = nn + 1
+          END IF
+        ELSE
+          indexMap(2,i,j,k,iELem) = localInd
+          indexMap(1,i,j,k,iELem) = 2
+          nn = nn + 1
+        END IF
+#endif
       END IF
     END IF
   END DO; END DO; END DO; END DO
@@ -143,9 +165,29 @@ DO localInd=1,nZ
   DO iELem=1,nElems; DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
     IF ( indexMap(1,i,j,k,iELem) .EQ. 2 ) THEN
       IF ( ABS(Elem_xGP(3,i,j,k,iELem) - z(localInd)) .LE. zMatchingTolerance ) THEN
+#if PP_NodeType == 1
         indexMap(3,i,j,k,iELem) = localInd
         indexMap(1,i,j,k,iELem) = 1
         nn = nn + 1
+#else
+        IF (MOD(localInd, PP_N + 1) .EQ. 0) THEN
+          isLower = 1
+          DO kk=0,PP_NZ; DO jj=0,PP_N; DO ii=0,PP_N
+            IF (Elem_xGP(3,ii,jj,kk,iELem) .GT. z(localInd) + zMatchingTolerance) THEN
+              isLower = 0
+            END IF
+          END DO; END DO; END DO
+          IF (isLower .EQ. 1) THEN
+            indexMap(3,i,j,k,iELem) = localInd
+            indexMap(1,i,j,k,iELem) = 1
+            nn = nn + 1
+          END IF
+        ELSE
+          indexMap(3,i,j,k,iELem) = localInd
+          indexMap(1,i,j,k,iELem) = 1
+          nn = nn + 1
+        END IF        
+#endif
       END IF
     END IF
   END DO; END DO; END DO; END DO
@@ -196,8 +238,26 @@ img = -1
 DO nn=1,nInflow
   DO j=1,nY
     IF (ABS(Face_xGP(2,im(1,nn),im(2,nn),0,im(3,nn)) - y(j)).LE.yMatchingTolerance) THEN
+#if PP_NodeType == 1
       img(1,nn) = j
       EXIT
+#else
+      IF (MOD(j, PP_N + 1) .EQ. 0) THEN
+        isLower = 1
+        DO qq=0,PP_NZ; DO pp=0,PP_N
+          IF (Face_xGP(2,pp,qq,0,im(3,nn)) .GT. y(j) + yMatchingTolerance) THEN
+            isLower = 0
+          END IF
+        END DO; END DO
+        IF (isLower .EQ. 1) THEN
+          img(1,nn) = j
+          EXIT
+        END IF
+      ELSE
+        img(1,nn) = j
+        EXIT
+      END IF
+#endif
     END IF
   END DO
   IF ( img(1,nn) .LT. 0) THEN
@@ -205,8 +265,26 @@ DO nn=1,nInflow
   END IF
   DO k=1,nZ
     IF (ABS(Face_xGP(3,im(1,nn),im(2,nn),0,im(3,nn)) - z(k)).LE.zMatchingTolerance) THEN
+#if PP_NodeType == 1
       img(2,nn) = k
       EXIT
+#else
+      IF (MOD(k, PP_N + 1) .EQ. 0) THEN
+        isLower = 1
+        DO qq=0,PP_NZ; DO pp=0,PP_N
+          IF (Face_xGP(3,pp,qq,0,im(3,nn)) .GT. z(k) + zMatchingTolerance) THEN
+            isLower = 0
+          END IF
+        END DO; END DO
+        IF (isLower .EQ. 1) THEN
+          img(2,nn) = k
+          EXIT
+        END IF
+      ELSE 
+        img(2,nn) = k
+        EXIT
+      END IF
+#endif
     END IF
   END DO
   IF ( img(2,nn) .LT. 0) THEN
