@@ -394,15 +394,20 @@ INTEGER                                      :: i,j,k,l,m,iElem
 REAL,DIMENSION(3,3,0:PP_N,0:PP_N,0:PP_N)     :: S_lm, M_lm, L_lm, gradV
 REAL,DIMENSION(  3,0:PP_N,0:PP_N,0:PP_N)     :: V,V_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: omega, omega_filtered
+REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: rho, rho_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: g, g_filtered
 REAL,DIMENSION(    0:PP_N,0:PP_N,0:PP_N)     :: MM ,ML ,divV
 REAL                                         :: MMa,MLa
 !===============================================================================================================================
 DO iElem=1,nElems
   ! TODO: Use UPrim here!!
-  V(1,:,:,:) = U_in(MOM1,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
-  V(2,:,:,:) = U_in(MOM2,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
-  V(3,:,:,:) = U_in(MOM3,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  ! V(1,:,:,:) = U_in(MOM1,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  ! V(2,:,:,:) = U_in(MOM2,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  ! V(3,:,:,:) = U_in(MOM3,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
+  V(1,:,:,:) = U_in(MOM1,:,:,:,iElem)
+  V(2,:,:,:) = U_in(MOM2,:,:,:,iElem)
+  V(3,:,:,:) = U_in(MOM3,:,:,:,iElem)
+  rho = U_in(DENS,:,:,:,iElem)
 
   ! Store gradients in matrix for readability and filtering
   gradV(1:3,1,:,:,:) = gradUx(VELV,:,:,:,iElem)
@@ -415,17 +420,22 @@ DO iElem=1,nElems
   V_Filtered = V
   CALL Filter_Selective(3,FilterMat_testFilter,V_filtered,doFilterDir(:,iElem))
 
+  rho_filtered = rho
+  CALL Filter_Selective(1,FilterMat_testFilter,rho_filtered,doFilterDir(:,iElem))
+
   !              _ _   __
   ! Compute L = -u*u + uu
   DO l=1,3
     DO m=1,3
-      L_lm(l,m,:,:,:) = V(l,:,:,:)*V(m,:,:,:) ! uu
+      ! L_lm(l,m,:,:,:) = V(l,:,:,:)*V(m,:,:,:) ! uu
+      L_lm(l,m,:,:,:) = V(l,:,:,:)*V(m,:,:,:)/U_in(DENS,:,:,:,iElem) ! uu
     END DO                                                                               ! __
     CALL Filter_Selective(3,FilterMat_testFilter,L_lm(l,1:3,:,:,:),doFilterDir(:,iElem)) ! uu
   END DO
   DO l=1,3
     DO m=1,3                                                                      !     __   _ _
-      L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - V_filtered(l,:,:,:)*V_filtered(m,:,:,:) ! L = uu - u*u
+      ! L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - V_filtered(l,:,:,:)*V_filtered(m,:,:,:) ! L = uu - u*u
+      L_lm(l,m,:,:,:) = L_lm(l,m,:,:,:) - V_filtered(l,:,:,:)*V_filtered(m,:,:,:)/rho_filtered
     END DO
   END DO
 
@@ -440,7 +450,8 @@ DO iElem=1,nElems
   ! Compute omega
   ! g(:,:,:) = U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem)
   ! omega(:,:,:) = 1. / (Cmu * MAX(U_in(RHOG,:,:,:,iElem)/U_in(DENS,:,:,:,iElem),1.e-16)**2 )
-  omega(:,:,:) = omega_global(:,:,:,iElem)
+  ! omega(:,:,:) = omega_global(:,:,:,iElem)
+  omega(:,:,:) = rho * omega_global(:,:,:,iElem)
 
   ! Correct for compressibility
   S_lm(1,1,:,:,:) = S_lm(1,1,:,:,:) - divV(:,:,:)
