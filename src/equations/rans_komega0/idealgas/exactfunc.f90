@@ -246,6 +246,7 @@ CASE(1) ! ConstantBodyForce
 CASE(2) ! MassFlowRate
   massFlowRef = GETREAL('MassFlowRate')
   massFlowBCName = GETSTR('MassFlowSurface')
+  Fluctuation = GETREAL('Fluctuation', '0.0')
   massFlowBC=-1
   DO i=1,nBCs
     IF(TRIM(BoundaryName(i)).EQ.TRIM(massFlowBCName)) THEN
@@ -1034,8 +1035,17 @@ CASE(2) ! MassFlowRate
   DO iElem=1,nElems
     DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
       Ut_src(:,i,j,k) = 0.
-      Ut_src(MOM1,i,j,k) = -dpdx
-      Ut_src(ENER,i,j,k) = -U(MOM1,i,j,k,iElem) * dpdx / U(DENS,i,j,k,iElem)
+      ! Ut_src(MOM1,i,j,k) = -dpdx
+      ! Ut_src(ENER,i,j,k) = -U(MOM1,i,j,k,iElem) * dpdx / U(DENS,i,j,k,iElem)
+      IF (ISNAN(dpdx)) THEN
+        dpdx = 0.0
+      END IF
+      CALL RANDOM_NUMBER(bodyForce)
+      bodyForce(1) = -dpdx * (1.0 + Fluctuation * (2.0 * bodyForce(1) - 1.0))
+      bodyForce(2) = -dpdx * Fluctuation * (2.0 * bodyForce(2) - 1.0)
+      bodyForce(3) = -dpdx * Fluctuation * (2.0 * bodyForce(3) - 1.0)
+      Ut_src(MOMV,i,j,k) = bodyForce
+      Ut_src(ENER,i,j,k) = dot_product(U(MOMV,i,j,k,iElem), bodyForce) / U(DENS,i,j,k,iElem)
     END DO; END DO; END DO ! i,j,k
 #if FV_ENABLED
     IF (FV_Elems(iElem).GT.0) THEN ! FV elem
