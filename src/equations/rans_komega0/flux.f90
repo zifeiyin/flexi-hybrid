@@ -195,14 +195,14 @@ REAL                :: tau_zz,tau_xz,tau_yz
 ! ideal gas law
 muS    = VISCOSITY_PRIM(UPrim)
 lambda = THERMAL_CONDUCTIVITY_H(muS)
-muTOrig = muTRA
+muTOrig = MAX(muTRA, 0.0)
 diffK  = muS + invSigmaK * muTOrig
 diffG  = muS + invSigmaG * muTOrig
 !Add turbulent sub grid scale viscosity to mu
 #if DECOUPLE==0
 fd_limited = MIN(MAX(fd, 0.0), 1.0)
-muS    = muS    + muSGS
-lambda = lambda + muSGS * cp / (fd_limited * PrSGS + (1.0 - fd_limited) * 0.9)
+muS    = muS    + MAX(muSGS, 0.0)
+lambda = lambda + MAX(muSGS, 0.0) * cp / (fd_limited * PrSGS + (1.0 - fd_limited) * 0.9)
 #endif
 
 ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => UPrim(VEL3), &
