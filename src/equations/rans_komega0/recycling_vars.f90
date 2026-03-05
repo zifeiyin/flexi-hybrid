@@ -58,4 +58,6 @@ REAL                :: utau_ratio
 
 REAL                :: Twall
 
+REAL                :: recycling_fluc = 0.0
+
 END MODULE MOD_Recycling_Vars

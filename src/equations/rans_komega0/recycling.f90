@@ -19,6 +19,8 @@ CALL prms%CreateRealOption("recycling_xrec", "")
 CALL prms%CreateRealOption("recycling_momentum_thickness", "")
 CALL prms%CreateRealOption("yMatchingTolerance", "tolerance for finding match Y", "1.0E-6")
 CALL prms%CreateRealOption("zMatchingTolerance", "tolerance for finding match Z", "1.0E-6")
+CALL prms%CreateRealOption("recycling_freq", "", "1.0")
+CALL prms%CreateRealOption("recycling_fluc", "", "0.0")
 
 END SUBROUTINE DefineParametersRecycling
 
@@ -49,6 +51,8 @@ xRecyc  = GETREAL("recycling_xrec")
 thetaD  = GETREAL("recycling_momentum_thickness")
 yMatchingTolerance = GETREAL("yMatchingTolerance")
 zMatchingTolerance = GETREAL("zMatchingTolerance")
+timeavgFeq = GETREAL("recycling_freq")
+recycling_fluc = GETREAL("recycling_fluc")
 
 ! initialize recycling plane
 ! find the nearest location
@@ -334,10 +338,21 @@ DO k=1,nZ; DO j=1,nY
   CALL ConsToPrim(recycl_UPrim_global(:,j,k), recycl_U_global(:,j,k))
 END DO; END DO
 
-recycl_U_mean = 0.0
-DO k=1,nZ; DO j=1,nY
-  recycl_U_mean(:,j) = recycl_U_mean(:,j) + recycl_U_global(:,j,k) / nZ
-END DO; END DO
+! recycl_U_mean = 0.0
+! DO k=1,nZ; DO j=1,nY
+!   recycl_U_mean(:,j) = recycl_U_mean(:,j) + recycl_U_global(:,j,k) / nZ
+! END DO; END DO
+IF (.NOT. recycling_called) THEN
+  recycl_U_mean = 0.0
+  DO k=1,nZ; DO j=1,nY
+    recycl_U_mean(:,j) = recycl_U_mean(:,j) + recycl_U_global(:,j,k) / nZ
+  END DO; END DO
+ELSE
+  recycl_U_mean = (1.0 - timeavgFeq) * recycl_U_mean
+  DO k=1,nZ; DO j=1,nY
+    recycl_U_mean(:,j) = recycl_U_mean(:,j) + timeavgFeq * recycl_U_global(:,j,k) / nZ
+  END DO; END DO
+END IF
 
 DO j=1,nY
   CALL ConsToPrim(recycl_UPrim_mean(:,j), recycl_U_mean(:,j))
@@ -501,8 +516,8 @@ DO q=0,PP_NZ; DO p=0,PP_N
   UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
 
   UPrimFluc(DENS) = MIN(MAX(UPrimFluc(DENS), -0.75 * UPrimMean(DENS)), 4.0 * UPrimMean(DENS))
-  ! CALL RANDOM_NUMBER(VelvFluc)
-  ! UPrimFluc(VELV) = UPrimFluc(VELV) + 0.02 * RefStatePrim(VEL1,freeStreamRefState) * (VelvFluc - 0.5) * MIN(eta, 1.0)
+  CALL RANDOM_NUMBER(VelvFluc)
+  UPrimFluc(VELV) = UPrimFluc(VELV) + recycling_fluc * RefStatePrim(VEL1,freeStreamRefState) * (VelvFluc - 0.5) * MIN(eta, 1.0)
 
   UPrim = UPrimMean + UPrimFluc
 
