@@ -619,10 +619,12 @@ CASE(3,4,9,91,23,24,25,26,27)
         UPrim_boundary(PRES,p,q) = pb                       ! Pressure
         ! set temperature via ideal gas equation, consistent to density and pressure
         UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
-        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN
-          UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
-          UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
-        ENDIF
+        IF (UPrim_boundary(TKE,p,q) .LE. 0.0) THEN
+          UPrim_boundary(TKE,p,q) = 1.0E-16
+        END IF
+        IF (UPrim_boundary(OMG,p,q) .LE. 0.0) THEN
+          UPrim_boundary(OMG,p,q) = 1.0E-16
+        END IF
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
         !             Hence, nothing to do here!
@@ -655,10 +657,12 @@ CASE(3,4,9,91,23,24,25,26,27)
       ! set temperature via ideal gas equation, consistent to density and pressure
       UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
       ! make sure of correct backflow turbulence quantities
-      IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN
-        UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
-        UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
-      ENDIF
+      IF (UPrim_boundary(TKE,p,q) .LE. 0.0) THEN
+        UPrim_boundary(TKE,p,q) = 1.0E-16
+      END IF
+      IF (UPrim_boundary(OMG,p,q) .LE. 0.0) THEN
+        UPrim_boundary(OMG,p,q) = 1.0E-16
+      END IF
     END DO; END DO !p,q
 
   CASE(26) ! Pressure outflow BC, without backflow
@@ -675,16 +679,18 @@ CASE(3,4,9,91,23,24,25,26,27)
         UPrim_boundary(PRES,p,q) = pb                       ! Pressure
         ! set temperature via ideal gas equation, consistent to density and pressure
         UPrim_boundary(TEMP,p,q) = UPrim_boundary(PRES,p,q)/(R*UPrim_boundary(DENS,p,q))
-        IF ( ( UPrim_boundary(TKE ,p,q) .LE. 0. ) .OR. ( UPrim_boundary(OMG ,p,q) .LE. 0. ) ) THEN
-          UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
-          UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
-        ENDIF
+        IF (UPrim_boundary(TKE,p,q) .LE. 0.0) THEN
+          UPrim_boundary(TKE,p,q) = 1.0E-16
+        END IF
+        IF (UPrim_boundary(OMG,p,q) .LE. 0.0) THEN
+          UPrim_boundary(OMG,p,q) = 1.0E-16
+        END IF
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
         !             Hence, nothing to do here!
       ENDIF
       ! remove backflow
-      IF (UPrim_boundary(VEL1,p,q)<0.) THEN
+      IF (UPrim_boundary(VEL1,p,q) .LE. 0.0) THEN
         UPrim_boundary(VEL1,p,q) = 0.
       END IF
     END DO; END DO !p,q
