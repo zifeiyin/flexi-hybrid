@@ -220,7 +220,7 @@ DO iElem=1,nElems
     ! mean is not admissible: Make mean admissible and set to a constant value
     UMeanPrim(DENS) = MAX(UMeanPrim(DENS),PPepsDens)
     UMeanPrim(PRES) = MAX(UMeanPrim(PRES),PPepsPres)
-    UMeanPrim(TKE ) = MAX(UMeanPrim(TKE ),PPepsTKE )
+    ! UMeanPrim(TKE ) = MAX(UMeanPrim(TKE ),PPepsTKE )
     CALL PrimToCons(UMeanPrim,UMean)
     DO k=0,PP_NZ;DO j=0,PP_N;DO i=0,PP_N
       U(:,i,j,k,iElem) = UMean
