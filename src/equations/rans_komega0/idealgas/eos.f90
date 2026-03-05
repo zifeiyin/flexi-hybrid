@@ -412,7 +412,7 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT) :: entropy !< vector of entropy variables
 REAL                                :: vel(3),s,p,rho_p
 !==================================================================================================================================
 vel(:) = cons(MOMV)/cons(DENS)
-p      = KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*vel(:)))
+p      = KappaM1*(cons(ENER)-cons(RHOK)-0.5*SUM(cons(MOMV)*vel(:)))
 ! entropy: log(p) - eq.γ * log(ρ)
 s      = LOG(p) - kappa*LOG(cons(DENS))
 rho_p  = cons(DENS)/p
@@ -463,6 +463,7 @@ cons(ENER) = rhoe * (1 - SUM(entropy2(MOMV)**2) * 0.5/ entropy2(ENER)) !sKappaM1
 
 cons(RHOK) = entropy(RHOK)
 cons(RHOG) = entropy(RHOG)
+cons(ENER) = cons(ENER) + cons(RHOK)
 
 END SUBROUTINE EntropyToCons
 
