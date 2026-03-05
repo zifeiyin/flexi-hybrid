@@ -136,6 +136,8 @@ CALL prms%CreateRealOption   ('CoefficientA'    ,   "Coeffcient A in EXP(-A * x)
 
 CALL prms%CreateLogicalOption('RiemannInvariantBC', "use Riemann invariant BC for weak Dirichlet BCs", 'F')
 
+CALL prms%CreateRealOption   ('lengthScaleOmega'    ,"omega to calc lt")
+
 END SUBROUTINE DefineParametersExactFunc
 
 !==================================================================================================================================
