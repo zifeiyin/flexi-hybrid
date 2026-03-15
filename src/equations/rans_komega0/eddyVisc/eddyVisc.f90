@@ -115,6 +115,12 @@ fd_master=0.
 fd_slave =0.
 ALLOCATE(omega(0:PP_N,0:PP_N,0:PP_NZ,nElems))
 omega = 0.
+ALLOCATE(yWall(1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
+yWall = 0.0
+ALLOCATE(yWall_master(1,0:PP_N,0:PP_NZ,nSides))
+ALLOCATE(yWall_slave (1,0:PP_N,0:PP_NZ,nSides))
+yWall_master = 0.0
+yWall_slave  = 0.0
 
 ALLOCATE(prodK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
 ALLOCATE(dissK (1,0:PP_N,0:PP_N,0:PP_NZ,nElems))
@@ -178,6 +184,9 @@ SDEALLOCATE(muTRA_slave)
 SDEALLOCATE(fd)
 SDEALLOCATE(fd_master)
 SDEALLOCATE(fd_slave)
+SDEALLOCATE(ywall)
+SDEALLOCATE(ywall_master)
+SDEALLOCATE(ywall_slave)
 SDEALLOCATE(omega)
 SDEALLOCATE(prodK)
 SDEALLOCATE(dissK)

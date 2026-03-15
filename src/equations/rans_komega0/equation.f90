@@ -28,6 +28,10 @@ INTERFACE InitEquation
   MODULE PROCEDURE InitEquation
 END INTERFACE
 
+INTERFACE InitYwall
+  MODULE PROCEDURE InitYwall
+END INTERFACE
+
 INTERFACE GetPrimitiveStateSurface
   MODULE PROCEDURE GetPrimitiveStateSurface
 END INTERFACE
@@ -40,7 +44,7 @@ INTERFACE FinalizeEquation
   MODULE PROCEDURE FinalizeEquation
 END INTERFACE
 
-PUBLIC:: DefineParametersEquation,InitEquation,FinalizeEquation
+PUBLIC:: DefineParametersEquation,InitEquation,FinalizeEquation,InitYwall
 PUBLIC:: GetPrimitiveStateSurface,GetConservativeStateSurface
 !==================================================================================================================================
 
@@ -140,11 +144,11 @@ IF(nRefState .GT. 0)THEN
   ALLOCATE(RefStatePrim(PP_nVarPrim,nRefState))
   ALLOCATE(RefStateCons(PP_nVar    ,nRefState))
   DO i=1,nRefState
-    RefStatePrim(1:7,i) = GETREALARRAY('RefState',7)
-    ! RefStatePrim(OMG,i) = 1. / SQRT( 0.09 * RefStatePrim(7,i) )
-    RefStatePrim(OMG,i) = RefStatePrim(7,i)
-    RefStatePrim(TKE,i) = RefStatePrim(6,i)
-    RefStatePrim(6  ,i) = 0.
+    RefStatePrim(1:7,i)  = GETREALARRAY('RefState',7)
+    RefStatePrim(OMG,i)  = RefStatePrim(7,i)
+    RefStatePrim(TKE,i)  = RefStatePrim(6,i)
+    RefStatePrim(TEMP,i) = 0.0
+    RefStatePrim(TKER,i) = RefStatePrim(TKE,i)
 #if PP_dim==2
     IF(RefStatePrim(VEL3,i).NE.0.) THEN
       SWRITE(UNIT_stdOut,'(A)')' You are computing in 2D! RefStatePrim(4) will be set to zero!'
@@ -189,6 +193,40 @@ CALL InitTestcase()
 END SUBROUTINE InitEquation
 
 
+SUBROUTINE InitYwall()
+! MODULES
+USE MOD_Globals
+USE MOD_Preproc
+USE MOD_Vector
+USE MOD_Interpolation_Vars  ,ONLY: L_Minus,L_Plus
+#if USE_MPI
+USE MOD_MPI_Vars
+USE MOD_MPI                 ,ONLY: StartReceiveMPIData,StartSendMPIData,FinishExchangeMPIData
+USE MOD_Mesh_Vars,           ONLY: nSides
+#endif /*USE_MPI*/
+USE MOD_ProlongToFace       ,ONLY: ProlongToFace
+USE MOD_EddyVisc_Vars       ,ONLY: yWall,yWall_master,yWall_slave
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!----------------------------------------------------------------------------------------------------------------------------------
+! INPUT/OUTPUT VARIABLES
+!----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+!==================================================================================================================================
+
+#if USE_MPI
+CALL StartReceiveMPIData(ywall_slave,DataSizeSideSGS,1,nSides,MPIRequest_ywa(:,RECV),SendID=2)
+CALL ProlongToFace(1,PP_N,ywall,ywall_master,ywall_slave,L_Minus,L_Plus,.TRUE.)
+CALL StartSendMPIData   (ywall_slave,DataSizeSideSGS,1,nSides,MPIRequest_ywa(:,SEND),SendID=2)
+#endif
+CALL ProlongToFace(1,PP_N,ywall,ywall_master,ywall_slave,L_Minus,L_Plus,.FALSE.)
+#if USE_MPI
+CALL FinishExchangeMPIData(2*nNbProcs,MPIRequest_ywa)
+#endif
+
+END SUBROUTINE InitYwall
+
+
 !==================================================================================================================================
 !> Converts conservative solution vector to primitive variables
 !>
@@ -209,6 +247,8 @@ SUBROUTINE GetPrimitiveStateSurface(U_master,U_slave,UPrim_master,UPrim_slave)
 USE MOD_Preproc
 USE MOD_EOS,      ONLY: ConsToPrim
 USE MOD_Mesh_Vars,ONLY: firstInnerSide,firstMPISide_YOUR,lastMPISide_YOUR,nSides
+USE MOD_EddyVisc_Vars,ONLY: ywall_master,ywall_slave
+USE MOD_TKE_Reconstruction,ONLY: ComputeTKER
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -225,11 +265,13 @@ DO iSide=1,nSides
   IF(iSide.GE.firstMPISide_YOUR.AND.iSide.LE.lastMPISide_YOUR) CYCLE
   DO j=0,PP_NZ; DO i=0,PP_N
     CALL ConsToPrim(UPrim_master(:,i,j,iSide),U_master(:,i,j,iSide))
+    CALL ComputeTKER(UPrim_master(:,i,j,iSide), y=ywall_master(1,i,j,iSide))
   END DO; END DO
 END DO
 DO iSide=firstInnerSide,lastMPISide_YOUR
   DO j=0,PP_NZ; DO i=0,PP_N
     CALL ConsToPrim(UPrim_slave(:,i,j,iSide),U_slave(:,i,j,iSide))
+    CALL ComputeTKER(UPrim_slave(:,i,j,iSide), y=ywall_slave(1,i,j,iSide))
   END DO; END DO
 END DO
 

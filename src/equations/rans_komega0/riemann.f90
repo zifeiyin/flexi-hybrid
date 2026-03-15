@@ -307,6 +307,7 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_LL(EXT_RHOG)=U_L(RHOG,i,j)
   U_LL(EXT_TKE )=UPrim_L(TKE,i,j)
   U_LL(EXT_OMG )=UPrim_L(OMG,i,j)
+  U_LL(EXT_TKER)=UPrim_L(TKER,i,j)
 
   ! rotate velocity in normal and tangential direction
   U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV,i,j),nv(:,i,j))
@@ -329,6 +330,8 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   U_RR(EXT_RHOG)=U_R(RHOG,i,j)
   U_RR(EXT_TKE )=UPrim_R(TKE,i,j)
   U_RR(EXT_OMG )=UPrim_R(OMG,i,j)
+  U_RR(EXT_TKER)=UPrim_R(TKER,i,j)
+
   ! rotate momentum in normal and tangential direction
   U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV,i,j),nv(:,i,j))
   U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV,i,j),t1(:,i,j))
@@ -406,6 +409,7 @@ U_LL(EXT_RHOK)=U_L(RHOK)
 U_LL(EXT_RHOG)=U_L(RHOG)
 U_LL(EXT_TKE )=UPrim_L(TKE)
 U_LL(EXT_OMG )=UPrim_L(OMG)
+U_LL(EXT_TKER)=UPrim_L(TKER)
 
 ! rotate velocity in normal and tangential direction
 U_LL(EXT_VEL1)=DOT_PRODUCT(UPrim_L(VELV),nv(:))
@@ -428,6 +432,8 @@ U_RR(EXT_RHOK)=U_R(RHOK)
 U_RR(EXT_RHOG)=U_R(RHOG)
 U_RR(EXT_TKE )=UPrim_R(TKE)
 U_RR(EXT_OMG )=UPrim_R(OMG)
+U_RR(EXT_TKER)=UPrim_R(TKER)
+
 ! rotate momentum in normal and tangential direction
 U_RR(EXT_VEL1)=DOT_PRODUCT(UPRIM_R(VELV),nv(:))
 U_RR(EXT_VEL2)=DOT_PRODUCT(UPRIM_R(VELV),t1(:))
@@ -471,7 +477,7 @@ END SUBROUTINE Riemann_Point
 SUBROUTINE ViscousFlux_Side(Nloc,F,UPrim_L,UPrim_R, &
                             gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv &
 #if EDDYVISCOSITY
-                           ,muSGS_L,muTRA_L,fd_L,muSGS_R,muTRA_R,fd_R &
+                           ,muSGS_L,muTRA_L,fd_L,ywall_L,muSGS_R,muTRA_R,fd_R,ywall_R&
 #endif
                            )
 ! MODULES
@@ -492,6 +498,7 @@ REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: F   !< viscous
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS_L,muSGS_R   !> eddy viscosity left/right of the interface
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muTRA_L,muTRA_R   !> eddy viscosity left/right of the interface
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: fd_L,fd_R         !> eddy viscosity left/right of the interface
+REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: ywall_L,ywall_R   !> eddy viscosity left/right of the interface
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -504,13 +511,13 @@ INTEGER                                                       :: p,q
 CALL EvalDiffFlux3D(Nloc,UPrim_L,   gradUx_L,   gradUy_L,   gradUz_L  &
                                 ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  &
 #if EDDYVISCOSITY
-                   ,muSGS_L,muTRA_L,fd_L &
+                   ,muSGS_L,muTRA_L,fd_L,ywall_L &
 #endif
       )
 CALL EvalDiffFlux3D(Nloc,UPrim_R,   gradUx_R,   gradUy_R,   gradUz_R  &
                                 ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  &
 #if EDDYVISCOSITY
-                   ,muSGS_R,muTRA_R,fd_R &
+                   ,muSGS_R,muTRA_R,fd_R,ywall_R &
 #endif
       )
 ! Arithmetic mean of the fluxes
@@ -528,7 +535,7 @@ END SUBROUTINE ViscousFlux_Side
 SUBROUTINE ViscousFlux_Point(F,UPrim_L,UPrim_R, &
                              gradUx_L,gradUy_L,gradUz_L,gradUx_R,gradUy_R,gradUz_R,nv &
 #if EDDYVISCOSITY
-                            ,muSGS_L,muTRA_L,fd_L,muSGS_R,muTRA_R,fd_R &
+                            ,muSGS_L,muTRA_L,fd_L,ywall_L,muSGS_R,muTRA_R,fd_R,ywall_R &
 #endif
                             )
 ! MODULES
@@ -546,6 +553,7 @@ REAL,DIMENSION(PP_nVar       ),INTENT(OUT) :: F   !< viscous flux
 REAL,INTENT(IN)                            :: muSGS_L,muSGS_R    !> eddy viscosity left/right of the interface
 REAL,INTENT(IN)                            :: muTRA_L,muTRA_R    !> eddy viscosity left/right of the interface
 REAL,INTENT(IN)                            :: fd_L,fd_R          !> fd left/right of the interface
+REAL,INTENT(IN)                            :: ywall_L,ywall_R    !> fd left/right of the interface
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT / OUTPUT VARIABLES
@@ -559,13 +567,13 @@ REAL,DIMENSION(PP_nVar)  :: diffFluxX_R,diffFluxY_R,diffFluxZ_R
 CALL EvalDiffFlux3D(UPrim_L,   gradUx_L,   gradUy_L,   gradUz_L  &
                            ,diffFluxX_L,diffFluxY_L,diffFluxZ_L  &
 #if EDDYVISCOSITY
-                   ,muSGS_L,mutra_L,fd_L &
+                   ,muSGS_L,mutra_L,fd_L,ywall_L &
 #endif
       )
 CALL EvalDiffFlux3D(UPrim_R,   gradUx_R,   gradUy_R,   gradUz_R  &
                            ,diffFluxX_R,diffFluxY_R,diffFluxZ_R  &
 #if EDDYVISCOSITY
-                   ,muSGS_R,mutra_R,fd_R &
+                   ,muSGS_R,mutra_R,fd_R,ywall_R &
 #endif
       )
 ! Arithmetic mean of the fluxes

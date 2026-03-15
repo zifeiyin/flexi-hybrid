@@ -123,6 +123,9 @@ USE MOD_FV_Vars      ,ONLY: FV_alpha,FV_alpha_min
 #if EDDYVISCOSITY
 USE MOD_EddyVisc_Vars, ONLY: muSGS, muTRA, PrSGS
 #endif
+USE MOD_EOS,               ONLY: ConsToPrim
+USE MOD_EddyVisc_Vars,     ONLY: ywall
+USE MOD_TKE_Reconstruction,ONLY: ComputeTKER
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -158,14 +161,24 @@ DO iElem=1,nElems
   muSGSMax = MAXVAL(muSGS(1,:,:,:,iElem))
 #endif
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    ! TODO: ATTENTION: Temperature of UE not filled!!!
+    prim(TKER) = TKER_NOT_FILLED
+    CALL ConsToPrim(prim,U(:,i,j,k,iElem))
+    CALL ComputeTKER(prim, y=ywall(1,i,j,k,iElem))
+
     UE(EXT_CONS)=U(:,i,j,k,iElem)
     UE(EXT_SRHO)=1./UE(EXT_DENS)
-    UE(EXT_VELV)=VELOCITY_HE(UE)
-    UE(EXT_PRES)=PRESSURE_HE(UE)
-    UE(EXT_TEMP)=TEMPERATURE_HE(UE)
-    UE(EXT_TKE )=U(RHOK,i,j,k,iElem)*UE(EXT_SRHO)
-    UE(EXT_OMG )=U(RHOG,i,j,k,iElem)*UE(EXT_SRHO)
+    UE(EXT_VEL1:EXT_TKER)=prim(VEL1:TKER)
+
+    ! ! TODO: ATTENTION: Temperature of UE not filled!!!
+    ! ! TODO(Shimushu): fix this
+    ! UE(EXT_CONS)=U(:,i,j,k,iElem)
+    ! UE(EXT_SRHO)=1./UE(EXT_DENS)
+    ! UE(EXT_VELV)=VELOCITY_HE(UE)
+    ! UE(EXT_PRES)=PRESSURE_HE(UE)
+    ! UE(EXT_TEMP)=TEMPERATURE_HE(UE)
+    ! UE(EXT_TKE )=U(RHOK,i,j,k,iElem)*UE(EXT_SRHO)
+    ! UE(EXT_OMG )=U(RHOG,i,j,k,iElem)*UE(EXT_SRHO)
+
     ! Convective Eigenvalues
     IF(IEEE_IS_NAN(UE(EXT_DENS)))THEN
       ERRWRITE(*,'(A,3ES16.7)')'Density NaN, Position= ',Elem_xGP(:,i,j,k,iElem)
@@ -183,8 +196,7 @@ DO iElem=1,nElems
 #endif
 #if PARABOLIC
     ! Viscous Eigenvalues
-    prim = UE(EXT_PRIM)
-    mu=VISCOSITY_PRIM(prim)
+    mu=VISCOSITY_TEMPERATURE(UE(EXT_TEMP))
     ! muTOrig = MIN( Cmu * UE(EXT_DENS) * MAX(UE(EXT_TKE),1.e-16) * MAX(UE(EXT_OMG),1.e-16)**2, 10000. * mu) 
     muTOrig = muTRA(1,i,j,k,iElem)
 #if DECOUPLE==0

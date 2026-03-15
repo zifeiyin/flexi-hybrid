@@ -111,7 +111,7 @@ USE MOD_FV_Basis      ,ONLY: InitFV_Basis,FinalizeFV_Basis
 USE MOD_DG            ,ONLY: InitDG,DGTimeDerivative_weakForm,FinalizeDG
 USE MOD_Mortar        ,ONLY: InitMortar,FinalizeMortar
 USE MOD_EOS           ,ONLY: DefineParametersEos
-USE MOD_Equation      ,ONLY: DefineParametersEquation,InitEquation,FinalizeEquation
+USE MOD_Equation      ,ONLY: DefineParametersEquation,InitEquation,FinalizeEquation,InitYwall
 USE MOD_Exactfunc     ,ONLY: DefineParametersExactFunc
 #if PARABOLIC
 USE MOD_Lifting       ,ONLY: DefineParametersLifting,InitLifting,FinalizeLifting
@@ -213,6 +213,9 @@ CALL InitLifting()
 #endif /*PARABOLIC*/
 #if EQNSYSNR == 4 || EQNSYSNR == 5
 CALL InitRecycling()
+#endif
+#if EQNSYSNR == 5
+CALL InitYwall()
 #endif
 CALL Restart(doFlushFiles=.FALSE.)
 SWRITE(UNIT_stdOut,'(A)',ADVANCE='NO')" Call DGTimeDerivative_weakForm..."

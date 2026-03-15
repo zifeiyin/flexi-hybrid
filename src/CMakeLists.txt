@@ -49,7 +49,7 @@ ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_kg")
   ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=8 -DEQNSYSNR=4)
   SET(WITHEOS 1)
 ELSEIF(FLEXI_EQNSYSNAME STREQUAL "rans_komega0")
-  ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=8 -DEQNSYSNR=5)
+  ADD_DEFINITIONS(-DPP_nVar=7 -DPP_nVarPrim=9 -DEQNSYSNR=5)
   SET(WITHEOS 1)
 ELSE()
   MESSAGE(SEND_ERROR "Unknown equation system.")
@@ -65,10 +65,15 @@ ENDIF()
 # SplitDG
 # =========================================================================
 OPTION(FLEXI_SPLIT_DG "Use split DG formulation" OFF)
-CMAKE_DEPENDENT_OPTION(FLEXI_PROLONG_ENTROPY "Prolong on entropy variables" ON
-	                     "FLEXI_SPLIT_DG; FLEXI_EQNSYSNAME STREQUAL navierstokes; FLEXI_NODETYPE STREQUAL GAUSS" ON
-                       "FLEXI_SPLIT_DG; FLEXI_EQNSYSNAME STREQUAL rans_kg;      FLEXI_NODETYPE STREQUAL GAUSS" ON
-                       "FLEXI_SPLIT_DG; FLEXI_EQNSYSNAME STREQUAL rans_komega0; FLEXI_NODETYPE STREQUAL GAUSS" ON)
+SET(_FLEXI_PROLONG_ENTROPY_COND OFF)
+IF    (${FLEXI_SPLIT_DG} AND (${FLEXI_EQNSYSNAME} STREQUAL "navierstokes") AND (${FLEXI_NODETYPE} STREQUAL "GAUSS"))
+  SET(_FLEXI_PROLONG_ENTROPY_COND ON)
+ELSEIF(${FLEXI_SPLIT_DG} AND (${FLEXI_EQNSYSNAME} STREQUAL "rans_kg")      AND (${FLEXI_NODETYPE} STREQUAL "GAUSS"))
+  SET(_FLEXI_PROLONG_ENTROPY_COND ON)
+ELSEIF(${FLEXI_SPLIT_DG} AND (${FLEXI_EQNSYSNAME} STREQUAL "rans_komega0") AND (${FLEXI_NODETYPE} STREQUAL "GAUSS"))
+  SET(_FLEXI_PROLONG_ENTROPY_COND ON)
+ENDIF()
+CMAKE_DEPENDENT_OPTION(FLEXI_PROLONG_ENTROPY "Prolong on entropy variables" ON "_FLEXI_PROLONG_ENTROPY_COND" OFF)
 IF(FLEXI_SPLIT_DG)
   ADD_DEFINITIONS(-DSPLIT_DG)
   IF(FLEXI_PROLONG_ENTROPY)
@@ -269,7 +274,7 @@ ELSE()
   ADD_DEFINITIONS(-DDECOUPLE=0)
 ENDIF()
 
-# =========================================================================  
+# =========================================================================
 # Local time stepping setting
 # =========================================================================
 OPTION(FLEXI_LOCALTIMESTEPPING "Enable local time stepping" OFF)
@@ -277,13 +282,13 @@ OPTION(FLEXI_LOCALTIMESTEPPING "Enable local time stepping" OFF)
 IF(FLEXI_LOCALTIMESTEPPING)
    ADD_DEFINITIONS(-DLTS_ENABLED)
    IF(NOT ((FLEXI_EQNSYSNAME STREQUAL "rans_kg") OR (FLEXI_EQNSYSNAME STREQUAL "rans_komega0")))
-      MESSAGE(SEND_ERROR "local time stepping is only developed for FLEXI_EQNSYSNAME=rans_kg or rans_komega0.") 
-   ELSE() 
+      MESSAGE(SEND_ERROR "local time stepping is only developed for FLEXI_EQNSYSNAME=rans_kg or rans_komega0.")
+   ELSE()
       MESSAGE(STATUS"Local time stepping is enabled")
    ENDIF()
 ENDIF()
 
-# =========================================================================  
+# =========================================================================
 # Preconditioner for implicit
 # =========================================================================
 OPTION(FLEXI_USE_PRECONDITIONER "Use preconditioner for implicit" OFF)

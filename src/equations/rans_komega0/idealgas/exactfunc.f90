@@ -130,13 +130,13 @@ CALL prms%CreateRealOption('MassFlowRate',           "Mass flow rate at a given 
 CALL prms%CreateStringOption('MassFlowSurface',      "Name of BC at which massflow is computed")
 
 ! options for variations of turbulence models
+CALL prms%CreateLogicalOption('dynamicPrt',         "Using dynamic Prt model from 1D EnKF results", 'F')
 CALL prms%CreateLogicalOption('rhokContribution',   "rho*k contribution in the Reynolds stress", 'T')
+CALL prms%CreateLogicalOption('kReconstruction',    "Reconstruction TKE in energy function. Only valid with rhokContribution =T.", 'F')
 CALL prms%CreateLogicalOption('crossDiffusionTerm', "cross diffusion term in wilcox 06", 'F')
-CALL prms%CreateRealOption   ('CoefficientA'    ,   "Coeffcient A in EXP(-A * x)", '0.012')
-
+CALL prms%CreateRealOption   ('CoefficientA',       "Coeffcient A in EXP(-A * x)", '0.012')
 CALL prms%CreateLogicalOption('RiemannInvariantBC', "use Riemann invariant BC for weak Dirichlet BCs", 'F')
-
-CALL prms%CreateRealOption   ('lengthScaleOmega'    ,"omega to calc lt")
+CALL prms%CreateRealOption   ('lengthScaleOmega',   "omega to calc lt")
 
 END SUBROUTINE DefineParametersExactFunc
 
@@ -150,7 +150,7 @@ USE MOD_Globals
 USE MOD_ReadInTools
 USE MOD_ExactFunc_Vars
 USE MOD_Equation_Vars      ,ONLY: IniExactFunc,IniRefState,IniSourceTerm,ConstantBodyForce,ConstantBodyHeat,Fluctuation
-USE MOD_Equation_Vars      ,ONLY: crossDiffusionTerm, RiemannInvariantBC, rhokContribution, Cexp
+USE MOD_Equation_Vars      ,ONLY: crossDiffusionTerm,RiemannInvariantBC,dynamicPrt,rhokContribution,kReconstruction,Cexp
 USE MOD_Mesh_Vars          ,ONLY: nBCs,BoundaryName
 ! IMPLICIT VARIABLE HANDLING
  IMPLICIT NONE
@@ -261,9 +261,21 @@ CASE DEFAULT
   CALL CollectiveStop(__STAMP__,'Unknown IniSourceTerm!')
 END SELECT
 
+dynamicPrt       = GETLOGICAL('dynamicPrt')
+IF (dynamicPrt) THEN
+  SWRITE(UNIT_stdOut,'(A)')'Use new Prt model.'
+ENDIF
+
 rhokContribution = GETLOGICAL('rhokContribution')
 IF (.NOT.rhokContribution) THEN
   SWRITE(UNIT_stdOut,'(A)')' Neglecting rho*k contribution in the Reynolds stress!'
+ENDIF
+
+IF (rhokContribution) THEN
+  kReconstruction = GETLOGICAL('kReconstruction')
+  IF (kReconstruction) THEN
+    SWRITE(UNIT_stdOut,'(A)')'TKE terms in energy equation are reconstructed to the level of k-epsilon model. sigmak is set as 1.0 in energy function.'
+  ENDIF
 ENDIF
 
 Cexp = GETREAL("CoefficientA")
@@ -872,7 +884,7 @@ USE MOD_ExactFunc_Vars   ,ONLY: firstTimestep,tPrev,dtPrev,massFlowRef,massFlowP
 USE MOD_EddyVisc_Vars    ,ONLY: yWall
 USE MOD_EOS_Vars         ,ONLY: cp,Pr,kappa
 USE MOD_EddyVisc_Vars    ,ONLY: PrSGS
-USE MOD_EddyVisc_Vars    ,ONLY: yWall,gradyWall
+USE MOD_DG_Vars          ,ONLY: UPrim_global => UPrim
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
@@ -902,7 +914,8 @@ REAL                :: alpha_model_coeff
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
-    CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
+    ! CALL ConsToPrim(UPrim, U(:,i,j,k,iElem))
+    UPrim = UPrim_global(:,i,j,k,iElem)
 
     muS = VISCOSITY_TEMPERATURE(UPrim(TEMP))
     muT = muSGS(1,i,j,k,iElem)
@@ -921,7 +934,7 @@ DO iElem=1,nElems
     Sxx = 0.5 * (s43 * ux - s23 * vy)
     Syy = 0.5 * (s43 * vy - s23 * ux)
     Sxy = 0.5 * (uy + vx)
-    rhok_contribution = s23 * UPrim(DENS) * kPos * (ux + vy)
+    rhok_contribution = s23 * UPrim(DENS) * MAX(UPrim(TKER), 0.0) * (ux + vy)
 
     SijGradU = Sxx * ux + Sxy * uy + Sxy * vx + Syy * vy
 
@@ -943,7 +956,7 @@ DO iElem=1,nElems
     Sxz = 0.5 * (uz + wx)
     Syz = 0.5 * (vz + wy)
    
-    rhok_contribution = s23 * UPrim(DENS) * kPos * (ux + vy + wz)
+    rhok_contribution = s23 * UPrim(DENS) * MAX(UPrim(TKER), 0.0) * (ux + vy + wz)
 
     SijGradU = &
         Sxx * ux + Sxy * uy + Sxz * uz + &

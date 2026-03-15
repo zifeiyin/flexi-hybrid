@@ -66,7 +66,7 @@ USE MOD_Lifting_Vars,    ONLY: gradUx_master ,gradUy_master ,gradUz_master ,grad
 #if EDDYVISCOSITY
 USE MOD_EddyVisc_Vars,   ONLY: muSGS_master,muSGS_slave
 #if EQNSYSNR == 5
-USE MOD_EddyVisc_Vars,   ONLY: muTRA_master,muTRA_slave,fd_master,fd_slave
+USE MOD_EddyVisc_Vars,   ONLY: muTRA_master,muTRA_slave,fd_master,fd_slave,ywall_master,ywall_slave
 #endif
 #endif
 #if FV_ENABLED
@@ -156,8 +156,8 @@ DO SideID=firstSideID_wo_BC,lastSideID
       NormVec(:,:,:,FV_Elems_Max(SideID),SideID)&
 #if EDDYVISCOSITY
 #if EQNSYSNR == 5
-      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,sideID),fd_master(:,:,:,sideID)&
-      ,muSGS_slave(:,:,:,SideID) ,muTRA_slave (:,:,:,sideID),fd_slave (:,:,:,sideID)&
+      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,sideID),fd_master(:,:,:,sideID),ywall_master(:,:,:,sideID)&
+      ,muSGS_slave(:,:,:,SideID) ,muTRA_slave (:,:,:,sideID),fd_slave (:,:,:,sideID),ywall_slave (:,:,:,sideID)&
 #else
       ,muSGS_master(:,:,:,SideID),muSGS_slave(:,:,:,SideID)&
 #endif

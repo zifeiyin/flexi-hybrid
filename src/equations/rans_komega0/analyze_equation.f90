@@ -408,6 +408,9 @@ USE MOD_EOS_Vars,          ONLY: Kappa,R,sKappaM1,KappaM1
 #if FV_ENABLED
 USE MOD_FV_Vars,           ONLY: FV_Elems_master,FV_w
 #endif
+USE MOD_EOS,               ONLY: ConsToPrim
+USE MOD_EddyVisc_Vars,     ONLY: ywall_master
+USE MOD_TKE_Reconstruction,ONLY: ComputeTKER
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !-----------------------------------------------------------------------------------------------------------------------------------
@@ -419,6 +422,7 @@ REAL,INTENT(OUT)             :: meanTotals(4,nBCs)           !< total and static
 REAL                           :: dA,c,mach
 REAL                           :: primvar(1:14),UE(PP_2Var)
 INTEGER                        :: SideID,i,j,iBC
+REAL                           :: UPrim(PP_nVarPrim)
 !===================================================================================================================================
 meanTotals= 0.
 DO SideID=1,nBCSides
@@ -426,13 +430,21 @@ DO SideID=1,nBCSides
   IF(Boundarytype(iBC,BC_TYPE) .EQ. 1) CYCLE
 
   DO j=0,PP_NZ; DO i=0,PP_N
-    ! TODO: ATTENTION: Temperature of UE not filled!!!
+    UPrim(TKER) = TKER_NOT_FILLED
+    CALL ConsToPrim(UPrim, U_master(CONS,i,j,SideID))
+    CALL ComputeTKER(UPrim, y=ywall_master(1,i,j,sideID))
+
     UE(EXT_CONS)=U_master(CONS,i,j,SideID)
     UE(EXT_SRHO)=1./UE(EXT_DENS)
-    UE(EXT_VELV)=VELOCITY_HE(UE)
-    UE(EXT_PRES)=PRESSURE_HE(UE)
-    UE(EXT_TKE )=U_master(RHOK,i,j,SideID)*UE(EXT_SRHO)
-    UE(EXT_OMG )=U_master(RHOG,i,j,SideID)*UE(EXT_SRHO)
+    UE(EXT_VEL1:EXT_TKER)=UPrim(VEL1:TKER)
+
+    ! ! TODO: ATTENTION: Temperature of UE not filled!!!
+    ! UE(EXT_CONS)=U_master(CONS,i,j,SideID)
+    ! UE(EXT_SRHO)=1./UE(EXT_DENS)
+    ! UE(EXT_VELV)=VELOCITY_HE(UE)
+    ! UE(EXT_PRES)=PRESSURE_HE(UE)
+    ! UE(EXT_TKE )=U_master(RHOK,i,j,SideID)*UE(EXT_SRHO)
+    ! UE(EXT_OMG )=U_master(RHOG,i,j,SideID)*UE(EXT_SRHO)
 
     PrimVar(1:3)=UE(EXT_VELV)
 

@@ -200,11 +200,12 @@ END SUBROUTINE InitEos
 PPURE SUBROUTINE ConsToPrim(prim,cons)
 ! MODULES
 USE MOD_EOS_Vars,ONLY:KappaM1,R
+USE MOD_Equation_Vars,ONLY:kReconstruction
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
-REAL,INTENT(IN)  :: cons(PP_nVar)     !< vector of conservative variables
-REAL,INTENT(OUT) :: prim(PP_nVarPrim) !< vector of primitive variables (density,velocities,temperature,pressure)
+REAL,INTENT(IN)    :: cons(PP_nVar)     !< vector of conservative variables
+REAL,INTENT(INOUT) :: prim(PP_nVarPrim) !< vector of primitive variables (density,velocities,temperature,pressure)
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 REAL             :: sRho    ! 1/Rho
@@ -220,17 +221,22 @@ prim(VEL3)=cons(MOM3)*sRho
 prim(VEL3)=0.
 #endif
 
-#if DECOUPLE==0
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV))-cons(RHOK))
-#else
-prim(PRES)=KappaM1*(cons(ENER)-0.5*SUM(cons(MOMV)*prim(VELV)))
-#endif
-! temperature
-prim(TEMP) = prim(PRES)*sRho / R
-
-! limiting turbulence variables
-prim(TKE)  = cons(RHOK)*sRho
-prim(OMG)  = cons(RHOG)*sRho
+IF (.NOT. kReconstruction) THEN
+  prim(PRES) = KappaM1 * (cons(ENER) - 0.5 * SUM(cons(MOMV) * prim(VELV)) - cons(RHOK))
+  prim(TEMP) = prim(PRES) * sRho / R
+  prim(TKE)  = cons(RHOK) * sRho
+  prim(OMG)  = cons(RHOG) * sRho
+  prim(TKER) = prim(TKE)
+ELSE
+  IF (prim(TKER) .EQ. TKER_NOT_FILLED) THEN
+    prim(TKER) = cons(RHOK) * sRho
+  END IF
+  prim(PRES) = KappaM1 * (cons(ENER) - 0.5 * SUM(cons(MOMV) * prim(VELV)) - prim(DENS) * prim(TKER))
+  prim(TEMP) = prim(PRES) * sRho / R
+  prim(TKE)  = cons(RHOK) * sRho
+  prim(OMG)  = cons(RHOG) * sRho
+  ! NOTE(Shimushu): TKER not filled here as omega is needed
+END IF
 
 END SUBROUTINE ConsToPrim
 
@@ -244,7 +250,7 @@ IMPLICIT NONE
 ! INPUT/OUTPUT VARIABLES
 INTEGER,INTENT(IN) :: Nloc                                  !< local polynomial degree of solution representation
 REAL,INTENT(IN)    :: cons(PP_nVar    ,0:Nloc,0:ZDIM(Nloc)) !< vector of conservative variables
-REAL,INTENT(OUT)   :: prim(PP_nVarPrim,0:Nloc,0:ZDIM(Nloc)) !< vector of primitive variables
+REAL,INTENT(INOUT) :: prim(PP_nVarPrim,0:Nloc,0:ZDIM(Nloc)) !< vector of primitive variables
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER            :: p,q
@@ -264,7 +270,7 @@ IMPLICIT NONE
 ! INPUT/OUTPUT VARIABLES
 INTEGER,INTENT(IN) :: Nloc                                         !< local polynomial degree of solution representation
 REAL,INTENT(IN)    :: cons(PP_nVar    ,0:Nloc,0:Nloc,0:ZDIM(Nloc)) !< vector of conservative variables
-REAL,INTENT(OUT)   :: prim(PP_nVarPrim,0:Nloc,0:Nloc,0:ZDIM(Nloc)) !< vector of primitive variables
+REAL,INTENT(INOUT) :: prim(PP_nVarPrim,0:Nloc,0:Nloc,0:ZDIM(Nloc)) !< vector of primitive variables
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER            :: i,j,k
@@ -277,22 +283,34 @@ END SUBROUTINE ConsToPrim_Elem
 !==================================================================================================================================
 !> Transformation from conservative variables to primitive variables in the whole volume
 !==================================================================================================================================
-PPURE SUBROUTINE ConsToPrim_Volume(Nloc,prim,cons)
+SUBROUTINE ConsToPrim_Volume(Nloc,prim,cons)
 ! MODULES
 USE MOD_Mesh_Vars,ONLY:nElems
+USE MOD_Omega,ONLY:ComputeOmega
+USE MOD_Equation_Vars,ONLY:kReconstruction
+USE MOD_Viscosity
+USE MOD_EddyVisc_Vars,ONLY:omega
+USE MOD_TKE_Reconstruction,ONLY:ComputeTKER
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
 ! INPUT/OUTPUT VARIABLES
 INTEGER,INTENT(IN) :: Nloc                                                  !< local polynomial degree of solution representation
 REAL,INTENT(IN)    :: cons(PP_nVar    ,0:Nloc,0:Nloc,0:ZDIM(Nloc),1:nElems) !< vector of conservative variables
-REAL,INTENT(OUT)   :: prim(PP_nVarPrim,0:Nloc,0:Nloc,0:ZDIM(Nloc),1:nElems) !< vector of primitive variables
+REAL,INTENT(INOUT) :: prim(PP_nVarPrim,0:Nloc,0:Nloc,0:ZDIM(Nloc),1:nElems) !< vector of primitive variables
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
 INTEGER            :: i,j,k,iElem
+REAL               :: muS,muT
 !==================================================================================================================================
 DO iElem=1,nElems
   DO k=0,ZDIM(Nloc); DO j=0,Nloc; DO i=0,Nloc
     CALL ConsToPrim(prim(:,i,j,k,iElem),cons(:,i,j,k,iElem))
+  END DO; END DO; END DO! i,j,k=0,Nloc
+END DO ! iElem
+CALL ComputeOmega()
+DO iElem=1,nElems
+  DO k=0,ZDIM(Nloc); DO j=0,Nloc; DO i=0,Nloc
+    CALL ComputeTKER(prim(:,i,j,k,iElem), omega=omega(i,j,k,iElem))
   END DO; END DO; END DO! i,j,k=0,Nloc
 END DO ! iElem
 END SUBROUTINE ConsToPrim_Volume
@@ -323,11 +341,7 @@ cons(MOM3)=0.
 ! energy
 cons(RHOK)=prim(TKE)*prim(DENS)
 cons(RHOG)=prim(OMG)*prim(DENS)
-#if DECOUPLE==0
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+cons(DENS)*prim(TKE)
-#else
-cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))
-#endif
+cons(ENER)=sKappaM1*prim(PRES)+0.5*SUM(cons(MOMV)*prim(VELV))+prim(DENS)*prim(TKER)
 END SUBROUTINE PrimToCons
 
 !==================================================================================================================================
@@ -411,6 +425,9 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT) :: entropy !< vector of entropy variables
 ! LOCAL VARIABLES
 REAL                                :: vel(3),s,p,rho_p
 !==================================================================================================================================
+
+! NOTE(Shimushu): ConsToEntropy is not properly modified to work with reconstructed TKE
+
 vel(:) = cons(MOMV)/cons(DENS)
 p      = KappaM1*(cons(ENER)-cons(RHOK)-0.5*SUM(cons(MOMV)*vel(:)))
 ! entropy: log(p) - eq.γ * log(ρ)
@@ -450,6 +467,9 @@ REAL,DIMENSION(PP_nVar),INTENT(OUT)  :: cons    !< vector of conservative variab
 ! LOCAL VARIABLES
 REAL                                 :: s,entropy2(PP_nVar),rhoe
 !==================================================================================================================================
+
+! NOTE(Shimushu): EntropyToCons is not properly modified to work with reconstructed TKE
+
 entropy2 = entropy*kappaM1
 s        = kappa - entropy2(DENS) + 0.5 * SUM(entropy2(MOMV)**2) / entropy2(ENER)
 rhoe     = (kappaM1 / ((-entropy2(ENER))**kappa))**(skappaM1) * EXP(-s*skappaM1)

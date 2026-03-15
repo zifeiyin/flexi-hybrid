@@ -42,6 +42,7 @@ INTEGER,ALLOCATABLE :: MPIRequest_SGS(:,:)      !< communication handle for the 
 #if EQNSYSNR == 5
 INTEGER,ALLOCATABLE :: MPIRequest_TRA(:,:)      !< communication handle for the SGS Model Indicator
 INTEGER,ALLOCATABLE :: MPIRequest_fd (:,:)      !< communication handle for the SGS Model Indicator
+INTEGER,ALLOCATABLE :: MPIRequest_ywa(:,:)      !< communication handle for the SGS Model Indicator
 #endif
 #endif
 #if PARABOLIC

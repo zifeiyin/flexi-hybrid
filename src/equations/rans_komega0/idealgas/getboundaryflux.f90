@@ -399,6 +399,8 @@ USE MOD_Equation_Vars,ONLY: IniExactFunc,BCDataPrim,RefStatePrim
 USE MOD_Exactfunc_Vars,ONLY: activateFourier,uHat,omegaHat,psiHat,kHat,sigmaHat,nFourierModes
 USE MOD_Recycling_Vars
 USE MOD_Recycling
+USE MOD_EddyVisc_Vars,ONLY: ywall_master
+USE MOD_TKE_Reconstruction,ONLY: ComputeTKER
 ! IMPLICIT VARIABLE HANDLING
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -431,6 +433,7 @@ CASE(2) ! Exact function or refstate
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL ExactFunc(IniExactFunc,t,Face_xGP(:,p,q),Cons)
       CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
+      CALL ComputeTKER(UPrim_boundary(:,p,q), y=ywall_master(1,p,q,sideID))
     END DO; END DO
   ELSE
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
@@ -443,6 +446,7 @@ CASE(241)
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL ExactFunc(IniExactFunc,t,Face_xGP(:,p,q),Cons)
       CALL ConsToPrim(UPrim_boundary(:,p,q),Cons)
+      CALL ComputeTKER(UPrim_boundary(:,p,q), y=ywall_master(1,p,q,sideID))
       CALL RiemannInvariantBoundary(UPrim_master(:,p,q),UPrim_boundary(:,p,q),NormVec(:,p,q))
     END DO; END DO
   ELSE
@@ -483,6 +487,7 @@ CASE(30)  ! Dirichlet-type BC state from read in state the synthetic turbulence
     UPrim_boundary(VEL3,p,q)        = DOT_PRODUCT(RefStatePrim(VELV,BCState),TangVec2(:,p,q))
     UPrim_boundary(PRES:OMG,p,q)    = RefStatePrim(PRES:OMG,BCState)
     UPrim_Boundary(TKE,p,q)         = 1.0E-4 * RefStatePrim(TKE,BCState)
+    UPrim_Boundary(TKER,p,q)        = 1.0E-4 * RefStatePrim(TKER,BCState)
 
     !compute total pressure before synthetic
     c  = SQRT(kappa*UPrim_boundary(PRES,p,q)/UPrim_boundary(DENS,p,q))
@@ -529,6 +534,7 @@ CASE(3,4,9,91,23,24,25,26,27)
     UPrim_boundary(TEMP,p,q)     = UPrim_master(TEMP,p,q)
     UPrim_boundary(TKE ,p,q)     = UPrim_master(TKE ,p,q)
     UPrim_boundary(OMG ,p,q)     = UPrim_master(OMG ,p,q)
+    UPrim_boundary(TKER,p,q)     = UPrim_master(TKER,p,q)
   END DO; END DO !p,q
 
   SELECT CASE(BCType)
@@ -543,6 +549,7 @@ CASE(3,4,9,91,23,24,25,26,27)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
       UPrim_boundary(TKE ,p,q) = UPrim_Boundary(TKE,p,q)
       UPrim_boundary(OMG ,p,q) = 0.
+      UPrim_boundary(TKER,p,q) = UPrim_Boundary(TKER,p,q)
     END DO; END DO ! q,p
 
   CASE(4) ! Isothermal wall
@@ -557,6 +564,7 @@ CASE(3,4,9,91,23,24,25,26,27)
       UPrim_boundary(DENS,p,q) = UPrim_boundary(PRES,p,q)/(UPrim_boundary(TEMP,p,q)*R)
       UPrim_boundary(TKE ,p,q) = UPrim_Boundary(TKE,p,q)
       UPrim_boundary(OMG ,p,q) = 0.
+      UPrim_boundary(TKER,p,q) = UPrim_Boundary(TKER,p,q)
     END DO; END DO ! q,p
 
   CASE(9,91) ! Euler (slip) wall
@@ -625,6 +633,9 @@ CASE(3,4,9,91,23,24,25,26,27)
         IF (UPrim_boundary(OMG,p,q) .LE. 0.0) THEN
           UPrim_boundary(OMG,p,q) = 1.0E-16
         END IF
+        IF (UPrim_boundary(TKER,p,q) .LE. 0.0) THEN
+          UPrim_boundary(TKER,p,q) = 1.0E-16
+        END IF
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
         !             Hence, nothing to do here!
@@ -663,6 +674,9 @@ CASE(3,4,9,91,23,24,25,26,27)
       IF (UPrim_boundary(OMG,p,q) .LE. 0.0) THEN
         UPrim_boundary(OMG,p,q) = 1.0E-16
       END IF
+      IF (UPrim_boundary(TKER,p,q) .LE. 0.0) THEN
+        UPrim_boundary(TKER,p,q) = 1.0E-16
+      END IF
     END DO; END DO !p,q
 
   CASE(26) ! Pressure outflow BC, without backflow
@@ -684,6 +698,9 @@ CASE(3,4,9,91,23,24,25,26,27)
         END IF
         IF (UPrim_boundary(OMG,p,q) .LE. 0.0) THEN
           UPrim_boundary(OMG,p,q) = 1.0E-16
+        END IF
+        IF (UPrim_boundary(TKER,p,q) .LE. 0.0) THEN
+          UPrim_boundary(TKER,p,q) = 1.0E-16
         END IF
       ELSE
         ! Supersonic: State corresponds to pure inner state, which has already been written to UPrim_Boundary.
@@ -747,6 +764,7 @@ CASE(3,4,9,91,23,24,25,26,27)
       UPrim_boundary(TEMP,p,q) = Tb
       UPrim_boundary(TKE ,p,q) = RefStatePrim(TKE,BCState)
       UPrim_boundary(OMG ,p,q) = RefStatePrim(OMG,BCState)
+      UPrim_boundary(TKER,p,q) = RefStatePrim(TKER,BCState)
     END DO; END DO !p,q
   END SELECT
 
@@ -806,11 +824,13 @@ IF (Ub .GE. 0.0) THEN
   UPrim_outer(VELV) = UPrim_inner(VELV) + (Ub - Vi) * NormVec(:)
   UPrim_outer(TKE)  = UPrim_inner(TKE)
   UPrim_outer(OMG)  = UPrim_inner(OMG)
+  UPrim_outer(TKER) = UPrim_inner(TKER)
 ELSE
   sb = co**2 / (kappa * UPrim_outer(DENS)**kappaM1)
   UPrim_outer(VELV) = UPrim_outer(VELV) + (Ub - Vo) * NormVec(:)
   ! UPrim_outer(TKE)  = UPrim_outer(TKE)
   ! UPrim_outer(OMG)  = UPrim_outer(OMG)
+  ! UPrim_outer(TKER) = UPrim_outer(TKER)
 END IF
 UPrim_outer(DENS) = (cb**2 / (kappa * sb))**sKappaM1
 UPrim_outer(PRES) = UPrim_outer(DENS) * cb**2 / kappa
@@ -840,7 +860,7 @@ USE MOD_Riemann      ,ONLY: ViscousFlux
 #endif
 USE MOD_Riemann      ,ONLY: Riemann
 #if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS_master,muTRA_master,fd_master
+USE MOD_EddyVisc_Vars,ONLY: muSGS_master,muTRA_master,fd_master,ywall_master
 #endif
 USE MOD_TestCase     ,ONLY: GetBoundaryFluxTestcase
 USE MOD_DG_Vars      ,ONLY: UPrim_Boundary
@@ -900,67 +920,29 @@ ELSE
       NormVec,TangVec1,TangVec2,Face_xGP)
 
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,25,26,27,32) ! Riemann-Type BCs
+  CASE(2,12,121,22,23,24,241,25,26,27,30,32) ! Riemann-Type BCs
     DO q=0,ZDIM(Nloc); DO p=0,Nloc
       CALL PrimToCons(UPrim_master(:,p,q),  UCons_master(:,p,q))
       CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
     END DO; END DO ! p,q=0,PP_N
-    CALL Riemann(Nloc,Flux,UCons_master,UCons_boundary,UPrim_master,UPrim_boundary, &
-        NormVec,TangVec1,TangVec2,doBC=.TRUE.)
+    IF (BCtype .EQ. 241) THEN
+      CALL Riemann(Nloc,Flux,UCons_boundary,UCons_boundary,UPrim_boundary,UPrim_boundary, &
+          NormVec,TangVec1,TangVec2,doBC=.TRUE.)
+    ELSE
+      CALL Riemann(Nloc,Flux,UCons_master,UCons_boundary,UPrim_master,UPrim_boundary, &
+          NormVec,TangVec1,TangVec2,doBC=.TRUE.)
+    END IF
 #if PARABOLIC
     CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
          gradUx_master,gradUy_master,gradUz_master,&
          gradUx_master,gradUy_master,gradUz_master,&
          NormVec&
 #if EDDYVISCOSITY
-        ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
-        ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
+        ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID),ywall_master(:,:,:,sideID)&
+        ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID),ywall_master(:,:,:,sideID)&
 #endif
     )
     Flux = Flux + Fd_Face_loc
-#endif /*PARABOLIC*/
-
-CASE(30) ! Riemann-Type BCs
-  DO q=0,ZDIM(Nloc); DO p=0,Nloc
-    CALL PrimToCons(UPrim_master(:,p,q),  UCons_master(:,p,q))
-    !PRINT*, "prime master = ", UPrim_master(:,p,q)
-
-    CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
-    !PRINT*, "prime boundary = ", UPrim_boundary(:,p,q)
-
-  END DO; END DO ! p,q=0,PP_N
-  CALL Riemann(Nloc,Flux,UCons_master,UCons_boundary,UPrim_master,UPrim_boundary, &
-      NormVec,TangVec1,TangVec2,doBC=.TRUE.)
-#if PARABOLIC
-  CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_master,UPrim_boundary,&
-       gradUx_master,gradUy_master,gradUz_master,&
-       gradUx_master,gradUy_master,gradUz_master,&
-       NormVec&
-#if EDDYVISCOSITY
-      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
-      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
-#endif
-  )
-  Flux = Flux + Fd_Face_loc
-#endif /*PARABOLIC*/
-
-CASE(241)
-  DO q=0,ZDIM(Nloc); DO p=0,Nloc
-    CALL PrimToCons(UPrim_boundary(:,p,q),UCons_boundary(:,p,q))
-  END DO; END DO ! p,q=0,PP_N
-  CALL Riemann(Nloc,Flux,UCons_boundary,UCons_boundary,UPrim_boundary,UPrim_boundary, &
-      NormVec,TangVec1,TangVec2,doBC=.TRUE.)
-#if PARABOLIC
-  CALL ViscousFlux(Nloc,Fd_Face_loc,UPrim_boundary,UPrim_boundary,&
-       gradUx_master,gradUy_master,gradUz_master,&
-       gradUx_master,gradUy_master,gradUz_master,&
-       NormVec&
-#if EDDYVISCOSITY
-      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
-      ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID)&
-#endif
-  )
-  Flux = Flux + Fd_Face_loc
 #endif /*PARABOLIC*/
 
   CASE(3,4,9,91) ! Walls
@@ -987,7 +969,7 @@ CASE(241)
                           gradUx_master, gradUy_master, gradUz_master, &
                           Fd_Face_loc,   Gd_Face_loc,   Hd_Face_loc    &
 #if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,sideID),fd_master(:,:,:,sideID) &
+                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,sideID),fd_master(:,:,:,sideID),ywall_master(:,:,:,sideID) &
 #endif
                          )
       IF (BCType.EQ.3) THEN
@@ -1043,7 +1025,7 @@ CASE(241)
                           gradUx_Face_loc, gradUy_Face_loc, gradUz_Face_loc, &
                           Fd_Face_loc, Gd_Face_loc, Hd_Face_loc              &
 #if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID) &
+                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,sideID),ywall_master(:,:,:,sideID) &
 #endif
       )
     CASE(91)
@@ -1156,7 +1138,7 @@ CASE(241)
                           gradUx_Face_loc,gradUy_Face_loc,gradUz_Face_loc, &
                           Fd_Face_loc,Gd_Face_loc,Hd_Face_loc            &
 #if EDDYVISCOSITY
-                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,SideID)&
+                         ,muSGS_master(:,:,:,SideID),muTRA_master(:,:,:,SideID),fd_master(:,:,:,SideID),ywall_master(:,:,:,sideID)&
 #endif
       )
     END SELECT
@@ -1270,9 +1252,7 @@ ELSE
   CALL GetBoundaryState(SideID,t,PP_N,UPrim_boundary,UPrim_master,&
                         NormVec,TangVec1,TangVec2,Face_xGP)
   SELECT CASE(BCType)
-  CASE(2,12,121,22,23,24,241,25,26,27,32) ! Riemann solver based BCs
-    Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
-  CASE(30)
+  CASE(2,12,121,22,23,24,241,25,26,27,30,32) ! Riemann solver based BCs
     Flux = 0.5*(UPrim_master(PRIM_LIFT,:,:)+UPrim_boundary(PRIM_LIFT,:,:))
   CASE(3,4) ! No-slip wall BCs
     DO q=0,PP_NZ; DO p=0,PP_N
@@ -1282,11 +1262,13 @@ ELSE
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
       Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE,p,q)
       Flux(LIFT_OMG ,p,q) = 0.0
+      Flux(LIFT_TKER,p,q) = UPrim_Boundary(TKER,p,q)
 #else
       Flux(LIFT_VELV,p,q) = 0.
       Flux(LIFT_TEMP,p,q) = UPrim_Boundary(TEMP,p,q)
       Flux(LIFT_TKE ,p,q) = UPrim_Boundary(TKE,p,q)
       Flux(LIFT_OMG ,p,q) = 0.0
+      Flux(LIFT_TKER,p,q) = UPrim_Boundary(TKER,p,q)
 #endif
     END DO; END DO !p,q
   CASE(9,91)
@@ -1300,11 +1282,13 @@ ELSE
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
       Flux(LIFT_TKE ,p,q) = UPrim_master(   TKE,p,q)
       Flux(LIFT_OMG ,p,q) = UPrim_master(   OMG,p,q)
+      Flux(LIFT_TKER,p,q) = UPrim_master(  TKER,p,q)
 #else
       Flux(LIFT_VELV,p,q) = UPrim_boundary(VELV,p,q)
       Flux(LIFT_TEMP,p,q) = UPrim_master(  TEMP,p,q)
       Flux(LIFT_TKE ,p,q) = UPrim_master(   TKE,p,q)
       Flux(LIFT_OMG ,p,q) = UPrim_master(   OMG,p,q)
+      Flux(LIFT_TKER,p,q) = UPrim_master(  TKER,p,q)
 #endif
     END DO; END DO !p,q
   CASE(1) !Periodic already filled!

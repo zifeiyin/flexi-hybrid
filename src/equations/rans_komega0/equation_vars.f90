@@ -51,11 +51,14 @@ REAL,PARAMETER       :: Cmu = 0.09      !< aka beta*
 REAL,PARAMETER       :: COmega1 = 5./9. !< aka alpha
 REAL,PARAMETER       :: COmega2 = 0.075 !< aka beta
 REAL,PARAMETER       :: invSigmaK = 0.5 !< inverse of sigmaK = 2
+REAL,PARAMETER       :: invSigmaK_recon = 1 !< inverse of sigmaK = 1 for k-epsilon reconstruction in energy equation
 REAL,PARAMETER       :: invSigmaG = 0.5 !< inverse of sigmaG = 2
 
-LOGICAL              :: rhokContribution      = .TRUE.!< rhok contribution in Reynolds stress, might be needed in compressible flow
-LOGICAL              :: crossDiffusionTerm    = .FALSE.!< cross diffusion term 
-LOGICAL              :: RiemannInvariantBC    = .FALSE.!< Riemann invariant BC
+LOGICAL              :: rhokContribution   = .TRUE.  !< rhok contribution in Reynolds stress, might be needed in compressible flow
+LOGICAL              :: kReconstruction    = .FALSE. ! Reconstruction type for TKE k in energy equation and Reynolds stress. Only valid with rhokContribution =T.
+LOGICAL              :: dynamicPrt         = .FALSE. ! use dynamic Prt
+LOGICAL              :: crossDiffusionTerm = .FALSE. !< cross diffusion term 
+LOGICAL              :: RiemannInvariantBC = .FALSE. !< Riemann invariant BC
 
 REAL                 :: Cexp = 0.012
 

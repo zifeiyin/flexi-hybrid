@@ -214,6 +214,7 @@ DO iElem=1,nElems
   END DO; END DO; END DO
 
   ! check if mean is admissible
+  UMeanPrim(TKER) = TKER_NOT_FILLED
   CALL ConsToPrim(UMeanPrim,UMean)
   ! IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres).OR.(UMeanPrim(TKE).LE.PPepsTKE)) THEN
   IF ((UMean(DENS).LE.PPepsDens).OR.(UMeanPrim(PRES).LE.PPepsPres)) THEN

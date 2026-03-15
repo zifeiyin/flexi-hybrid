@@ -197,8 +197,10 @@ MPIRequest_SGS     = MPI_REQUEST_NULL
 #if EQNSYSNR == 5
 ALLOCATE(MPIRequest_TRA(nNbProcs,2) )
 ALLOCATE(MPIRequest_fd (nNbProcs,2) )
+ALLOCATE(MPIRequest_ywa(nNbProcs,2) )
 MPIRequest_TRA     = MPI_REQUEST_NULL
 MPIRequest_fd      = MPI_REQUEST_NULL
+MPIRequest_ywa     = MPI_REQUEST_NULL
 #endif
 #endif
 
@@ -472,6 +474,7 @@ SDEALLOCATE(MPIRequest_SGS)
 #if EQNSYSNR == 5
 SDEALLOCATE(MPIRequest_TRA)
 SDEALLOCATE(MPIRequest_fd)
+SDEALLOCATE(MPIRequest_ywa)
 #endif
 #endif
 #if PARABOLIC

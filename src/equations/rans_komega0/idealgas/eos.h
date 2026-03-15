@@ -13,7 +13,7 @@
 !=================================================================================================================================
 ! Define variables for normal and extended state vector
 ! Normal   U(1:7)  with conservative variables
-! Extended U(1:15) with conservative and primitive variables
+! Extended U(1:16) with conservative and primitive variables
 
 #define CONS 1:PP_nVar          /* all cons variables */
 #define PRIM 1:PP_nVarPrim      /* all prim variables */
@@ -43,6 +43,9 @@
 #define VELVTEMP (/VEL1,VEL2,VEL3,TEMP/) /* velocity range and temperature */
 #define TKE   7             /* turbulence k */
 #define OMG   8             /* turbulence g */
+#define TKER  9             /* turbulence k in k-epsilon */
+
+#define TKER_NOT_FILLED -1.0E+10
 
 ! routines to compute physical quantities
 #define KAPPASPR_MAX_TIMESTEP_H()      (MAX(4./3.,KappasPr))
@@ -60,31 +63,23 @@
 #define TOTALENERGY_H(U,sRho,Vel)      (U(ENER)/U(DENS))
 #define TOTALENTHALPY_H(U,p,sRho)      ((U(ENER)+p)*sRho)
 #define ENTROPY_H(U,T)                 (R*(sKappaM1*LOG(T)-LOG(U(DENS))))
-#if DECOUPLE==0
-#define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS)-U(RHOK))/(U(DENS)*cv))
-#else
-#define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS))/(U(DENS)*cv))
-#endif
+! #if DECOUPLE==0
+! #define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS)-U(RHOK))/(U(DENS)*cv))
+! #else
+! #define TEMPERATURE_H(U)               ((U(ENER)-0.5*DOT_PRODUCT(U(MOMV),U(MOMV))/U(DENS))/(U(DENS)*cv))
+! #endif
 #define ENTROPY_HE(UE)                 R*(sKappaM1*LOG(UE(EXT_TEMP)) - LOG(UE(EXT_DENS)))
 
 ! extended (NOTE: compute from cons. When computing derived (neither prim or cons) variables)
 ! assume that both prim and cons vars are filled
 #define VELOCITY_HE(UE)                (UE(EXT_MOMV)*UE(EXT_SRHO))
-#if DECOUPLE==0
-#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))-UE(EXT_RHOK)))
-#else
-#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))))
-#endif
 #define SPEEDOFSOUND_HE(UE)            (SQRT(Kappa*UE(EXT_PRES)*UE(EXT_SRHO)))
 #define TOTALENERGY_HE(UE)             (UE(EXT_ENER)*UE(EXT_SRHO))
 #define TOTALENTHALPY_HE(UE)           ((UE(EXT_ENER)+UE(EXT_PRES))*UE(EXT_SRHO))
 #define TEMPERATURE_HE(UE)             (UE(EXT_PRES)*UE(EXT_SRHO)/R)
-#define TOTALENTHALPY_NS_HE(UE)        ((UE(EXT_ENER)+UE(EXT_PRES)-UE(EXT_RHOK))*UE(EXT_SRHO))
-#if DECOUPLE==0
-#define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV))+UE(EXT_DENS)*UE(EXT_TKE))
-#else
-#define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV)))
-#endif
+#define PRESSURE_HE(UE)                (KappaM1*(UE(EXT_ENER)-0.5*DOT_PRODUCT(UE(EXT_VELV),UE(EXT_MOMV))-UE(EXT_DENS)*UE(EXT_TKER)))
+#define TOTALENTHALPY_NS_HE(UE)        ((UE(EXT_ENER)+UE(EXT_PRES)-UE(EXT_DENS)*UE(EXT_TKER))*UE(EXT_SRHO))
+#define ENERGY_HE(UE)                  (sKappaM1*UE(EXT_PRES)+0.5*DOT_PRODUCT(UE(EXT_MOMV),UE(EXT_VELV))+UE(EXT_DENS)*UE(EXT_TKER))
 
 #if PP_VISC == 0
 #define VISCOSITY_PRIM(U)              mu0
@@ -103,7 +98,7 @@
 #endif
 
 #define EXT_CONS    1:PP_nVar                  /* all ext cons variables */
-#define EXT_PRIM    PP_nVarPrim:PP_2Var        /* all ext prim variables */
+#define EXT_PRIM    (PP_nVar+1):PP_2Var        /* all ext prim variables */
 ! conservative (extended) variables
 #define EXT_DENS    DENS                       /* density */
 #define EXT_MOM1    MOM1                       /* momentum x */
@@ -123,10 +118,11 @@
 #define EXT_TEMP    PP_nVar+TEMP               /* temperature */
 #define EXT_TKE     PP_nVar+TKE                /* turbulence k */
 #define EXT_OMG     PP_nVar+OMG                /* turbulence g */
+#define EXT_TKER    PP_nVar+TKER               /* turbulence k in k-epsilon */
 
 ! lifting variables
 #if PP_OPTLIFT == 0
-#define PP_nVarLifting               7
+#define PP_nVarLifting               8
 #define LIFT_DENS                    1
 #define LIFT_VEL1                    2
 #define LIFT_VEL2                    3
@@ -134,20 +130,22 @@
 #define LIFT_TEMP                    5
 #define LIFT_TKE                     6
 #define LIFT_OMG                     7
+#define LIFT_TKER                    8
 #define LIFT_VELV                    LIFT_VEL1:LIFT_VEL3
-#define LIFT_VARS                    (/LIFT_DENS,LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG/)
-#define PRIM_LIFT                    (/1,2,3,4,6,7,8/) /* density velocity range pressure and temperature */
+#define LIFT_VARS                    (/LIFT_DENS,LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG,LIFT_TKER/)
+#define PRIM_LIFT                    (/1,2,3,4,6,7,8,9/) /* density velocity range pressure and temperature */
 #else
-#define PP_nVarLifting               6
+#define PP_nVarLifting               7
 #define LIFT_VEL1                    1
 #define LIFT_VEL2                    2
 #define LIFT_VEL3                    3
 #define LIFT_TEMP                    4
 #define LIFT_TKE                     5
 #define LIFT_OMG                     6
+#define LIFT_TKER                    7
 #define LIFT_VELV                    LIFT_VEL1:LIFT_VEL3
-#define LIFT_VARS                    (/LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG/)
-#define PRIM_LIFT                    (/2,3,4,6,7,8/) /* velocity range and temperature */
+#define LIFT_VARS                    (/LIFT_VEL1,LIFT_VEL2,LIFT_VEL3,LIFT_TEMP,LIFT_TKE,LIFT_OMG,LIFT_TKER/)
+#define PRIM_LIFT                    (/2,3,4,6,7,8,9/) /* velocity range and temperature */
 #endif
 
 ! Riemann Differences

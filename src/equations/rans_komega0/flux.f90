@@ -59,7 +59,8 @@ INTERFACE EvalDiffFlux3D
 END INTERFACE
 #endif /*PARABOLIC*/
 
-PUBLIC::EvalFlux3D, EvalEulerFlux1D, EvalEulerFlux1D_fast
+! PUBLIC::EvalFlux3D, EvalEulerFlux1D, EvalEulerFlux1D_fast
+PUBLIC::EvalFlux3D, EvalEulerFlux1D_fast
 #if PARABOLIC
 PUBLIC::EvalDiffFlux3D
 #endif /*PARABOLIC*/
@@ -161,12 +162,12 @@ END SUBROUTINE EvalFlux3D_Volume
 !==================================================================================================================================
 PPURE SUBROUTINE EvalDiffFlux3D_Point(UPrim,gradUx,gradUy,gradUz,f,g,h &
 #if EDDYVISCOSITY
-                                      ,muSGS,muTRA,fd &
+                                      ,muSGS,muTRA,fd,ywall &
 #endif
 )
 ! MODULES
-USE MOD_Equation_Vars,ONLY: s23,s43,Cmu,invSigmaK,invSigmaG
-USE MOD_Equation_Vars,ONLY: rhokContribution
+USE MOD_Equation_Vars,ONLY: s23,s43,Cmu,invSigmaK, invSigmaK_recon, invSigmaG
+USE MOD_Equation_Vars,ONLY: dynamicPrt, rhokContribution, kReconstruction
 USE MOD_EOS_Vars,     ONLY: cp,Pr
 USE MOD_Viscosity
 #if EDDYVISCOSITY
@@ -182,27 +183,47 @@ REAL,DIMENSION(PP_nVar)       ,INTENT(OUT) :: f,g,h                 !> Physical 
 REAL                          ,INTENT(IN)  :: muSGS                 !< SGS viscosity
 REAL                          ,INTENT(IN)  :: muTRA                 !< SGS viscosity
 REAL                          ,INTENT(IN)  :: fd                    !< fd
+REAL                          ,INTENT(IN)  :: ywall                 !< ywall
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
-REAL                :: muS,lambda,muTOrig,diffK,diffG
+REAL                :: muS,lambda,muTOrig,diffK,diffK_ener,diffG
+REAL                :: nut_plus,PrSGS_rans, Prt_vis, Prt_log, phi_Prt !local variables for dynamic Prt model
 REAL                :: tau_xx,tau_yy,tau_xy, s23rhok
 REAL                :: fd_limited
+REAL                :: omega
 #if PP_dim==3
 REAL                :: tau_zz,tau_xz,tau_yz
 #endif
 !==================================================================================================================================
 ! ideal gas law
-muS    = VISCOSITY_PRIM(UPrim)
-lambda = THERMAL_CONDUCTIVITY_H(muS)
+muS     = VISCOSITY_PRIM(UPrim)
+lambda  = THERMAL_CONDUCTIVITY_H(muS)
 muTOrig = MAX(muTRA, 0.0)
-diffK  = muS + invSigmaK * muTOrig
-diffG  = muS + invSigmaG * muTOrig
+diffK   = muS + invSigmaK * muTOrig
+diffG   = muS + invSigmaG * muTOrig
+IF (kReconstruction) THEN
+  ! k-epsilon coefficient
+  diffK_ener = muS + invSigmaK_recon * muTOrig
+ELSE
+  diffK_ener = muS + invSigmaK * muTOrig
+END IF
+
+! Calculate dynamic Prt
+nut_plus = muTOrig / muS
+nut_plus = MAX(0.0, nut_plus)
+PrSGS_rans = 0.9
+IF (dynamicPrt) THEN
+  omega = MAX(muTOrig / (UPrim(DENS) * UPrim(TKE)), 1.0E-16)
+  phi_Prt = MIN(1.0, 2000.0 * (muS / UPrim(DENS)) / (omega * ywall**2))**4
+  PrSGS_rans = 0.843 + phi_Prt * (0.395 * nut_plus - 0.35) * EXP(-0.49 * nut_plus**0.75)
+ENDIF
+
 !Add turbulent sub grid scale viscosity to mu
 #if DECOUPLE==0
 fd_limited = MIN(MAX(fd, 0.0), 1.0)
 muS    = muS    + MAX(muSGS, 0.0)
-lambda = lambda + MAX(muSGS, 0.0) * cp / (fd_limited * PrSGS + (1.0 - fd_limited) * 0.9)
+lambda = lambda + MAX(muSGS, 0.0) * cp / (fd_limited * PrSGS + (1.0 - fd_limited) * PrSGS_rans)
 #endif
 
 ASSOCIATE( v1     => UPrim(VEL1),       v2     => UPrim(VEL2),       v3     => UPrim(VEL3), &
@@ -220,7 +241,7 @@ tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_
 tau_xz = muS * (gradUz(LIFT_VEL1) + gradUx(LIFT_VEL3))               !mu*(u_z+w_x)
 tau_yz = muS * (gradUz(LIFT_VEL2) + gradUy(LIFT_VEL3))               !mu*(y_z+w_y)
 IF (rhokContribution) THEN
-  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
+  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKER),1.e-16)
   tau_xx = tau_xx - s23rhok
   tau_yy = tau_yy - s23rhok
   tau_zz = tau_zz - s23rhok
@@ -230,7 +251,7 @@ f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
-f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1-diffk*gradK1
+f(ENER) = -tau_xx*v1-tau_xy*v2-tau_xz*v3-lambda*gradT1-diffK_ener*gradUx(LIFT_TKER)
                                                         ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x+dk*k_x) q_x=-lambda*T_x
 f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
 f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
@@ -239,7 +260,7 @@ g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
-g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2-diffk*gradK2
+g(ENER) = -tau_xy*v1-tau_yy*v2-tau_yz*v3-lambda*gradT2-diffK_ener*gradUy(LIFT_TKER)
                                                         ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y+dk*k_y) q_y=-lambda*T_y
 g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
 g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
@@ -248,7 +269,7 @@ h(DENS) = 0.
 h(MOM1) = -tau_xz                                       ! F_euler-mu*(u_z+w_x)
 h(MOM2) = -tau_yz                                       ! F_euler-mu*(y_z+w_y)
 h(MOM3) = -tau_zz                                       ! F_euler-4/3*mu*w_z+2/3*mu*(u_x+v_y)
-h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3-diffk*gradK3
+h(ENER) = -tau_xz*v1-tau_yz*v2-tau_zz*v3-lambda*gradT3-diffK_ener*gradUz(LIFT_TKER)
                                                         ! F_euler-(tau_zx*u+tau_zy*v+tau_zz*w-q_z+dk*k_z) q_z=-lambda*T_z
 h(RHOK) = -diffK*gradK3                                 ! F_euler-(mu+muTOrig/sigmaK)*k_z
 h(RHOG) = -diffG*gradG3                                 ! F_euler-(mu+muTOrig/sigmaG)*g_z
@@ -260,7 +281,7 @@ tau_xx = muS * ( s43 * gradUx(LIFT_VEL1) - s23 * gradUy(LIFT_VEL2))  ! 4/3*mu*u_
 tau_yy = muS * (-s23 * gradUx(LIFT_VEL1) + s43 * gradUy(LIFT_VEL2))  !-2/3*mu*u_x+4/3*mu*v_y -2/3*mu*w*z
 tau_xy = muS * (gradUy(LIFT_VEL1) + gradUx(LIFT_VEL2))               !mu*(u_y+v_x)
 IF (rhokContribution) THEN
-  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKE),1.e-16)
+  s23rhok = s23 * UPrim(DENS) * MAX(UPrim(TKER),1.e-16)
   tau_xx = tau_xx - s23rhok
   tau_yy = tau_yy - s23rhok
 ENDIF
@@ -269,7 +290,7 @@ f(DENS) = 0.
 f(MOM1) = -tau_xx                                       ! F_euler-4/3*mu*u_x+2/3*mu*(v_y+w_z)
 f(MOM2) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 f(MOM3) = 0.
-f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1-diffk*gradK1 ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x+dk*k_x) q_x=-lambda*T_x
+f(ENER) = -tau_xx*v1-tau_xy*v2-lambda*gradT1-diffK_ener*gradUx(LIFT_TKER) ! F_euler-(tau_xx*u+tau_xy*v+tau_xz*w-q_x+dk*k_x) q_x=-lambda*T_x
 f(RHOK) = -diffK*gradK1                                 ! F_euler-(mu+muTOrig/sigmaK)*k_x
 f(RHOG) = -diffG*gradG1                                 ! F_euler-(mu+muTOrig/sigmaG)*g_x
 ! viscous fluxes in y-direction
@@ -277,7 +298,7 @@ g(DENS) = 0.
 g(MOM1) = -tau_xy                                       ! F_euler-mu*(u_y+v_x)
 g(MOM2) = -tau_yy                                       ! F_euler-4/3*mu*v_y+2/3*mu*(u_x+w_z)
 g(MOM3) = 0.
-g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2-diffk*gradK2 ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y+dk*k_y) q_y=-lambda*T_y
+g(ENER) = -tau_xy*v1-tau_yy*v2-lambda*gradT2-diffK_ener*gradUy(LIFT_TKER) ! F_euler-(tau_yx*u+tau_yy*v+tau_yz*w-q_y+dk*k_y) q_y=-lambda*T_y
 g(RHOK) = -diffK*gradK2                                 ! F_euler-(mu+muTOrig/sigmaK)*k_y
 g(RHOG) = -diffG*gradG2                                 ! F_euler-(mu+muTOrig/sigmaG)*g_y
 ! viscous fluxes in z-direction
@@ -293,7 +314,7 @@ SUBROUTINE EvalDiffFlux3D_Volume(UPrim,gradUx,gradUy,gradUz,f,g,h,iElem)
 ! MODULES
 USE MOD_PreProc
 #if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS,muTRA,fd
+USE MOD_EddyVisc_Vars,ONLY: muSGS,muTRA,fd,ywall
 #endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -312,7 +333,7 @@ DO k=0,PP_NZ;  DO j=0,PP_N; DO i=0,PP_N
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j,k),gradUx(:,i,j,k),gradUy(:,i,j,k),gradUz(:,i,j,k), &
                                                 f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  &
 #if EDDYVISCOSITY
-                            ,muSGS(1,i,j,k,iElem),muTRA(1,i,j,k,iElem),fd(1,i,j,k,iElem)&
+                            ,muSGS(1,i,j,k,iElem),muTRA(1,i,j,k,iElem),fd(1,i,j,k,iElem),ywall(1,i,j,k,iElem)&
 #endif
                             )
 END DO; END DO; END DO ! i,j,k
@@ -327,7 +348,7 @@ SUBROUTINE EvalDiffFlux3D_Volume_FV(UPrim,gradUx,gradUy,gradUz,f,g,h,iElem,PP_N_
 ! MODULES
 USE MOD_PreProc
 #if EDDYVISCOSITY
-USE MOD_EddyVisc_Vars,ONLY: muSGS,muTRA,fd
+USE MOD_EddyVisc_Vars,ONLY: muSGS,muTRA,fd,ywall
 #endif
 IMPLICIT NONE
 !----------------------------------------------------------------------------------------------------------------------------------
@@ -349,7 +370,7 @@ DO k=0,PP_N_zeta;  DO j=0,PP_N_eta; DO i=0,PP_N_xi
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j,k),gradUx(:,i,j,k),gradUy(:,i,j,k),gradUz(:,i,j,k), &
                                                 f(:,i,j,k),     g(:,i,j,k),     h(:,i,j,k)  &
 #if EDDYVISCOSITY
-                            ,muSGS(1,i,j,k,iElem),muTRA(1,i,j,k,iElem),fd(1,i,j,k,iElem)&
+                            ,muSGS(1,i,j,k,iElem),muTRA(1,i,j,k,iElem),fd(1,i,j,k,iElem),ywall(1,i,j,k,iElem)&
 #endif
                             )
 END DO; END DO; END DO ! i,j,k
@@ -361,7 +382,7 @@ END SUBROUTINE EvalDiffFlux3D_Volume_FV
 !==================================================================================================================================
 PPURE SUBROUTINE EvalDiffFlux3D_Surface(Nloc,UPrim,gradUx,gradUy,gradUz,f,g,h &
 #if EDDYVISCOSITY
-                                 ,muSGS,muTRA,fd &
+                                 ,muSGS,muTRA,fd,ywall &
 #endif
                                  )
 ! MODULES
@@ -376,6 +397,7 @@ REAL,DIMENSION(PP_nVar       ,0:Nloc,0:ZDIM(Nloc)),INTENT(OUT) :: f,g,h         
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muSGS                !< SGS viscosity
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: muTRA                !< SGS viscosity
 REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: fd                   !< fd
+REAL,DIMENSION(1             ,0:Nloc,0:ZDIM(Nloc)),INTENT(IN)  :: ywall                !< ywall
 #endif
 !----------------------------------------------------------------------------------------------------------------------------------
 ! LOCAL VARIABLES
@@ -385,7 +407,7 @@ DO j=0,ZDIM(Nloc); DO i=0,Nloc
   CALL EvalDiffFlux3D_Point(Uprim(:,i,j),gradUx(:,i,j),gradUy(:,i,j),gradUz(:,i,j), &
                                                f(:,i,j),     g(:,i,j),     h(:,i,j)  &
 #if EDDYVISCOSITY
-                            ,muSGS(1,i,j),muTRA(1,i,j),fd(1,i,j) &
+                            ,muSGS(1,i,j),muTRA(1,i,j),fd(1,i,j),ywall(1,i,j) &
 #endif
                             )
 END DO; END DO ! i,j

@@ -306,6 +306,11 @@ recycl_U_mean       = 0.0
 recycl_UPrim_mean   = 0.0
 recycl_UPrim_fluc   = 0.0
 
+recycl_UPrim_global(TKER,:,:) = TKER_NOT_FILLED
+recycl_UPrim_mean  (TKER,:)   = TKER_NOT_FILLED
+! NOTE(Shimushu): this is not needed as fluc = global - mean
+recycl_UPrim_fluc  (TKER,:,:) = TKER_NOT_FILLED
+
 END SUBROUTINE InitRecycling
 
 SUBROUTINE Recycling
@@ -317,11 +322,15 @@ USE MOD_TimeDisc_Vars,ONLY: dt, RKb, CurrentStage
 USE MOD_EOS, ONLY: ConsToPrim, PrimToCons
 USE MOD_Viscosity
 USE MOD_Recycling_Vars
+USE MOD_Equation_Vars, ONLY: kReconstruction
+USE MOD_Omega, ONLY: ComputeOmega2
+USE MOD_TKE_Reconstruction, ONLY: tke_factor
 IMPLICIT NONE
 
 INTEGER :: i,j,k,p,q,nn,iELem,iSide,iFile,ios
 REAL :: tmp,u1,u2
 REAL :: tauw,rhow
+REAL :: muS,muT,omega
 
 ! RETURN
 
@@ -336,6 +345,12 @@ CALL MPI_ALLREDUCE(MPI_IN_PLACE, recycl_U_global, nn, MPI_DOUBLE_PRECISION, MPI_
 
 DO k=1,nZ; DO j=1,nY
   CALL ConsToPrim(recycl_UPrim_global(:,j,k), recycl_U_global(:,j,k))
+  IF (kReconstruction) THEN
+    CALL ComputeOmega2(recycl_UPrim_global(:,j,k), y(j), omega)
+    muS = VISCOSITY_TEMPERATURE(recycl_UPrim_global(TEMP,j,k))
+    muT = MAX(recycl_UPrim_global(DENS,j,k) * recycl_UPrim_global(TKE,j,k) / omega, 0.0)
+    recycl_UPrim_global(TKER,j,k) = MAX(tke_factor(muT / muS) * recycl_UPrim_global(TKE,j,k), 0.0)
+  END IF
 END DO; END DO
 
 ! recycl_U_mean = 0.0
@@ -356,6 +371,12 @@ END IF
 
 DO j=1,nY
   CALL ConsToPrim(recycl_UPrim_mean(:,j), recycl_U_mean(:,j))
+  IF (kReconstruction) THEN
+    CALL ComputeOmega2(recycl_UPrim_mean(:,j), y(j), omega)
+    muS = VISCOSITY_TEMPERATURE(recycl_UPrim_mean(TEMP,j))
+    muT = MAX(recycl_UPrim_mean(DENS,j) * recycl_UPrim_mean(TKE,j) / omega, 0.0)
+    recycl_UPrim_mean(TKER,j) = MAX(tke_factor(muT / muS) * recycl_UPrim_mean(TKE,j), 0.0)
+  END IF
 END DO
 
 DO k=1,nZ; DO j=1,nY
@@ -504,13 +525,17 @@ DO q=0,PP_NZ; DO p=0,PP_N
 
   UPrimMeanInner(TKE)  = gamma**2 * UPrimMeanInner(TKE)
   UPrimMeanInner(OMG)  = gamma**2 * UPrimMeanInner(OMG)
+  UPrimMeanInner(TKER) = gamma**2 * UPrimMeanInner(TKER)
   UPrimFlucInner(TKE)  = gamma**2 * UPrimFlucInner(TKE)
   UPrimFlucInner(OMG)  = gamma**2 * UPrimFlucInner(OMG)
+  UPrimFlucInner(TKER) = gamma**2 * UPrimFlucInner(TKER)
 
   ! UPrimMeanOuter(TKE)  = gamma**2 * UPrimMeanOuter(TKE)
   ! UPrimMeanOuter(OMG)  = gamma**2 * UPrimMeanOuter(OMG)
+  ! UPrimMeanOuter(TKER) = gamma**2 * UPrimMeanOuter(TKER)
   UPrimFlucOuter(TKE)  = gamma**2 * UPrimFlucOuter(TKE)
   UPrimFlucOuter(OMG)  = gamma**2 * UPrimFlucOuter(OMG)
+  UPrimFlucOuter(TKER) = gamma**2 * UPrimFlucOuter(TKER)
 
   UPrimMean = UPrimMeanInner * (1.0 - weta) + UPrimMeanOuter * weta
   UPrimFluc = UPrimFlucInner * (1.0 - weta) + UPrimFlucOuter * weta
@@ -527,13 +552,14 @@ DO q=0,PP_NZ; DO p=0,PP_N
   ! IF (eta .GT. 1.0) THEN
   !   UPrim(DENS:TEMP) = RefStatePrim(DENS:TEMP,freeStreamRefState)
   ! END IF
-  UPrim(TKE:OMG)   = bdamp * UPrim(TKE:OMG)   + (1.0 - bdamp) * RefStatePrim(TKE:OMG,  freeStreamRefState)
+  UPrim(TKE:TKER)  = bdamp * UPrim(TKE:TKER)  + (1.0 - bdamp) * RefStatePrim(TKE:TKER, freeStreamRefState)
 
   UPrim(PRES) = RefStatePrim(PRES,freeStreamRefState)
   UPrim(TEMP) = UPrim(PRES) / (R * UPrim(DENS))
   UPrim(VEL3) = -UPrim(VEL3)
   UPrim(TKE)  = MAX(UPrim(TKE), 1.0E-6)
   UPrim(OMG)  = MAX(UPrim(OMG), 1.0E-6)
+  UPrim(TKER) = MAX(UPrim(TKER), 1.0E-6)
 
   UPrim_boundary(:,p,q) = UPrim
 END DO; END DO
@@ -570,6 +596,7 @@ IF (isUPrim2) THEN
     UDest(VELV) = U(VELV,1)
     UDest(TKE ) = U(TKE ,1)
     UDest(OMG ) = U(OMG ,1)
+    UDest(TKER) = U(TKER,1)
     RETURN
   END IF
 END IF

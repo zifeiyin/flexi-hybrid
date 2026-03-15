@@ -123,6 +123,12 @@ UPrim=0.
 UPrim_master=0.
 UPrim_slave=0.
 
+#if EQNSYSNR == 5
+UPrim(TKER,:,:,:,:)      = TKER_NOT_FILLED
+UPrim_master(TKER,:,:,:) = TKER_NOT_FILLED
+UPrim_slave (TKER,:,:,:) = TKER_NOT_FILLED
+#endif
+
 ! Allocate the UPrim_boundary for the boundary fluxes
 ALLOCATE(UPrim_boundary(PP_nVarPrim,0:PP_N,0:PP_NZ))
 
@@ -313,7 +319,6 @@ USE MOD_DG_Vars             ,ONLY: V,V_slave,V_master
 USE MOD_EOS                 ,ONLY: ConsToEntropy
 #endif
 #if EQNSYSNR == 5
-USE MOD_Omega               ,ONLY: ComputeOmega
 USE MOD_EddyVisc_Vars       ,ONLY: muTRA,muTRA_master,muTRA_slave,fd,fd_master,fd_slave
 #endif
 #if EQNSYSNR == 4 || EQNSYSNR == 5
@@ -364,9 +369,6 @@ CALL ConsToPrim(PP_N,UPrim,U)
 Call ConsToEntropy(PP_N,V,U)
 #endif
 
-#if EQNSYSNR == 5
-CALL ComputeOmega()
-#endif
 
 ! 3. Prolong the solution to the face integration points for flux computation (and do overlapping communication)
 ! -----------------------------------------------------------------------------------------------------------
