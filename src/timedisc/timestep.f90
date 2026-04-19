@@ -12,6 +12,9 @@
 ! You should have received a copy of the GNU General Public License along with FLEXI. If not, see <http://www.gnu.org/licenses/>.
 !=================================================================================================================================
 #include "flexi.h"
+#if EQNSYSNR == 5
+#include "eos.h"
+#endif
 
 !==================================================================================================================================
 !> Module for the GTS Temporal discretization
@@ -139,9 +142,15 @@ CurrentStage = 1
 CALL DGTimeDerivative_weakForm(t)
 
 IF (localTimeStepSwitch) THEN
+#if EQNSYSNR == 5
+  DO iElem=1,nElems
+    CALL ApplyEulerLTSBacktracking(iElem)
+  ENDDO
+#else
   DO iElem=1,nElems
     U(:,:,:,:,iElem) = U(:,:,:,:,iElem) - Ut(:,:,:,:,iElem) * dt_LTS(iElem)
   ENDDO 
+#endif
 ELSE
   ! first step where dt_LTS has not been allocated
   CALL VAXPBY(nTotalU,U,Ut,   ConstIn =-dt) 
@@ -162,6 +171,80 @@ ENDIF
 #endif /*PP_LIMITER*/
 
 END SUBROUTINE TimeStepByEulerLTS
+
+#if EQNSYSNR == 5
+!===================================================================================================================================
+!> eulerLTS-only local positivity backtracking for steady pseudo-time usage.
+!===================================================================================================================================
+SUBROUTINE ApplyEulerLTSBacktracking(iElem)
+! MODULES
+USE MOD_PreProc
+USE MOD_DG_Vars        ,ONLY: U,Ut
+USE MOD_EOS            ,ONLY: ConsToPrim
+USE MOD_Equation_Vars  ,ONLY: RefStatePrim,IniRefState
+USE MOD_TimeDisc_Vars  ,ONLY: dt_LTS
+USE MOD_TimeDisc_Vars  ,ONLY: EulerLTSDensityFloorFactor,EulerLTSPressureFloorFactor,EulerLTSTurbFloorFactor
+USE MOD_TimeDisc_Vars  ,ONLY: EulerLTSBacktrackFactor,EulerLTSMaxBacktrack
+USE, INTRINSIC         :: IEEE_ARITHMETIC,ONLY: IEEE_IS_FINITE
+! IMPLICIT VARIABLE HANDLING
+IMPLICIT NONE
+!-----------------------------------------------------------------------------------------------------------------------------------
+! INPUT VARIABLES
+INTEGER,INTENT(IN) :: iElem
+!-----------------------------------------------------------------------------------------------------------------------------------
+! LOCAL VARIABLES
+REAL    :: U0(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
+REAL    :: UTrial(PP_nVar,0:PP_N,0:PP_N,0:PP_NZ)
+REAL    :: UPrim(PP_nVarPrim)
+REAL    :: dt_try, rho_floor, p_floor, k_floor, g_floor, backtrack
+LOGICAL :: admissible
+INTEGER :: i,j,k,iTry
+!===================================================================================================================================
+U0         = U(:,:,:,:,iElem)
+dt_try     = dt_LTS(iElem)
+backtrack  = MIN(MAX(EulerLTSBacktrackFactor,0.1),0.95)
+rho_floor  = MAX(EulerLTSDensityFloorFactor * RefStatePrim(DENS,IniRefState), TINY(1.0))
+p_floor    = MAX(EulerLTSPressureFloorFactor * RefStatePrim(PRES,IniRefState), TINY(1.0))
+k_floor    = MAX(EulerLTSTurbFloorFactor * RefStatePrim(TKE ,IniRefState), 0.0)
+g_floor    = MAX(EulerLTSTurbFloorFactor * RefStatePrim(OMG ,IniRefState), 0.0)
+
+admissible = .FALSE.
+DO iTry=0,EulerLTSMaxBacktrack
+  UTrial = U0 - Ut(:,:,:,:,iElem) * dt_try
+  admissible = .TRUE.
+
+  DO k=0,PP_NZ; DO j=0,PP_N; DO i=0,PP_N
+    IF ((.NOT. IEEE_IS_FINITE(UTrial(DENS,i,j,k))) .OR. (UTrial(DENS,i,j,k).LE.rho_floor)) THEN
+      admissible = .FALSE.
+      EXIT
+    END IF
+
+    CALL ConsToPrim(UPrim,UTrial(:,i,j,k))
+    IF ((.NOT. IEEE_IS_FINITE(UPrim(DENS))) .OR. (.NOT. IEEE_IS_FINITE(UPrim(PRES))) .OR. &
+        (.NOT. IEEE_IS_FINITE(UPrim(TKE ))) .OR. (.NOT. IEEE_IS_FINITE(UPrim(OMG )))) THEN
+      admissible = .FALSE.
+      EXIT
+    END IF
+    IF ((UPrim(DENS).LE.rho_floor) .OR. (UPrim(PRES).LE.p_floor) .OR. &
+        (UPrim(TKE ).LT.k_floor ) .OR. (UPrim(OMG ).LT.g_floor )) THEN
+      admissible = .FALSE.
+      EXIT
+    END IF
+  END DO; END DO; END DO
+
+  IF (admissible) EXIT
+  dt_try = dt_try * backtrack
+END DO
+
+IF (admissible) THEN
+  U(:,:,:,:,iElem) = UTrial
+  dt_LTS(iElem)    = dt_try
+ELSE
+  U(:,:,:,:,iElem) = U0
+  dt_LTS(iElem)    = MAX(dt_try, EPSILON(dt_try))
+END IF
+END SUBROUTINE ApplyEulerLTSBacktracking
+#endif /* EQNSYSNR == 5 */
 
 !===================================================================================================================================
 !> Low-Storage Runge-Kutta integration: 2 register version, for Local time stepping

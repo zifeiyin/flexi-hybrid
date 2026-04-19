@@ -85,6 +85,15 @@ CALL prms%CreateRealOption(  'dtmin',          "Minimal allowed timestep (option
 CALL prms%CreateRealOption(  'dtkill',         "Kill FLEXI if dt gets below this value (optional)","-1.0")
 CALL prms%CreateIntOption(   'maxIter',        "Stop simulation when specified number of timesteps has been performed.", value='-1')
 CALL prms%CreateIntOption(   'NCalcTimeStepMax',"Compute dt at least after every Nth timestep.", value='1')
+#if LTS_ENABLED && EQNSYSNR == 5
+CALL prms%CreateRealOption(  'EulerLTSCFLFactor',          "Additional CFL scaling applied only to eulerLTS.", value='100.0')
+CALL prms%CreateRealOption(  'EulerLTSDFLFactor',          "Additional DFL scaling applied only to eulerLTS.", value='100.0')
+CALL prms%CreateRealOption(  'EulerLTSDensityFloorFactor', "Reference-scaled density floor used by eulerLTS admissibility checks.", value='1.e-10')
+CALL prms%CreateRealOption(  'EulerLTSPressureFloorFactor',"Reference-scaled pressure floor used by eulerLTS admissibility checks.", value='1.e-10')
+CALL prms%CreateRealOption(  'EulerLTSTurbFloorFactor',    "Reference-scaled k/omega floor used by eulerLTS admissibility checks.", value='1.e-12')
+CALL prms%CreateRealOption(  'EulerLTSBacktrackFactor',    "Local timestep reduction factor used when an eulerLTS update is inadmissible.", value='0.5')
+CALL prms%CreateIntOption(   'EulerLTSMaxBacktrack',       "Maximum number of local timestep reductions in eulerLTS.", value='12')
+#endif
 END SUBROUTINE DefineParametersTimeDisc
 
 
@@ -106,6 +115,11 @@ USE MOD_TimeDisc_Vars       ,ONLY: CFLScale
 USE MOD_TimeDisc_Vars       ,ONLY: dtElem,dt,tend,tStart,dt_dynmin,dt_kill
 #if LTS_ENABLED
 USE MOD_TimeDisc_Vars       ,ONLY: dt_LTS,localTimeStepSwitch
+#if EQNSYSNR == 5
+USE MOD_TimeDisc_Vars       ,ONLY: EulerLTSCFLFactor,EulerLTSDFLFactor
+USE MOD_TimeDisc_Vars       ,ONLY: EulerLTSDensityFloorFactor,EulerLTSPressureFloorFactor,EulerLTSTurbFloorFactor
+USE MOD_TimeDisc_Vars       ,ONLY: EulerLTSBacktrackFactor,EulerLTSMaxBacktrack
+#endif
 #endif 
 USE MOD_TimeDisc_Vars       ,ONLY: Ut_tmp,UPrev,S2
 USE MOD_TimeDisc_Vars       ,ONLY: maxIter,nCalcTimeStepMax
@@ -180,6 +194,21 @@ CFLScale = GETREAL('CFLScale')
 ! Read the normalized DFL number
 DFLScale = GETREAL('DFLScale')
 #endif /*PARABOLIC*/
+#if LTS_ENABLED && EQNSYSNR == 5
+IF (TimeDiscType.EQ.'EULERLTS') THEN
+  EulerLTSCFLFactor           = GETREAL('EulerLTSCFLFactor')
+  EulerLTSDFLFactor           = GETREAL('EulerLTSDFLFactor')
+  EulerLTSDensityFloorFactor  = GETREAL('EulerLTSDensityFloorFactor')
+  EulerLTSPressureFloorFactor = GETREAL('EulerLTSPressureFloorFactor')
+  EulerLTSTurbFloorFactor     = GETREAL('EulerLTSTurbFloorFactor')
+  EulerLTSBacktrackFactor     = GETREAL('EulerLTSBacktrackFactor')
+  EulerLTSMaxBacktrack        = GETINT('EulerLTSMaxBacktrack')
+  CFLScale = CFLScale * EulerLTSCFLFactor
+#if PARABOLIC
+  DFLScale = DFLScale * EulerLTSDFLFactor
+#endif
+END IF
+#endif
 NEff     = MIN(PP_N,NFilter,NUnder)
 IF(FilterType.GT.2) NEff = PP_N!LAF,HESTHAVEN no timestep effect
 CALL fillCFL_DFL(NEff,PP_N)

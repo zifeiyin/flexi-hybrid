@@ -33,6 +33,15 @@ REAL             :: t  = 0.                            !< current physical time
 #if LTS_ENABLED
 LOGICAL          :: localTimeStepSwitch=.FALSE.
 REAL,ALLOCATABLE :: dt_LTS(:)                          !< current local time step
+#if EQNSYSNR == 5
+REAL             :: EulerLTSCFLFactor          = 100.0 !< extra CFL scaling applied only to eulerLTS
+REAL             :: EulerLTSDFLFactor          = 100.0 !< extra DFL scaling applied only to eulerLTS
+REAL             :: EulerLTSDensityFloorFactor = 1.e-10!< admissibility floor relative to reference density
+REAL             :: EulerLTSPressureFloorFactor= 1.e-10!< admissibility floor relative to reference pressure
+REAL             :: EulerLTSTurbFloorFactor    = 1.e-12!< admissibility floor relative to reference turbulence values
+REAL             :: EulerLTSBacktrackFactor    = 0.5   !< local dt reduction factor when eulerLTS update is inadmissible
+INTEGER          :: EulerLTSMaxBacktrack       = 12    !< maximum number of local dt reductions in eulerLTS
+#endif
 #endif      
 REAL             :: dt = 0.                            !< current timestep
 REAL             :: dt_old                             !< last timestep
